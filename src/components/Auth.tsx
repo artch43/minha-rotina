@@ -31,7 +31,13 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
         {children}
       </div>
-      <p className="auth-foot small muted">Estudos, trabalho, compromissos, hábitos e anotações num só lugar.</p>
+      <p className="auth-foot small muted">
+        Estudos, trabalho, compromissos, hábitos e anotações num só lugar.
+        <br />
+        <a href="/privacidade.html" target="_blank" rel="noopener">
+          Privacidade e termos de uso
+        </a>
+      </p>
     </div>
   );
 }

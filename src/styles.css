@@ -2474,3 +2474,20 @@ table.dbt {
     padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
   }
 }
+.danger-zone {
+  margin-top: 10px;
+  border: 1px solid color-mix(in srgb, var(--bad) 35%, var(--line));
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.danger-zone summary {
+  cursor: pointer;
+  color: var(--bad);
+}
+.danger-btn {
+  color: var(--bad);
+  border-color: color-mix(in srgb, var(--bad) 40%, var(--line));
+}
+.auth-foot a {
+  color: var(--accent);
+}

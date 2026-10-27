@@ -260,6 +260,16 @@ export async function signOut() {
   location.reload();
 }
 
+/** Deletes every row this person has in the cloud (LGPD: right to erasure), then signs out. */
+export async function deleteAllMyData() {
+  if (!supabase || !uid) return;
+  clearTimeout(flushTimer);
+  pending = new Map();
+  const { error } = await supabase.from(TABLE).delete().eq("user_id", uid);
+  if (error) throw new Error("Não foi possível apagar seus dados. Tente de novo.");
+  await signOut();
+}
+
 if (typeof window !== "undefined") {
   addEventListener("online", () => {
     flush();

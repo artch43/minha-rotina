@@ -5,7 +5,7 @@ import { replaceWorkspace, toast, useStore } from "../store";
 import { downloadBackup, parseBackup } from "../lib/backup";
 import type { Workspace } from "../lib/types";
 import { cloudEnabled } from "../lib/supabase";
-import { signOut, useSync } from "../lib/sync";
+import { deleteAllMyData, signOut, useSync } from "../lib/sync";
 import { Modal } from "./ui";
 
 export function Settings() {
@@ -172,15 +172,55 @@ export function Settings() {
 
 function AccountSection() {
   const user = useSync((s) => s.user);
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
   if (!cloudEnabled) return <p className="small muted">Sem conta: seus dados ficam salvos apenas neste navegador.</p>;
   return (
-    <div className="set-actions" style={{ alignItems: "center" }}>
-      <span className="small" style={{ flex: 1 }}>
-        Conectado como <b>{user?.email}</b>. Seus dados ficam salvos na sua conta.
-      </span>
-      <button className="btn" onClick={() => signOut()}>
-        Sair
-      </button>
-    </div>
+    <>
+      <div className="set-actions" style={{ alignItems: "center" }}>
+        <span className="small" style={{ flex: 1 }}>
+          Conectado como <b>{user?.email}</b>. Seus dados ficam salvos na sua conta.
+        </span>
+        <button className="btn" onClick={() => signOut()}>
+          Sair
+        </button>
+      </div>
+      <details className="danger-zone">
+        <summary className="small">Apagar todos os meus dados</summary>
+        <p className="small muted">
+          Isto apaga para sempre todas as suas páginas, itens, anotações e hábitos da nuvem. Baixe um backup antes, se quiser
+          guardar uma cópia.
+        </p>
+        <label className="small" htmlFor="erase-confirm">
+          Digite APAGAR para confirmar
+        </label>
+        <div className="set-actions">
+          <input
+            id="erase-confirm"
+            className="inp"
+            style={{ maxWidth: 180 }}
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+          <button
+            className="btn danger-btn"
+            disabled={confirm.trim().toUpperCase() !== "APAGAR"}
+            onClick={() => deleteAllMyData().catch((e: Error) => setError(e.message))}
+          >
+            Apagar tudo
+          </button>
+        </div>
+        {error && (
+          <p className="small" style={{ color: "var(--bad)" }}>
+            {error}
+          </p>
+        )}
+      </details>
+      <p className="small muted">
+        <a href="/privacidade.html" target="_blank" rel="noopener">
+          Privacidade e termos de uso
+        </a>
+      </p>
+    </>
   );
 }
