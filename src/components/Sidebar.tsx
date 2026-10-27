@@ -27,25 +27,73 @@ export function Sidebar() {
         role="button"
         tabIndex={0}
         onClick={() => go(p.id)}
-        onKeyDown={(e) => { if (e.key === "Enter") go(p.id); }}
-        onDragStart={(e) => { setDrag(p.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", p.id); }}
-        onDragEnd={() => { setDrag(null); setDrop(null); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") go(p.id);
+        }}
+        onDragStart={(e) => {
+          setDrag(p.id);
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", p.id);
+        }}
+        onDragEnd={() => {
+          setDrag(null);
+          setDrop(null);
+        }}
         onDragOver={(e) => {
           if (inFav || !drag || drag === p.id || descendants(ws, drag).includes(p.id)) return;
           e.preventDefault();
-          const r = e.currentTarget.getBoundingClientRect(), y = (e.clientY - r.top) / r.height;
+          const r = e.currentTarget.getBoundingClientRect(),
+            y = (e.clientY - r.top) / r.height;
           const mode: DropMode = y < 0.28 ? "before" : y > 0.72 ? "after" : "in";
           if (drop?.id !== p.id || drop.mode !== mode) setDrop({ id: p.id, mode });
         }}
-        onDrop={(e) => { e.preventDefault(); if (drag && drop) movePage(drag, drop.id, drop.mode); setDrag(null); setDrop(null); }}
+        onDrop={(e) => {
+          e.preventDefault();
+          if (drag && drop) movePage(drag, drop.id, drop.mode);
+          setDrag(null);
+          setDrop(null);
+        }}
       >
-        <button className="chev" style={{ visibility: canNest ? "visible" : "hidden" }} aria-label={open ? "Recolher" : "Expandir"}
-          onClick={(e) => { e.stopPropagation(); setUi((u) => { u.collapsed[p.id] = !open ? false : true; }); }}>{open ? "▼" : "▶"}</button>
+        <button
+          className="chev"
+          style={{ visibility: canNest ? "visible" : "hidden" }}
+          aria-label={open ? "Recolher" : "Expandir"}
+          onClick={(e) => {
+            e.stopPropagation();
+            setUi((u) => {
+              u.collapsed[p.id] = !open ? false : true;
+            });
+          }}
+        >
+          {open ? "▼" : "▶"}
+        </button>
         <span className="ic">{p.icon || "📄"}</span>
         <span className="nm">{p.title || "Sem título"}</span>
         <span className="acts">
-          <button className="iconbtn keep" title="Opções" aria-label="Opções da página" onClick={(e) => { e.stopPropagation(); openPop(e.currentTarget, <PageMenu id={p.id} />); }}>⋯</button>
-          {!inFav && <button className="iconbtn" title="Adicionar subpágina" aria-label="Adicionar subpágina" onClick={(e) => { e.stopPropagation(); openPop(e.currentTarget, <NewPageMenu parent={p.id} />); }}>＋</button>}
+          <button
+            className="iconbtn keep"
+            title="Opções"
+            aria-label="Opções da página"
+            onClick={(e) => {
+              e.stopPropagation();
+              openPop(e.currentTarget, <PageMenu id={p.id} />);
+            }}
+          >
+            ⋯
+          </button>
+          {!inFav && (
+            <button
+              className="iconbtn"
+              title="Adicionar subpágina"
+              aria-label="Adicionar subpágina"
+              onClick={(e) => {
+                e.stopPropagation();
+                openPop(e.currentTarget, <NewPageMenu parent={p.id} />);
+              }}
+            >
+              ＋
+            </button>
+          )}
         </span>
       </div>
     );
@@ -61,22 +109,56 @@ export function Sidebar() {
   return (
     <>
       <div className="side-top">
-        <div className="brand"><span className="brand-mark" aria-hidden="true" />{ws.settings.name ? "Rotina de " + ws.settings.name : "Minha Rotina"}</div>
-        <button className="iconbtn" title="Nova página" aria-label="Nova página" onClick={(e) => openPop(e.currentTarget, <NewPageMenu parent={null} />)}>＋</button>
+        <div className="brand">
+          <span className="brand-mark" aria-hidden="true" />
+          {ws.settings.name ? "Rotina de " + ws.settings.name : "Minha Rotina"}
+        </div>
+        <button
+          className="iconbtn"
+          title="Nova página"
+          aria-label="Nova página"
+          onClick={(e) => openPop(e.currentTarget, <NewPageMenu parent={null} />)}
+        >
+          ＋
+        </button>
       </div>
       <div style={{ padding: "0 8px" }}>
-        <button className="searchbtn" onClick={() => setUi((u) => { u.modal = "search"; u.sideOpen = false; })}>⌕&nbsp; Buscar <kbd>⌘K</kbd></button>
+        <button
+          className="searchbtn"
+          onClick={() =>
+            setUi((u) => {
+              u.modal = "search";
+              u.sideOpen = false;
+            })
+          }
+        >
+          ⌕&nbsp; Buscar <kbd>⌘K</kbd>
+        </button>
       </div>
       <div className="side-scroll">
-        {favs.length > 0 && <>
-          <div className="side-sec">Favoritos</div>
-          {favs.map((p) => <Fragment key={p.id}>{row(p, 0, true)}</Fragment>)}
-        </>}
+        {favs.length > 0 && (
+          <>
+            <div className="side-sec">Favoritos</div>
+            {favs.map((p) => (
+              <Fragment key={p.id}>{row(p, 0, true)}</Fragment>
+            ))}
+          </>
+        )}
         <div className="side-sec">Páginas</div>
         {tree(null, 0)}
       </div>
       <div className="side-bottom">
-        <button className="searchbtn" onClick={() => setUi((u) => { u.modal = "settings"; u.sideOpen = false; })}>⚙&nbsp; Configurações</button>
+        <button
+          className="searchbtn"
+          onClick={() =>
+            setUi((u) => {
+              u.modal = "settings";
+              u.sideOpen = false;
+            })
+          }
+        >
+          ⚙&nbsp; Configurações
+        </button>
       </div>
     </>
   );
@@ -86,8 +168,27 @@ export function NewPageMenu({ parent }: { parent: string | null }) {
   return (
     <>
       <h6>Nova página</h6>
-      <button className="mi" onClick={() => { closePop(); addPage("doc", parent); }}>📝 <span>Página de texto</span></button>
-      <button className="mi" onClick={() => { closePop(); addPage("db", parent); }}>🗂️ <span>Banco de dados<div className="small muted">Quadro com status, tabela, lista e calendário</div></span></button>
+      <button
+        className="mi"
+        onClick={() => {
+          closePop();
+          addPage("doc", parent);
+        }}
+      >
+        📝 <span>Página de texto</span>
+      </button>
+      <button
+        className="mi"
+        onClick={() => {
+          closePop();
+          addPage("db", parent);
+        }}
+      >
+        🗂️{" "}
+        <span>
+          Banco de dados<div className="small muted">Quadro com status, tabela, lista e calendário</div>
+        </span>
+      </button>
     </>
   );
 }
@@ -100,16 +201,49 @@ function PageMenu({ id }: { id: string }) {
   const fixed = p.type === "home" || p.type === "habits";
   return (
     <>
-      <button className="mi" onClick={() => { mut((w) => { const x = w.pages.find((q) => q.id === id)!; x.fav = !x.fav; }); closePop(); }}>
+      <button
+        className="mi"
+        onClick={() => {
+          mut((w) => {
+            const x = w.pages.find((q) => q.id === id)!;
+            x.fav = !x.fav;
+          });
+          closePop();
+        }}
+      >
         {p.fav ? "★ Remover dos favoritos" : "☆ Adicionar aos favoritos"}
       </button>
-      {!fixed && <button className="mi" onClick={() => { closePop(); go(id); setTimeout(() => (document.querySelector(".page .pgtitle") as HTMLElement | null)?.focus(), 50); }}>✎ Renomear</button>}
-      {!fixed && <>
-        <hr />
-        {confirm
-          ? <Confirm text="Excluir com subpáginas e itens?" onYes={() => { closePop(); deletePage(id); }} onNo={() => setConfirm(false)} />
-          : <button className="mi danger" onClick={() => setConfirm(true)}>🗑 Excluir</button>}
-      </>}
+      {!fixed && (
+        <button
+          className="mi"
+          onClick={() => {
+            closePop();
+            go(id);
+            setTimeout(() => (document.querySelector(".page .pgtitle") as HTMLElement | null)?.focus(), 50);
+          }}
+        >
+          ✎ Renomear
+        </button>
+      )}
+      {!fixed && (
+        <>
+          <hr />
+          {confirm ? (
+            <Confirm
+              text="Excluir com subpáginas e itens?"
+              onYes={() => {
+                closePop();
+                deletePage(id);
+              }}
+              onNo={() => setConfirm(false)}
+            />
+          ) : (
+            <button className="mi danger" onClick={() => setConfirm(true)}>
+              🗑 Excluir
+            </button>
+          )}
+        </>
+      )}
     </>
   );
 }

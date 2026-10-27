@@ -9,9 +9,22 @@ export function ListView({ db, view, list, hasAny }: ViewProps) {
   return (
     <div className="list">
       {list.map((it) => (
-        <div key={it.id} className="lrow" role="button" tabIndex={0} onClick={() => openPeek(it.id)} onKeyDown={(e) => { if (e.key === "Enter") openPeek(it.id); }}>
+        <div
+          key={it.id}
+          className="lrow"
+          role="button"
+          tabIndex={0}
+          onClick={() => openPeek(it.id)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") openPeek(it.id);
+          }}
+        >
           <span className="ttl">{it.title || "Sem título"}</span>
-          <span className="props">{props.map((p) => <PropDisplay key={p.id} prop={p} value={it.props[p.id]} item={it} db={db} />)}</span>
+          <span className="props">
+            {props.map((p) => (
+              <PropDisplay key={p.id} prop={p} value={it.props[p.id]} item={it} db={db} />
+            ))}
+          </span>
         </div>
       ))}
     </div>

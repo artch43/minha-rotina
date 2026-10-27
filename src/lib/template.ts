@@ -4,7 +4,12 @@ import { addDays, today, uid } from "./util";
 export const opts = (list: [string, Color, Group?][]): Option[] =>
   list.map(([name, color, group]) => ({ id: uid(), name, color, ...(group ? { group } : {}) }));
 
-export const DEFAULT_STATUS: [string, Color, Group][] = [["Não comecei", "gray", "todo"], ["Fazendo", "blue", "doing"], ["Feito", "green", "done"], ["Revisar", "orange", "review"]];
+export const DEFAULT_STATUS: [string, Color, Group][] = [
+  ["Não comecei", "gray", "todo"],
+  ["Fazendo", "blue", "doing"],
+  ["Feito", "green", "done"],
+  ["Revisar", "orange", "review"],
+];
 
 export function mkDb(status: [string, Color, Group][], extra: Prop[] = [], srs = false): Database {
   return {
@@ -12,7 +17,16 @@ export function mkDb(status: [string, Color, Group][], extra: Prop[] = [], srs =
     props: [
       { id: "status", name: "Status", type: "status", options: opts(status) },
       { id: "date", name: "Data", type: "date" },
-      { id: "prio", name: "Prioridade", type: "select", options: opts([["Alta", "red"], ["Média", "yellow"], ["Baixa", "gray"]]) },
+      {
+        id: "prio",
+        name: "Prioridade",
+        type: "select",
+        options: opts([
+          ["Alta", "red"],
+          ["Média", "yellow"],
+          ["Baixa", "gray"],
+        ]),
+      },
       ...extra,
       { id: "tags", name: "Etiquetas", type: "multi", options: opts([["Exemplo", "gray"]]) },
     ],
@@ -30,28 +44,98 @@ const b = (type: Block["type"], text: string, extra: Partial<Block> = {}): Block
 /** Starting workspace for a new person. Items tagged "Exemplo" are safe to delete. */
 export function template(): Workspace {
   const T = today();
-  const E = "estudos", W = "trabalho", C = "compromissos", G = "guia";
-  const dbE = mkDb([["Não comecei", "gray", "todo"], ["Estudando", "blue", "doing"], ["Estudado", "green", "done"], ["Revisar", "orange", "review"]],
-    [{ id: "subj", name: "Matéria", type: "select", options: opts([["Matemática", "blue"], ["Português", "orange"], ["História", "brown"], ["Biologia", "green"]]) }], true);
-  const dbW = mkDb(DEFAULT_STATUS, [{ id: "proj", name: "Projeto", type: "select", options: opts([["Relatórios", "purple"], ["Clientes", "pink"]]) }]);
-  const dbC = mkDb([["Agendado", "blue", "todo"], ["Feito", "green", "done"], ["Remarcar", "red", "review"]], [{ id: "place", name: "Local", type: "text" }]);
+  const E = "estudos",
+    W = "trabalho",
+    C = "compromissos",
+    G = "guia";
+  const dbE = mkDb(
+    [
+      ["Não comecei", "gray", "todo"],
+      ["Estudando", "blue", "doing"],
+      ["Estudado", "green", "done"],
+      ["Revisar", "orange", "review"],
+    ],
+    [
+      {
+        id: "subj",
+        name: "Matéria",
+        type: "select",
+        options: opts([
+          ["Matemática", "blue"],
+          ["Português", "orange"],
+          ["História", "brown"],
+          ["Biologia", "green"],
+        ]),
+      },
+    ],
+    true,
+  );
+  const dbW = mkDb(DEFAULT_STATUS, [
+    {
+      id: "proj",
+      name: "Projeto",
+      type: "select",
+      options: opts([
+        ["Relatórios", "purple"],
+        ["Clientes", "pink"],
+      ]),
+    },
+  ]);
+  const dbC = mkDb(
+    [
+      ["Agendado", "blue", "todo"],
+      ["Feito", "green", "done"],
+      ["Remarcar", "red", "review"],
+    ],
+    [{ id: "place", name: "Local", type: "text" }],
+  );
   dbC.props = dbC.props.filter((p) => p.id !== "prio");
 
   const st = (db: Database, i: number) => db.props[0].options![i].id;
   const opt = (db: Database, pid: string, i: number) => db.props.find((p) => p.id === pid)!.options![i].id;
   let n = 0;
   const item = (dbId: string, db: Database, title: string, props: Item["props"], extra: Partial<Item> = {}): Item => ({
-    id: uid(), db: dbId, title, props: { tags: [opt(db, "tags", 0)], ...props }, blocks: [],
-    created: Date.now() + n, updated: Date.now(), order: ++n, log: [], ...extra,
+    id: uid(),
+    db: dbId,
+    title,
+    props: { tags: [opt(db, "tags", 0)], ...props },
+    blocks: [],
+    created: Date.now() + n,
+    updated: Date.now(),
+    order: ++n,
+    log: [],
+    ...extra,
   });
   const items = [
-    item(E, dbE, "Funções do 2º grau", { status: st(dbE, 1), subj: opt(dbE, "subj", 0), date: T, prio: opt(dbE, "prio", 0) }, {
-      blocks: [b("h2", "Resumo"), b("ul", "Forma geral: f(x) = ax² + bx + c"), b("ul", "Vértice: x = −b / 2a"), b("todo", "Fazer 10 exercícios da lista", { checked: false })],
-    }),
+    item(
+      E,
+      dbE,
+      "Funções do 2º grau",
+      { status: st(dbE, 1), subj: opt(dbE, "subj", 0), date: T, prio: opt(dbE, "prio", 0) },
+      {
+        blocks: [
+          b("h2", "Resumo"),
+          b("ul", "Forma geral: f(x) = ax² + bx + c"),
+          b("ul", "Vértice: x = −b / 2a"),
+          b("todo", "Fazer 10 exercícios da lista", { checked: false }),
+        ],
+      },
+    ),
     item(E, dbE, "Revolução Francesa", { status: st(dbE, 0), subj: opt(dbE, "subj", 2), date: addDays(T, 2) }),
-    item(E, dbE, "Concordância verbal", { status: st(dbE, 2), subj: opt(dbE, "subj", 1) }, { review: { stage: 0, next: addDays(T, 1) } }),
+    item(
+      E,
+      dbE,
+      "Concordância verbal",
+      { status: st(dbE, 2), subj: opt(dbE, "subj", 1) },
+      { review: { stage: 0, next: addDays(T, 1) } },
+    ),
     item(E, dbE, "Logaritmos", { status: st(dbE, 3), subj: opt(dbE, "subj", 0) }, { review: { stage: 1, next: T } }),
-    item(W, dbW, "Relatório mensal", { status: st(dbW, 1), date: addDays(T, 2), prio: opt(dbW, "prio", 0), proj: opt(dbW, "proj", 0) }),
+    item(W, dbW, "Relatório mensal", {
+      status: st(dbW, 1),
+      date: addDays(T, 2),
+      prio: opt(dbW, "prio", 0),
+      proj: opt(dbW, "proj", 0),
+    }),
     item(W, dbW, "Responder e-mails do cliente", { status: st(dbW, 0), date: T, proj: opt(dbW, "proj", 1) }),
     item(C, dbC, "Dentista", { status: st(dbC, 0), date: addDays(T, 1) + " 15:00", place: "Clínica do bairro" }),
   ];
@@ -82,6 +166,7 @@ export function template(): Workspace {
         b("todo", "Apagar os itens de exemplo quando terminar de explorar", { checked: false }),
       ],
     },
+    notes: {},
     habits: [
       { id: uid(), name: "Ler 20 minutos", icon: "📖" },
       { id: uid(), name: "Exercício", icon: "🏃" },

@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "immer": "10.1.1",
@@ -16,11 +20,19 @@
     "zustand": "4.5.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.13.0",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "4.3.3",
+    "eslint": "^9.13.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "globals": "^15.11.0",
+    "jsdom": "^25.0.1",
+    "prettier": "^3.3.3",
     "typescript": "5.6.3",
-    "vite": "5.4.10"
+    "typescript-eslint": "^8.12.2",
+    "vite": "5.4.10",
+    "vitest": "^2.1.4"
   },
   "allowScripts": {
     "esbuild@0.21.5": true

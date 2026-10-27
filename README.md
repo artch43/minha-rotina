@@ -14,11 +14,11 @@ npm run dev      # abre em http://localhost:5173
 
 Outros comandos:
 
-| Comando             | O que faz                                          |
-| ------------------- | -------------------------------------------------- |
-| `npm run build`     | Confere os tipos e gera a versão final em `dist/`  |
-| `npm run preview`   | Serve a versão de `dist/` para testar              |
-| `npm run typecheck` | Só confere os tipos do TypeScript                  |
+| Comando             | O que faz                                         |
+| ------------------- | ------------------------------------------------- |
+| `npm run build`     | Confere os tipos e gera a versão final em `dist/` |
+| `npm run preview`   | Serve a versão de `dist/` para testar             |
+| `npm run typecheck` | Só confere os tipos do TypeScript                 |
 
 ## Estrutura
 

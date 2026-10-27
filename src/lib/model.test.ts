@@ -1,0 +1,101 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { template } from "./template";
+import { applyFilters, applyStatusChange, groupOf, runReviews, statusProp, streakOf } from "./model";
+import { addDays, today } from "./util";
+import type { Item, Workspace } from "./types";
+
+let ws: Workspace;
+const find = (title: string) => Object.values(ws.items).find((i) => i.title === title)!;
+const optId = (dbId: string, group: string) => statusProp(ws.dbs[dbId])!.options!.find((o) => o.group === group)!.id;
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 9, 27, 10, 0));
+  ws = template();
+});
+afterEach(() => vi.useRealTimers());
+
+describe("revisão espaçada", () => {
+  it("agenda a primeira revisão para o dia seguinte ao concluir", () => {
+    const it0 = find("Revolução Francesa");
+    const db = ws.dbs.estudos;
+    const old = it0.props.status;
+    it0.props.status = optId("estudos", "done");
+    applyStatusChange(it0, db, old, it0.props.status);
+    expect(it0.review).toEqual({ stage: 0, next: "2026-10-28" });
+  });
+
+  it("avança o estágio ao concluir uma revisão (1 → 7 → 30 dias) e depois encerra", () => {
+    const it0 = find("Logaritmos"); // está em Revisar, estágio 1
+    const db = ws.dbs.estudos;
+    const done = optId("estudos", "done"),
+      review = optId("estudos", "review");
+    applyStatusChange(it0, db, review, done);
+    expect(it0.review).toEqual({ stage: 2, next: addDays(today(), 30) });
+    applyStatusChange(it0, db, review, done);
+    expect(it0.review).toMatchObject({ finished: true, next: null });
+  });
+
+  it("não agenda revisões quando o banco não tem revisão espaçada", () => {
+    const it0 = find("Relatório mensal");
+    applyStatusChange(it0, ws.dbs.trabalho, it0.props.status, optId("trabalho", "done"));
+    expect(it0.review).toBeUndefined();
+  });
+
+  it("devolve para Revisar quando a data chega", () => {
+    const it0 = find("Concordância verbal"); // Estudado, revisão amanhã
+    runReviews(ws);
+    expect(groupOf(ws.dbs.estudos, it0)).toBe("done");
+    vi.setSystemTime(new Date(2026, 9, 28, 9, 0));
+    runReviews(ws);
+    expect(groupOf(ws.dbs.estudos, it0)).toBe("review");
+  });
+
+  it("registra o histórico de status", () => {
+    const it0: Item = find("Revolução Francesa");
+    applyStatusChange(it0, ws.dbs.estudos, it0.props.status, optId("estudos", "doing"));
+    expect(it0.log.at(-1)).toMatchObject({ g: "doing" });
+  });
+});
+
+describe("filtros e ordenação", () => {
+  const view = () => structuredClone(ws.dbs.estudos.views[0]);
+
+  it("filtra por status", () => {
+    const v = { ...view(), filters: [{ prop: "status", op: "is" as const, val: optId("estudos", "doing") }] };
+    expect(applyFilters(ws, "estudos", v, "").map((i) => i.title)).toEqual(["Funções do 2º grau"]);
+  });
+
+  it("filtra datas atrasadas ignorando concluídos", () => {
+    find("Revolução Francesa").props.date = "2026-10-20";
+    const v = { ...view(), filters: [{ prop: "date", op: "is" as const, val: "overdue" }] };
+    expect(applyFilters(ws, "estudos", v, "").map((i) => i.title)).toEqual(["Revolução Francesa"]);
+  });
+
+  it("busca pelo título sem diferenciar maiúsculas", () => {
+    expect(applyFilters(ws, "estudos", view(), "LOGA").map((i) => i.title)).toEqual(["Logaritmos"]);
+  });
+
+  it("ordena por nome", () => {
+    const v = { ...view(), sort: { prop: "title", dir: "asc" as const } };
+    expect(applyFilters(ws, "estudos", v, "").map((i) => i.title)).toEqual([
+      "Concordância verbal",
+      "Funções do 2º grau",
+      "Logaritmos",
+      "Revolução Francesa",
+    ]);
+  });
+});
+
+describe("sequência de hábitos", () => {
+  it("conta dias seguidos até hoje", () => {
+    const log = { "2026-10-25": ["h"], "2026-10-26": ["h"], "2026-10-27": ["h"] };
+    expect(streakOf(log, "h")).toBe(3);
+  });
+  it("continua valendo se hoje ainda não foi marcado", () => {
+    expect(streakOf({ "2026-10-25": ["h"], "2026-10-26": ["h"] }, "h")).toBe(2);
+  });
+  it("zera quando houve um dia sem marcar", () => {
+    expect(streakOf({ "2026-10-24": ["h"], "2026-10-25": ["h"] }, "h")).toBe(0);
+  });
+});
