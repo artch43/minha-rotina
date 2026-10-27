@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { checkReviews, closePeek, closePop, usePop, useStore } from "./store";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
@@ -7,6 +7,10 @@ import { Peek } from "./components/Peek";
 import { Search } from "./components/Search";
 import { Settings } from "./components/Settings";
 import { PopHost, Toast } from "./components/ui";
+import { Auth, ChooseStart, Loading, NewPassword } from "./components/Auth";
+import { Trash } from "./components/Trash";
+import { cloudEnabled, supabase } from "./lib/supabase";
+import { startCloud, useSync } from "./lib/sync";
 
 function routeFromHash() {
   const id = decodeURIComponent(location.hash.replace(/^#\/?/, ""));
@@ -20,6 +24,48 @@ function routeFromHash() {
 }
 
 export default function App() {
+  return cloudEnabled ? <CloudGate /> : <Workspace />;
+}
+
+/** With a backend configured: sign in first, then load the person's data, then show the workspace. */
+function CloudGate() {
+  const phase = useSync((s) => s.phase);
+  const recovery = useSync((s) => s.recovery);
+  const [checked, setChecked] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const begin = (user: Parameters<typeof startCloud>[0]) => startCloud(user).catch((e: Error) => setError(e.message));
+    supabase!.auth.getSession().then(({ data }) => {
+      setChecked(true);
+      if (data.session) begin(data.session.user);
+    });
+    const { data } = supabase!.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") useSync.setState({ recovery: true });
+      if (event === "SIGNED_IN" && session) begin(session.user);
+      if (event === "SIGNED_OUT") useSync.setState({ phase: "auth", user: null });
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  if (!checked) return <Loading text="Abrindo…" />;
+  if (recovery) return <NewPassword />;
+  if (error && phase === "auth")
+    return (
+      <>
+        <Auth />
+        <p className="auth-err" style={{ textAlign: "center" }}>
+          {error}
+        </p>
+      </>
+    );
+  if (phase === "auth") return <Auth />;
+  if (phase === "loading") return <Loading />;
+  if (phase === "choose") return <ChooseStart />;
+  return <Workspace />;
+}
+
+function Workspace() {
   const settings = useStore((s) => s.ws.settings);
   const sideOpen = useStore((s) => s.ui.sideOpen);
   const modal = useStore((s) => s.ui.modal);
@@ -97,6 +143,7 @@ export default function App() {
       {peek && <Peek />}
       {modal === "search" && <Search />}
       {modal === "settings" && <Settings />}
+      {modal === "trash" && <Trash />}
       <PopHost />
       <Toast />
     </div>

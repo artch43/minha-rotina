@@ -87,6 +87,7 @@ export interface Habit {
   id: string;
   name: string;
   icon: string;
+  order?: number;
 }
 export interface Settings {
   theme: "system" | "light" | "dark";

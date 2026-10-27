@@ -18,7 +18,7 @@ export interface UI {
   calMonth: Record<string, string>;
   search: Record<string, string>;
   sideOpen: boolean;
-  modal: "search" | "settings" | null;
+  modal: "search" | "settings" | "trash" | null;
 }
 interface Store {
   ws: Workspace;

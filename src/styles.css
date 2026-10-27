@@ -1923,3 +1923,107 @@ table.dbt {
 .set-actions label.btn {
   cursor: pointer;
 }
+
+/* Auth */
+.auth {
+  min-height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
+  overflow: auto;
+  padding: 32px max(16px, env(safe-area-inset-right, 0px)) 32px max(16px, env(safe-area-inset-left, 0px));
+}
+.auth-card {
+  width: min(400px, calc(100vw - 32px));
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 28px;
+  box-shadow: var(--shadow);
+}
+.auth-brand {
+  font-size: 18px;
+  margin-bottom: 18px;
+}
+.auth-title {
+  font: 700 26px/1.2 var(--f-display);
+  letter-spacing: -0.015em;
+  margin: 0 0 14px;
+}
+.auth-form {
+  display: grid;
+  gap: 6px;
+}
+.auth-form label {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.auth-form .inp {
+  padding: 8px 10px;
+}
+.auth-submit {
+  margin-top: 12px;
+  padding: 9px 12px;
+  font-size: 15px;
+  width: 100%;
+}
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.auth-err {
+  color: var(--bad);
+  margin: 6px 0 0;
+  font-size: 14px;
+}
+.auth-info {
+  color: var(--ok);
+  margin: 6px 0 0;
+  font-size: 14px;
+}
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  color: var(--muted);
+}
+.auth-links button {
+  color: var(--accent);
+}
+.auth-links button:hover {
+  text-decoration: underline;
+}
+.auth-foot {
+  text-align: center;
+  max-width: 360px;
+}
+.trash-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.trash-main {
+  flex: 1;
+  min-width: 180px;
+  display: grid;
+}
+.trash-main .ttl {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.savestate.bad {
+  color: var(--warn);
+}

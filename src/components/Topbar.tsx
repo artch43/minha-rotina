@@ -1,5 +1,25 @@
 import { pagePath } from "../lib/model";
 import { go, useStore } from "../store";
+import { cloudEnabled } from "../lib/supabase";
+import { useSync } from "../lib/sync";
+
+const LABELS = {
+  idle: "",
+  saving: "Salvando…",
+  saved: "Salvo",
+  offline: "Sem conexão: será salvo ao reconectar",
+  error: "Não foi possível salvar. Tentando de novo…",
+};
+
+function SaveState() {
+  const status = useSync((s) => s.status);
+  if (!cloudEnabled) return <span className="savestate">Salvo neste navegador</span>;
+  return (
+    <span className={"savestate" + (status === "offline" || status === "error" ? " bad" : "")} role="status">
+      {LABELS[status]}
+    </span>
+  );
+}
 
 export function Topbar() {
   const ws = useStore((s) => s.ws);
@@ -29,7 +49,7 @@ export function Topbar() {
           </span>
         ))}
       </div>
-      <span className="savestate">Salvo neste navegador</span>
+      <SaveState />
       <button
         className="iconbtn"
         title="Buscar"

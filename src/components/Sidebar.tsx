@@ -3,6 +3,7 @@ import type { Page } from "../lib/types";
 import { childrenOf, descendants } from "../lib/model";
 import { addPage, closePop, deletePage, go, movePage, openPop, useStore } from "../store";
 import { Confirm } from "./ui";
+import { cloudEnabled } from "../lib/supabase";
 
 type DropMode = "before" | "after" | "in";
 
@@ -148,6 +149,19 @@ export function Sidebar() {
         {tree(null, 0)}
       </div>
       <div className="side-bottom">
+        {cloudEnabled && (
+          <button
+            className="searchbtn"
+            onClick={() =>
+              setUi((u) => {
+                u.modal = "trash";
+                u.sideOpen = false;
+              })
+            }
+          >
+            🗑&nbsp; Lixeira
+          </button>
+        )}
         <button
           className="searchbtn"
           onClick={() =>

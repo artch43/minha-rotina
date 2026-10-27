@@ -4,6 +4,8 @@ import { ACCENTS } from "../lib/util";
 import { replaceWorkspace, toast, useStore } from "../store";
 import { downloadBackup, parseBackup } from "../lib/backup";
 import type { Workspace } from "../lib/types";
+import { cloudEnabled } from "../lib/supabase";
+import { signOut, useSync } from "../lib/sync";
 import { Modal } from "./ui";
 
 export function Settings() {
@@ -115,6 +117,8 @@ export function Settings() {
             ["compact", "Compacta"],
           ])}
         </div>
+        <h4 className="set-h">Conta</h4>
+        <AccountSection />
         <h4 className="set-h">Backup</h4>
         <p className="small muted">Baixe uma cópia de tudo (páginas, itens, anotações e hábitos) ou restaure uma cópia salva.</p>
         <div className="set-actions">
@@ -163,5 +167,20 @@ export function Settings() {
         )}
       </div>
     </Modal>
+  );
+}
+
+function AccountSection() {
+  const user = useSync((s) => s.user);
+  if (!cloudEnabled) return <p className="small muted">Sem conta: seus dados ficam salvos apenas neste navegador.</p>;
+  return (
+    <div className="set-actions" style={{ alignItems: "center" }}>
+      <span className="small" style={{ flex: 1 }}>
+        Conectado como <b>{user?.email}</b>. Seus dados ficam salvos na sua conta.
+      </span>
+      <button className="btn" onClick={() => signOut()}>
+        Sair
+      </button>
+    </div>
   );
 }
