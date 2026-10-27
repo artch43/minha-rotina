@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { checkReviews, closePeek, closePop, usePop, useStore } from "./store";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
@@ -12,9 +12,22 @@ import { Trash } from "./components/Trash";
 import { cloudEnabled, supabase } from "./lib/supabase";
 import { startCloud, useSync } from "./lib/sync";
 
+const NotesView = lazy(() => import("./components/notes/NotesView"));
+
 function routeFromHash() {
   const id = decodeURIComponent(location.hash.replace(/^#\/?/, ""));
   const { ws, setUi } = useStore.getState();
+  if (id === "notas" || id.startsWith("notas/")) {
+    const rest = id.slice(6);
+    setUi((u) => {
+      u.route = "notes";
+      u.peek = null;
+      u.noteGraph = rest === "grafo";
+      if (rest && rest !== "grafo" && ws.notes[rest]) u.noteId = rest;
+      u.notesTab = rest ? "note" : "list";
+    });
+    return true;
+  }
   if (id && ws.pages.some((p) => p.id === id))
     setUi((u) => {
       u.route = id;
@@ -70,6 +83,7 @@ function Workspace() {
   const sideOpen = useStore((s) => s.ui.sideOpen);
   const modal = useStore((s) => s.ui.modal);
   const peek = useStore((s) => s.ui.peek);
+  const route = useStore((s) => s.ui.route);
   const setUi = useStore((s) => s.setUi);
 
   useEffect(() => {
@@ -96,6 +110,7 @@ function Workspace() {
       if (!document.hidden) checkReviews();
     };
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setUi((u) => {
@@ -136,9 +151,21 @@ function Workspace() {
       </aside>
       <main className="main">
         <Topbar />
-        <div className="scroll" onScroll={() => closePop()}>
-          <PageView />
-        </div>
+        {route === "notes" ? (
+          <Suspense
+            fallback={
+              <p className="muted" style={{ padding: 24 }}>
+                Abrindo anotações…
+              </p>
+            }
+          >
+            <NotesView />
+          </Suspense>
+        ) : (
+          <div className="scroll" onScroll={() => closePop()}>
+            <PageView />
+          </div>
+        )}
       </main>
       {peek && <Peek />}
       {modal === "search" && <Search />}

@@ -1,5 +1,5 @@
 import { pagePath } from "../lib/model";
-import { go, useStore } from "../store";
+import { go, openNotes, useStore } from "../store";
 import { cloudEnabled } from "../lib/supabase";
 import { useSync } from "../lib/sync";
 
@@ -25,7 +25,26 @@ export function Topbar() {
   const ws = useStore((s) => s.ws);
   const route = useStore((s) => s.ui.route);
   const setUi = useStore((s) => s.setUi);
-  const path = pagePath(ws, route);
+  const noteId = useStore((s) => s.ui.noteId);
+  const graph = useStore((s) => s.ui.noteGraph);
+  const path =
+    route === "notes"
+      ? [
+          { id: "notes", icon: "📓", title: "Anotações", go: () => openNotes(null) },
+          ...(graph
+            ? [{ id: "graph", icon: "◎", title: "Grafo", go: () => {} }]
+            : noteId && ws.notes[noteId]
+              ? [
+                  {
+                    id: noteId,
+                    icon: "",
+                    title: (ws.notes[noteId].folder ? ws.notes[noteId].folder + " / " : "") + ws.notes[noteId].title,
+                    go: () => {},
+                  },
+                ]
+              : []),
+        ]
+      : pagePath(ws, route).map((p) => ({ ...p, go: () => go(p.id) }));
   return (
     <div className="topbar">
       <button
@@ -43,7 +62,7 @@ export function Topbar() {
         {path.map((p, i) => (
           <span key={p.id} style={{ display: "contents" }}>
             {i > 0 && <span className="sep">/</span>}
-            <button onClick={() => go(p.id)}>
+            <button onClick={p.go}>
               {p.icon} {p.title || "Sem título"}
             </button>
           </span>

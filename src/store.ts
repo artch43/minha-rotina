@@ -2,10 +2,11 @@ import type { ReactNode } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import type { Workspace, PropValue, PageType, Item } from "./lib/types";
+import type { Workspace, PropValue, PageType, Item, Note } from "./lib/types";
 import { template, mkDb, DEFAULT_STATUS } from "./lib/template";
 import { applyStatusChange, descendants, childrenOf, runReviews, statusProp } from "./lib/model";
-import { uid } from "./lib/util";
+import { today, uid } from "./lib/util";
+import { dailyBody, findByTitle, renameLinks, uniqueTitle } from "./lib/notes";
 import { STORAGE_KEY, workspaceStorage } from "./lib/storage";
 import { normalizeWorkspace } from "./lib/backup";
 
@@ -19,6 +20,11 @@ export interface UI {
   search: Record<string, string>;
   sideOpen: boolean;
   modal: "search" | "settings" | "trash" | null;
+  noteId: string | null;
+  noteMode: "edit" | "read";
+  noteGraph: boolean;
+  noteTag: string | null;
+  notesTab: "list" | "note" | "side";
 }
 interface Store {
   ws: Workspace;
@@ -37,6 +43,11 @@ const defaultUi: UI = {
   search: {},
   sideOpen: false,
   modal: null,
+  noteId: null,
+  noteMode: "edit",
+  noteGraph: false,
+  noteTag: null,
+  notesTab: "list",
 };
 
 export const useStore = create<Store>()(
@@ -57,7 +68,8 @@ export const useStore = create<Store>()(
       name: STORAGE_KEY,
       version: 1,
       storage: workspaceStorage,
-      partialize: (s) => ({ ws: s.ws, ui: { collapsed: s.ui.collapsed, viewByDb: s.ui.viewByDb } }) as unknown as Store,
+      partialize: (s) =>
+        ({ ws: s.ws, ui: { collapsed: s.ui.collapsed, viewByDb: s.ui.viewByDb, noteMode: s.ui.noteMode } }) as unknown as Store,
       merge: (persisted, current) => {
         const p = persisted as Partial<Store> | undefined;
         return { ...current, ws: p?.ws ? normalizeWorkspace(p.ws) : current.ws, ui: { ...current.ui, ...(p?.ui ?? {}) } };
@@ -270,3 +282,144 @@ export function toggleHabit(hid: string, day: string) {
   });
 }
 export const checkReviews = () => mut(runReviews);
+
+/* ---------- notes ---------- */
+export function openNotes(noteId?: string | null, opts: { graph?: boolean } = {}) {
+  closePop();
+  setUi((u) => {
+    u.route = "notes";
+    u.peek = null;
+    u.sideOpen = false;
+    u.noteGraph = !!opts.graph;
+    if (noteId !== undefined) u.noteId = noteId;
+    u.notesTab = opts.graph || noteId ? "note" : "list";
+  });
+  const id = useStore.getState().ui.noteId;
+  const hash = "#/notas" + (opts.graph ? "/grafo" : id ? "/" + id : "");
+  if (location.hash !== hash) history.pushState(null, "", hash);
+}
+
+export function createNote(init: Partial<Note> = {}) {
+  const id = uid();
+  const now = Date.now();
+  mut((w) => {
+    w.notes[id] = {
+      id,
+      title: uniqueTitle(w.notes, init.title?.trim() || "Sem título"),
+      folder: init.folder ?? "",
+      body: init.body ?? "",
+      created: now,
+      updated: now,
+    };
+  });
+  openNotes(id);
+  return id;
+}
+
+/** Opens the note with this title, creating it (next to `nearFolder`) when it doesn't exist yet. */
+export function openNoteByTitle(title: string, nearFolder = "") {
+  const found = findByTitle(ws().notes, title);
+  if (found) openNotes(found.id);
+  else createNote({ title, folder: nearFolder });
+}
+
+export function updateNote(id: string, patch: Partial<Note>) {
+  mut((w) => {
+    const n = w.notes[id];
+    if (n) Object.assign(n, patch, { updated: Date.now() });
+  });
+}
+
+/** Renames a note and rewrites every [[link]] that pointed at the old title. */
+export function renameNote(id: string, title: string) {
+  const n = ws().notes[id];
+  const next = title.trim() || "Sem título";
+  if (!n || n.title === next) return;
+  const old = n.title;
+  mut((w) => {
+    w.notes[id].title = next;
+    w.notes[id].updated = Date.now();
+    for (const other of Object.values(w.notes)) {
+      if (other.id === id || !other.body.includes("[[")) continue;
+      const body = renameLinks(other.body, old, next);
+      if (body !== other.body) {
+        other.body = body;
+        other.updated = Date.now();
+      }
+    }
+  });
+}
+
+export function deleteNote(id: string) {
+  const snap = ws().notes[id];
+  if (!snap) return;
+  mut((w) => {
+    delete w.notes[id];
+  });
+  setUi((u) => {
+    if (u.noteId === id) u.noteId = null;
+  });
+  toast("Anotação excluída", () => {
+    mut((w) => {
+      w.notes[id] = snap;
+    });
+    openNotes(id);
+  });
+}
+
+export function addFolder(path: string) {
+  const clean = path
+    .split("/")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .join("/");
+  if (!clean) return;
+  mut((w) => {
+    const list = w.settings.noteFolders ?? [];
+    if (!list.includes(clean)) w.settings.noteFolders = [...list, clean];
+  });
+}
+
+export function renameFolder(from: string, to: string) {
+  const dest = to
+    .split("/")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .join("/");
+  if (!dest || dest === from) return;
+  const swap = (f: string) => (f === from ? dest : f.startsWith(from + "/") ? dest + f.slice(from.length) : f);
+  mut((w) => {
+    for (const n of Object.values(w.notes)) {
+      const f = swap(n.folder);
+      if (f !== n.folder) {
+        n.folder = f;
+        n.updated = Date.now();
+      }
+    }
+    w.settings.noteFolders = (w.settings.noteFolders ?? []).map(swap);
+  });
+}
+
+export function deleteFolder(path: string) {
+  const inside = (f: string) => f === path || f.startsWith(path + "/");
+  const before = ws();
+  const notes = Object.values(before.notes).filter((n) => inside(n.folder));
+  const folders = before.settings.noteFolders ?? [];
+  mut((w) => {
+    for (const n of notes) delete w.notes[n.id];
+    w.settings.noteFolders = folders.filter((f) => !inside(f));
+  });
+  toast(notes.length ? `Pasta excluída com ${notes.length} ${notes.length === 1 ? "nota" : "notas"}` : "Pasta excluída", () =>
+    mut((w) => {
+      for (const n of notes) w.notes[n.id] = n;
+      w.settings.noteFolders = folders;
+    }),
+  );
+}
+
+export function openDailyNote() {
+  const t = today();
+  const found = Object.values(ws().notes).find((n) => n.folder === "Diário" && n.title === t);
+  if (found) openNotes(found.id);
+  else createNote({ title: t, folder: "Diário", body: dailyBody(ws(), t) });
+}

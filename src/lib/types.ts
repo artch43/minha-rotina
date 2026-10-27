@@ -97,6 +97,8 @@ export interface Settings {
   density: "comfy" | "compact";
   start: string;
   name: string;
+  /** Note folders created by the person, kept even while empty. */
+  noteFolders?: string[];
 }
 export interface Workspace {
   version: 1;

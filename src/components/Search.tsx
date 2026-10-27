@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { go, openPeek, useStore } from "../store";
+import { go, openNotes, openPeek, useStore } from "../store";
 import { Modal } from "./ui";
 
 type Result =
+  | { kind: "note"; id: string; title: string; snippet: string; folder: string }
   | { kind: "page"; id: string; icon: string; title: string }
   | { kind: "item"; id: string; db: string; title: string; dbTitle: string };
 
@@ -33,11 +34,23 @@ export function Search() {
             dbTitle: ws.pages.find((p) => p.id === i.db)?.title ?? "",
           }))
       : []),
+    ...(qq
+      ? Object.values(ws.notes)
+          .filter((n) => n.title.toLowerCase().includes(qq) || n.body.toLowerCase().includes(qq))
+          .sort((a, b) => Number(b.title.toLowerCase().includes(qq)) - Number(a.title.toLowerCase().includes(qq)))
+          .slice(0, 30)
+          .map((n) => {
+            const at = n.body.toLowerCase().indexOf(qq);
+            const snippet = at >= 0 ? n.body.slice(Math.max(0, at - 30), at + 60).replace(/\s+/g, " ") : "";
+            return { kind: "note" as const, id: n.id, title: n.title, snippet, folder: n.folder };
+          })
+      : []),
   ];
   const s = Math.min(sel, Math.max(0, results.length - 1));
   const pick = (r: Result) => {
     close();
     if (r.kind === "page") go(r.id);
+    else if (r.kind === "note") openNotes(r.id);
     else {
       go(r.db);
       openPeek(r.id);
@@ -50,7 +63,7 @@ export function Search() {
         <input
           autoFocus
           className="qsearch"
-          placeholder="Buscar páginas e itens…"
+          placeholder="Buscar páginas, itens e anotações…"
           aria-label="Buscar"
           value={q}
           onChange={(e) => {
@@ -79,6 +92,22 @@ export function Search() {
                 <>
                   {r.icon || "📄"} {r.title || "Sem título"}
                   <span className="sub">Página</span>
+                </>
+              ) : r.kind === "note" ? (
+                <>
+                  📓
+                  <span style={{ minWidth: 0, display: "grid" }}>
+                    {r.title || "Sem título"}
+                    {r.snippet && (
+                      <span
+                        className="small muted"
+                        style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      >
+                        …{r.snippet}…
+                      </span>
+                    )}
+                  </span>
+                  <span className="sub">{r.folder || "Anotações"}</span>
                 </>
               ) : (
                 <>

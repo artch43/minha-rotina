@@ -48,6 +48,8 @@ export function template(): Workspace {
     W = "trabalho",
     C = "compromissos",
     G = "guia";
+  const N1 = uid(),
+    N2 = uid();
   const dbE = mkDb(
     [
       ["Não comecei", "gray", "todo"],
@@ -166,7 +168,37 @@ export function template(): Workspace {
         b("todo", "Apagar os itens de exemplo quando terminar de explorar", { checked: false }),
       ],
     },
-    notes: {},
+    notes: {
+      [N1]: {
+        id: N1,
+        folder: "",
+        title: "Como usar as anotações",
+        created: Date.now(),
+        updated: Date.now(),
+        body: [
+          "Escreva em **Markdown**: `#` para títulos, `-` para listas, `**negrito**` e `*itálico*`.",
+          "",
+          "## Ligue suas ideias",
+          "- Digite `[[` e escolha uma nota para criar um link, como [[Ideias]].",
+          "- Se a nota ainda não existir, clicar no link cria a nota.",
+          "- No painel à direita aparecem as **menções**: as notas que apontam para esta.",
+          "",
+          "## Organize",
+          "- Use pastas no painel da esquerda e #tags no texto, como #exemplo.",
+          "- O botão **Nota do dia** abre um diário com o que está marcado para hoje.",
+          "- O **Grafo** mostra como as notas se conectam.",
+          "",
+        ].join("\n"),
+      },
+      [N2]: {
+        id: N2,
+        folder: "",
+        title: "Ideias",
+        created: Date.now(),
+        updated: Date.now(),
+        body: "- Anote aqui o que vier à cabeça. Volte para [[Como usar as anotações]].\n\n#exemplo\n",
+      },
+    },
     habits: [
       { id: uid(), name: "Ler 20 minutos", icon: "📖" },
       { id: uid(), name: "Exercício", icon: "🏃" },

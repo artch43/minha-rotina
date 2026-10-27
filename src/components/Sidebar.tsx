@@ -1,7 +1,7 @@
 import { Fragment, useState } from "react";
 import type { Page } from "../lib/types";
 import { childrenOf, descendants } from "../lib/model";
-import { addPage, closePop, deletePage, go, movePage, openPop, useStore } from "../store";
+import { addPage, closePop, deletePage, go, movePage, openDailyNote, openNotes, openPop, useStore } from "../store";
 import { Confirm } from "./ui";
 import { cloudEnabled } from "../lib/supabase";
 
@@ -145,6 +145,33 @@ export function Sidebar() {
             ))}
           </>
         )}
+        <div className="side-sec">Espaços</div>
+        <div
+          className={"navrow" + (route === "notes" ? " on" : "")}
+          role="button"
+          tabIndex={0}
+          onClick={() => openNotes()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") openNotes();
+          }}
+        >
+          <span className="chev" style={{ visibility: "hidden" }} />
+          <span className="ic">📓</span>
+          <span className="nm">Anotações</span>
+          <span className="acts">
+            <button
+              className="iconbtn keep"
+              title="Nota do dia"
+              aria-label="Nota do dia"
+              onClick={(e) => {
+                e.stopPropagation();
+                openDailyNote();
+              }}
+            >
+              📅
+            </button>
+          </span>
+        </div>
         <div className="side-sec">Páginas</div>
         {tree(null, 0)}
       </div>
