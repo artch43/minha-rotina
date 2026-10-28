@@ -70,7 +70,7 @@ src/
     notes/              Anotações: NotesView, NoteEditor (CodeMirror), NoteReader
     Home.tsx, TodoPage.tsx, Habits.tsx, Search.tsx, Settings.tsx, Trash.tsx, Auth.tsx
 supabase/
-  migrations/           SQL do banco (rode na ordem: 001, 002)
+  migrations/           SQL do banco (rode na ordem: 001, 002, 003)
   functions/            send-reminders: envia os alertas por e-mail
   cron.sql              agenda a função para rodar a cada minuto
 ```
@@ -88,7 +88,7 @@ O app funciona de dois jeitos:
 1. Crie uma conta gratuita em [supabase.com](https://supabase.com) e um projeto novo.
 2. No projeto, abra **SQL Editor → New query**, cole o conteúdo de
    `supabase/migrations/001_init.sql` e clique em **Run**. Depois faça o mesmo com
-   `002_events_reminders.sql`. Isso cria as tabelas `records` e `reminders` com as
+   `002_events_reminders.sql` e `003_grants.sql`. Isso cria as tabelas `records` e `reminders` com as
    regras de acesso (cada usuário só vê os próprios dados).
 3. Em **Project Settings → API**, copie a **Project URL** e a chave **anon public**.
 4. Copie `.env.example` para `.env.local` e preencha as duas variáveis.
