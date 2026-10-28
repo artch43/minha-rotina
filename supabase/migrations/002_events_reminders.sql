@@ -25,7 +25,7 @@ drop policy if exists "reminders: insert own" on public.reminders;
 drop policy if exists "reminders: delete own" on public.reminders;
 create policy "reminders: read own"   on public.reminders for select using (auth.uid() = user_id);
 create policy "reminders: insert own" on public.reminders for insert with check (auth.uid() = user_id);
-create policy "reminders: delete own" on public.reminders for delete using (auth.uid() = user_id and sent_at is null);
+create policy "reminders: delete own" on public.reminders for delete using (auth.uid() = user_id);
 
 -- 3. Used only by the send-reminders function (service role): due reminders with the person's e-mail.
 create or replace function public.due_reminders(max_rows int default 100)

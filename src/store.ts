@@ -5,7 +5,7 @@ import { toast as sonner } from "sonner";
 import type { Area, CalendarEvent, Color, Group, Item, Note, PropValue, Todo, Workspace } from "./lib/types";
 import { template, mkDb, DEFAULT_STATUS } from "./lib/template";
 import { applyStatusChange, childrenOf, runReviews, statusProp } from "./lib/model";
-import { today, uid } from "./lib/util";
+import { addDays, diffDays, parseD, today, uid } from "./lib/util";
 import { dailyBody, findByTitle, renameLinks, uniqueTitle } from "./lib/notes";
 import { STORAGE_KEY, workspaceStorage } from "./lib/storage";
 import { normalizeWorkspace } from "./lib/migrate";
@@ -29,6 +29,9 @@ export interface UI {
   noteMode: "edit" | "read";
   noteTag: string | null;
   notesTab: "list" | "note" | "side";
+  /** Notes: show the list of notes / the side panel (outline and links). */
+  notesList: boolean;
+  notesSide: boolean;
 }
 interface Store {
   ws: Workspace;
@@ -53,6 +56,8 @@ const defaultUi: UI = {
   noteMode: "edit",
   noteTag: null,
   notesTab: "list",
+  notesList: true,
+  notesSide: false,
 };
 
 export const useStore = create<Store>()(
@@ -81,6 +86,8 @@ export const useStore = create<Store>()(
           ui: {
             viewByDb: s.ui.viewByDb,
             noteMode: s.ui.noteMode,
+            notesList: s.ui.notesList,
+            notesSide: s.ui.notesSide,
             area: s.ui.area,
             calendar: { view: s.ui.calendar.view, showTasks: s.ui.calendar.showTasks },
           },
@@ -104,6 +111,35 @@ const ws = () => useStore.getState().ws;
 export function toast(msg: string, undo?: () => void) {
   if (undo) sonner(msg, { action: { label: "Desfazer", onClick: undo }, duration: 6000 });
   else sonner(msg);
+}
+/** Confirmation with a custom action button (e.g. "Ver no calendário"). */
+export function notify(msg: string, action?: { label: string; onClick: () => void }, description?: string, id?: string) {
+  sonner(msg, { id, action, description, duration: action ? 6000 : 4000 });
+}
+
+/** Tells the person a task landed on the calendar, with a shortcut to see it there. */
+function announceDate(itemId: string, title: string, date: string, moved: boolean) {
+  const day = parseD(date.slice(0, 10))
+    .toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" })
+    .replaceAll(".", "");
+  const time = date.slice(11, 16);
+  notify(
+    `${moved ? "Remarcada para" : "Adicionada ao calendário:"} ${day}${time ? " às " + time : ""}`,
+    {
+      label: "Ver no calendário",
+      onClick: () => {
+        const cal = ws().pages.find((p) => p.type === "calendar");
+        if (!cal) return;
+        setUi((u) => {
+          u.calendar.anchor = date.slice(0, 10);
+          u.peek = null;
+        });
+        go(cal.id);
+      },
+    },
+    title || undefined,
+    "date-" + itemId, // a newer change replaces the previous message instead of stacking
+  );
 }
 
 export function replaceWorkspace(next: Workspace) {
@@ -140,7 +176,8 @@ export const openModal = (m: Modal) =>
   });
 
 /* ---------- tasks ---------- */
-export function setProp(itemId: string, propId: string, value: PropValue | null) {
+export function setProp(itemId: string, propId: string, value: PropValue | null, opts: { quiet?: boolean } = {}) {
+  const prevDate = ws().items[itemId]?.props.date;
   mut((w) => {
     const item = w.items[itemId];
     if (!item) return;
@@ -153,6 +190,15 @@ export function setProp(itemId: string, propId: string, value: PropValue | null)
     if (prop.type === "status" && old !== value) applyStatusChange(item, db, old, value ?? undefined);
     item.updated = Date.now();
   });
+  // A task that gets a (new) day shows up on the calendar: say so.
+  if (
+    propId === "date" &&
+    typeof value === "string" &&
+    value &&
+    !opts.quiet &&
+    String(prevDate ?? "").slice(0, 10) !== value.slice(0, 10)
+  )
+    announceDate(itemId, ws().items[itemId]?.title ?? "", value, !!prevDate);
 }
 export function patchItem(itemId: string, fn: (it: Item) => void) {
   mut((w) => {
@@ -186,6 +232,7 @@ export function newItem(dbId: string, props: Record<string, PropValue> = {}, tit
     Object.assign(it.props, props);
     w.items[id] = it;
   });
+  if (typeof props.date === "string" && props.date && title) announceDate(id, title, props.date, false);
   return id;
 }
 export function deleteItem(id: string) {
@@ -366,13 +413,17 @@ export function saveEvent(data: Omit<CalendarEvent, "id" | "created" | "updated"
   });
   return eid;
 }
-export function moveEvent(id: string, date: string) {
+/** Moves an event; for a repeating event, dragging one day moves the whole series by the same number of days. */
+export function moveEvent(id: string, date: string, fromDay?: string) {
   mut((w) => {
     const e = w.events[id];
-    if (e && e.date !== date) {
-      e.date = date;
-      e.updated = Date.now();
-    }
+    if (!e) return;
+    const repeating = e.repeat && e.repeat !== "none";
+    const next = repeating && fromDay ? addDays(e.date, diffDays(date, fromDay)) : date;
+    if (next === e.date) return;
+    if (e.repeatUntil) e.repeatUntil = addDays(e.repeatUntil, diffDays(next, e.date));
+    e.date = next;
+    e.updated = Date.now();
   });
 }
 export function deleteEvent(id: string) {
@@ -381,7 +432,7 @@ export function deleteEvent(id: string) {
   mut((w) => {
     delete w.events[id];
   });
-  toast("Evento excluído", () =>
+  toast(snap.repeat && snap.repeat !== "none" ? "Evento excluído (todas as datas)" : "Evento excluído", () =>
     mut((w) => {
       w.events[id] = snap;
     }),
@@ -453,6 +504,20 @@ export function clearDoneTodos() {
 }
 
 /* ---------- habits ---------- */
+export function deleteHabit(id: string) {
+  const list = ws().habits;
+  const index = list.findIndex((h) => h.id === id);
+  if (index < 0) return;
+  const snap = list[index];
+  mut((w) => {
+    w.habits = w.habits.filter((h) => h.id !== id);
+  });
+  toast(`Hábito “${snap.name}” excluído`, () =>
+    mut((w) => {
+      w.habits.splice(index, 0, snap);
+    }),
+  );
+}
 export function toggleHabit(hid: string, day: string) {
   mut((w) => {
     const cur = w.habitLog[day] || [];

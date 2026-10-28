@@ -4,8 +4,9 @@ import { supabase } from "./supabase";
 import { applyRecords, diffEntities, fromRecords, keyOf, toEntities, type Ent, type Kind, type Rec } from "./records";
 import { normalizeWorkspace } from "./backup";
 import { template } from "./template";
-import type { CalendarEvent, Workspace } from "./types";
-import { remindersFor } from "./events";
+import type { CalendarEvent, Item, Workspace } from "./types";
+import { remindersFor, taskAlertSource, type ReminderRow } from "./events";
+import { groupOf } from "./model";
 import { STORAGE_KEY } from "./storage";
 import { useStore } from "../store";
 
@@ -42,17 +43,19 @@ let flushTimer: number | undefined;
 let flushing = false;
 let unsubscribe: (() => void) | null = null;
 let pollTimer: number | undefined;
+/** Reminders last written for each event/task, so only real changes reach the database. */
+let reminderSigs: Record<string, string> = {};
 
 const cacheKey = () => STORAGE_KEY + ":" + uid;
 const metaKey = () => STORAGE_KEY + ":sync:" + uid;
 function saveMeta() {
   try {
-    localStorage.setItem(metaKey(), JSON.stringify({ lastSync, pending: [...pending.values()] }));
+    localStorage.setItem(metaKey(), JSON.stringify({ lastSync, pending: [...pending.values()], reminderSigs }));
   } catch {
     /* storage full or blocked */
   }
 }
-function loadMeta(): { lastSync: string; pending: Rec[] } {
+function loadMeta(): { lastSync: string; pending: Rec[]; reminderSigs?: Record<string, string> } {
   try {
     return JSON.parse(localStorage.getItem(metaKey()) || "null") ?? { lastSync: EPOCH, pending: [] };
   } catch {
@@ -88,11 +91,9 @@ function onStoreChange(ws: Workspace) {
     const e = prev.get(k)!;
     pending.set(k, { kind: e.kind, id: e.id, data: e.data, deleted_at: now });
   }
-  // Turning e-mail alerts on or off rewrites the reminders of every event.
+  // Turning e-mail alerts on or off rewrites the reminders of every event and task.
   const alerts = ws.settings.emailAlerts;
-  if (lastAlerts !== null && alerts !== lastAlerts)
-    for (const e of next.values())
-      if (e.kind === "event") pending.set(keyOf("event", e.id), { kind: "event", id: e.id, data: e.data, deleted_at: null });
+  if (lastAlerts !== null && alerts !== lastAlerts) setTimeout(refreshAllReminders, 1000);
   lastAlerts = alerts;
   prev = next;
   saveMeta();
@@ -103,17 +104,50 @@ function onStoreChange(ws: Workspace) {
 
 let lastAlerts: boolean | null = null;
 
-/** Rewrites the pending e-mail reminders of these events (sent ones are kept as history). */
+function wantedReminders(r: Rec): ReminderRow[] {
+  const ws = useStore.getState().ws;
+  if (r.deleted_at || !ws.settings.emailAlerts) return [];
+  if (r.kind === "event") return remindersFor(r.data as CalendarEvent);
+  if (r.kind === "item") {
+    const it = r.data as Item;
+    const db = ws.dbs[it.db];
+    const src = taskAlertSource(it, !!db && groupOf(db, it) === "done");
+    return src ? remindersFor(src) : [];
+  }
+  return [];
+}
+
+/** Rewrites the pending e-mail reminders of these events/tasks when they changed (sent ones stay as history). */
 async function syncReminders(rows: Rec[]) {
-  const enabled = useStore.getState().ws.settings.emailAlerts;
   for (const r of rows) {
+    if (r.kind !== "event" && r.kind !== "item") continue;
+    const list = wantedReminders(r);
+    const key = keyOf(r.kind, r.id);
+    const sig = JSON.stringify(list.map((x) => [x.send_at, x.title, x.when_label]));
+    if ((reminderSigs[key] ?? "[]") === sig) continue;
     const del = await supabase!.from("reminders").delete().eq("event_id", r.id).is("sent_at", null);
     if (del.error) throw del.error;
-    if (r.deleted_at || !enabled) continue;
-    const list = remindersFor(r.data as CalendarEvent);
-    if (!list.length) continue;
-    const ins = await supabase!.from("reminders").insert(list.map((x) => ({ ...x, user_id: uid })));
-    if (ins.error) throw ins.error;
+    if (list.length) {
+      const ins = await supabase!.from("reminders").insert(list.map((x) => ({ ...x, user_id: uid })));
+      if (ins.error) throw ins.error;
+    }
+    if (list.length) reminderSigs[key] = sig;
+    else delete reminderSigs[key];
+  }
+  saveMeta();
+}
+
+/** Re-checks every event and task: after turning alerts on/off, and on each start (repeating events roll forward). */
+async function refreshAllReminders() {
+  const ws = useStore.getState().ws;
+  const rows: Rec[] = [
+    ...Object.values(ws.events).map((e) => ({ kind: "event" as const, id: e.id, data: e })),
+    ...Object.values(ws.items).map((i) => ({ kind: "item" as const, id: i.id, data: i })),
+  ];
+  try {
+    await syncReminders(rows);
+  } catch {
+    /* retried on the next start or edit */
   }
 }
 
@@ -130,8 +164,9 @@ export async function flush() {
       const { error } = await supabase.from(TABLE).upsert(rows, { onConflict: "user_id,kind,id" });
       if (error) throw error;
     }
-    const events = batch.map(([, r]) => r).filter((r) => r.kind === "event");
-    if (events.length) await syncReminders(events);
+    // Reminders are best-effort: a failure here must not hold back saving the data itself.
+    // Their signatures stay unchanged, so they are retried on the next edit or app start.
+    await syncReminders(batch.map(([, r]) => r)).catch(() => undefined);
     setStatus(pending.size ? "saving" : "saved");
   } catch {
     // Keep anything that failed, unless a newer change for the same entity arrived meanwhile.
@@ -195,6 +230,7 @@ export async function startCloud(user: User) {
   const meta = hadCache ? loadMeta() : { lastSync: EPOCH, pending: [] };
   lastSync = meta.lastSync;
   pending = new Map(meta.pending.map((r) => [keyOf(r.kind, r.id), r]));
+  reminderSigs = meta.reminderSigs ?? {};
 
   let rows: Rec[];
   try {
@@ -279,6 +315,7 @@ function begin() {
   useSync.setState({ phase: "ready", status: pending.size ? "saving" : "saved" });
   flush();
   purgeOld();
+  setTimeout(refreshAllReminders, 3000);
   clearInterval(pollTimer);
   pollTimer = window.setInterval(() => {
     if (!document.hidden) pull();
@@ -304,7 +341,9 @@ export async function deleteAllMyData() {
   clearTimeout(flushTimer);
   pending = new Map();
   const { error } = await supabase.from(TABLE).delete().eq("user_id", uid);
-  if (error) throw new Error("Não foi possível apagar seus dados. Tente de novo.");
+  const rem = await supabase.from("reminders").delete().eq("user_id", uid);
+  if (error || rem.error) throw new Error("Não foi possível apagar seus dados. Tente de novo.");
+  reminderSigs = {};
   await signOut();
 }
 

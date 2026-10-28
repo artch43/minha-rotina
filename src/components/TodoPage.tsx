@@ -128,6 +128,7 @@ export function TodoRow({ t, compact }: { t: Todo; compact?: boolean }) {
   const late = !t.done && t.date && t.date < today();
   return (
     <li
+      data-del={"todo:" + t.id}
       style={areaVar(area)}
       className={cn("area-stripe group flex items-center gap-3 rounded-lg py-1.5 pr-1 pl-4 hover:bg-muted/60", compact && "py-1")}
     >

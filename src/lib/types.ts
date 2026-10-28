@@ -75,6 +75,8 @@ export interface Item {
   props: Record<string, PropValue>;
   /** Free-text notes for the task. */
   notes: string;
+  /** Minutes before the task's date/time when an e-mail alert is sent. */
+  alerts?: number[];
   area?: string;
   /** Legacy (version 1). Converted into `notes` on load. */
   blocks?: Block[];
@@ -119,9 +121,13 @@ export interface CalendarEvent {
   notes: string;
   /** Minutes before the start when an e-mail alert is sent. */
   alerts: number[];
+  /** Repeats from `date` on; the series ends after `repeatUntil` (inclusive) when set. */
+  repeat?: Repeat;
+  repeatUntil?: string;
   created: number;
   updated: number;
 }
+export type Repeat = "none" | "daily" | "weekdays" | "weekly" | "monthly";
 /** A quick to-do: just text, a checkbox and optionally a day and an area. */
 export interface Todo {
   id: string;

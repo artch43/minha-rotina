@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Area } from "@/lib/types";
 import { monthGrid } from "@/lib/events";
@@ -16,6 +16,9 @@ export interface Entry {
   time?: string;
   area?: Area;
   done?: boolean;
+  /** The day this entry is shown on (for repeating events, the occurrence). */
+  date?: string;
+  repeat?: boolean;
   /** Spaced-review reminders are shown but cannot be dragged. */
   fixed?: boolean;
 }
@@ -27,9 +30,10 @@ export function EntryChip({ e, onOpen, compact }: { e: Entry; onOpen: (e: Entry)
     <button
       type="button"
       draggable={!e.fixed}
+      data-del={e.fixed ? undefined : `${e.kind}:${e.id}`}
       onDragStart={(ev) => {
         ev.dataTransfer.effectAllowed = "move";
-        ev.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ kind: e.kind, id: e.id }));
+        ev.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ kind: e.kind, id: e.id, from: e.date }));
       }}
       onClick={(ev) => {
         ev.stopPropagation();
@@ -38,7 +42,7 @@ export function EntryChip({ e, onOpen, compact }: { e: Entry; onOpen: (e: Entry)
       title={(e.time ? e.time + " · " : "") + e.title}
       style={areaVar(e.area)}
       className={cn(
-        "flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-xs transition-colors",
+        "flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         e.kind === "event" ? "area-soft font-medium text-foreground hover:brightness-95" : "text-muted-foreground hover:bg-muted",
         e.done && "line-through opacity-60",
         compact && "py-0",
@@ -50,6 +54,7 @@ export function EntryChip({ e, onOpen, compact }: { e: Entry; onOpen: (e: Entry)
       />
       {e.time && <span className="shrink-0 tabular-nums">{e.time}</span>}
       <span className="truncate">{e.title || "Sem título"}</span>
+      {e.repeat && <Repeat className="size-3 shrink-0 opacity-70" aria-label="Repete" />}
     </button>
   );
 }
@@ -67,7 +72,7 @@ export function MonthView({
   byDay: Record<string, Entry[]>;
   onOpen: (e: Entry) => void;
   onAdd?: (date: string) => void;
-  onMove: (e: { kind: Entry["kind"]; id: string }, date: string) => void;
+  onMove: (e: { kind: Entry["kind"]; id: string; from?: string }, date: string) => void;
   max?: number;
 }) {
   const days = monthGrid(anchor);

@@ -1,21 +1,20 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { BellRing, Plus, Trash2, X } from "lucide-react";
-import type { CalendarEvent } from "@/lib/types";
-import { ALERT_PRESETS, alertLabel, minutesOf } from "@/lib/events";
-import { cloudEnabled } from "@/lib/supabase";
+import { Trash2 } from "lucide-react";
+import type { CalendarEvent, Repeat } from "@/lib/types";
+import { AlertPicker } from "./AlertPicker";
+import { REPEAT_LABELS, minutesOf } from "@/lib/events";
 import { pad, today } from "@/lib/util";
 import { deleteEvent, saveEvent, useStore } from "@/store";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AreaDot, useAreas } from "../common";
+import { Kbd } from "@/components/ui/kbd";
+import { MOD } from "@/lib/shortcuts";
 
 type Draft = Omit<CalendarEvent, "id" | "created" | "updated">;
 const NONE = "__none";
@@ -68,14 +67,13 @@ export function EventDialog() {
     });
   if (!req || !d) return null;
   const set = (p: Partial<Draft>) => setD({ ...d, ...p });
-  const presetValues = ALERT_PRESETS.map((p) => String(p.minutes));
-  const custom = d.alerts.filter((m) => !ALERT_PRESETS.some((p) => p.minutes === m));
-  const emailOff = !cloudEnabled || !settings.emailAlerts;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!d.title.trim()) return setError("Dê um nome ao evento.");
     if (!d.allDay && d.end && minutesOf(d.end) < minutesOf(d.start)) return setError("O fim precisa ser depois do início.");
+    if (d.repeat && d.repeat !== "none" && d.repeatUntil && d.repeatUntil < d.date)
+      return setError("A data final da repetição precisa ser depois do primeiro dia.");
     saveEvent({ ...d, title: d.title.trim(), alerts: [...new Set(d.alerts)].sort((a, b) => a - b) }, req.id);
     close();
   };
@@ -163,52 +161,45 @@ export function EventDialog() {
               </Field>
             </div>
 
-            <FieldSet>
-              <FieldLegend variant="label" className="flex items-center gap-1.5">
-                <BellRing className="size-4" />
-                Avisar por e-mail
-              </FieldLegend>
-              <FieldDescription>
-                {emailOff
-                  ? !cloudEnabled
-                    ? "Alertas por e-mail precisam de uma conta. Você pode escolher agora; eles começam a valer quando você entrar."
-                    : "Os alertas por e-mail estão desligados nas Configurações."
-                  : d.allDay
-                    ? "Para eventos de dia inteiro, o horário de referência é 9:00."
-                    : "Você pode escolher mais de um."}
-              </FieldDescription>
-              <ToggleGroup
-                type="multiple"
-                variant="outline"
-                size="sm"
-                spacing={2}
-                className="flex-wrap"
-                value={d.alerts.map(String).filter((v) => presetValues.includes(v))}
-                onValueChange={(v) => set({ alerts: [...v.map(Number), ...custom] })}
-              >
-                {ALERT_PRESETS.map((p) => (
-                  <ToggleGroupItem key={p.minutes} value={String(p.minutes)} className="px-2.5">
-                    {p.label}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-              <div className="flex flex-wrap items-center gap-2">
-                {custom.map((m) => (
-                  <Badge key={m} variant="secondary" className="gap-1 pr-1">
-                    {alertLabel(m)}
-                    <button
-                      type="button"
-                      aria-label={`Tirar ${alertLabel(m)}`}
-                      className="rounded-full p-0.5 hover:bg-background"
-                      onClick={() => set({ alerts: d.alerts.filter((x) => x !== m) })}
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </Badge>
-                ))}
-                <CustomAlert onAdd={(m) => set({ alerts: [...d.alerts, m] })} />
-              </div>
-            </FieldSet>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="ev-repeat">Repetir</FieldLabel>
+                <Select
+                  value={d.repeat ?? "none"}
+                  onValueChange={(v) => set({ repeat: v as Repeat, ...(v === "none" ? { repeatUntil: undefined } : {}) })}
+                >
+                  <SelectTrigger id="ev-repeat" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {(Object.entries(REPEAT_LABELS) as [Repeat, string][]).map(([k, n]) => (
+                        <SelectItem key={k} value={k}>
+                          {n}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+              {d.repeat && d.repeat !== "none" && (
+                <Field>
+                  <FieldLabel htmlFor="ev-until">Até (opcional)</FieldLabel>
+                  <Input
+                    id="ev-until"
+                    type="date"
+                    min={d.date}
+                    value={d.repeatUntil ?? ""}
+                    onChange={(e) => set({ repeatUntil: e.target.value || undefined })}
+                  />
+                </Field>
+              )}
+            </div>
+            {d.repeat && d.repeat !== "none" && existing && (
+              <FieldDescription>As mudanças valem para todas as datas deste evento.</FieldDescription>
+            )}
+
+            <AlertPicker value={d.alerts} onChange={(alerts) => set({ alerts })} allDay={d.allDay} />
 
             <Field>
               <FieldLabel htmlFor="ev-notes">Descrição</FieldLabel>
@@ -235,6 +226,7 @@ export function EventDialog() {
               >
                 <Trash2 data-icon="inline-start" />
                 Excluir evento
+                <Kbd className="ml-1 hidden sm:inline-flex">{MOD}⌫</Kbd>
               </Button>
             ) : (
               <span />
@@ -249,62 +241,5 @@ export function EventDialog() {
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function CustomAlert({ onAdd }: { onAdd: (minutes: number) => void }) {
-  const [open, setOpen] = useState(false);
-  const [n, setN] = useState("2");
-  const [unit, setUnit] = useState("60");
-  const add = () => {
-    const v = Math.round(Number(n));
-    if (v > 0) {
-      onAdd(v * Number(unit));
-      setOpen(false);
-    }
-  };
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="sm">
-          <Plus data-icon="inline-start" />
-          Personalizado
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="flex w-72 flex-col gap-3" align="start">
-        <span className="text-sm font-medium">Avisar antes do evento</span>
-        <div className="flex gap-2">
-          <Input
-            type="number"
-            min={1}
-            aria-label="Quantidade"
-            className="w-20"
-            value={n}
-            onChange={(e) => setN(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                add();
-              }
-            }}
-          />
-          <Select value={unit} onValueChange={setUnit}>
-            <SelectTrigger aria-label="Unidade" className="flex-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="1">minutos</SelectItem>
-                <SelectItem value="60">horas</SelectItem>
-                <SelectItem value="1440">dias</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button type="button" onClick={add}>
-          Adicionar alerta
-        </Button>
-      </PopoverContent>
-    </Popover>
   );
 }

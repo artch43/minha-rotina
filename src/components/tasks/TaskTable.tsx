@@ -47,6 +47,7 @@ export function TaskTable({ db, list, hasAny, onCreate }: { db: Database; list: 
             return (
               <tr
                 key={it.id}
+                data-del={"task:" + it.id}
                 tabIndex={0}
                 className="cursor-pointer border-b last:border-0 hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
                 onClick={() => openPeek(it.id)}

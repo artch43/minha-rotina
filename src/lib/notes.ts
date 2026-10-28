@@ -59,7 +59,7 @@ function snippetAround(body: string, title: string) {
       const p = parseWiki(inner);
       return p.alias || p.target;
     })
-    .replace(/^[#>\-*\s]+/, "")
+    .replace(/^\s*([-*]\s+\[[ x]\]\s+|#{1,6}\s+|[-*]\s+|\d+\.\s+|>\s+)/, "")
     .slice(0, 160);
 }
 
@@ -126,4 +126,31 @@ export function safeFileName(s: string) {
       .trim()
       .slice(0, 120) || "Sem título"
   );
+}
+
+/** A short plain-text preview of a note (Markdown marks and link brackets removed). */
+export function plainSnippet(body: string, max = 160) {
+  return stripCode(body)
+    .replace(/\[\[([^\]\n]+?)\]\]/g, (_, inner: string) => {
+      const p = parseWiki(inner);
+      return p.alias || p.target;
+    })
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/^\s*(#{1,6}\s+|[-*]\s+\[[ x]\]\s+|[-*]\s+|\d+\.\s+|>\s+)/gm, "")
+    .replace(/[*_~`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+/** "agora", "há 5 min", "há 3 h", "ontem", "há 4 dias", or the date. */
+export function ago(ts: number, now = Date.now()) {
+  const s = Math.round((now - ts) / 1000);
+  if (s < 60) return "agora";
+  if (s < 3600) return `há ${Math.floor(s / 60)} min`;
+  if (s < 86400) return `há ${Math.floor(s / 3600)} h`;
+  const d = Math.floor(s / 86400);
+  if (d === 1) return "ontem";
+  if (d < 7) return `há ${d} dias`;
+  return new Date(ts).toLocaleDateString("pt-BR", { day: "numeric", month: "short" }).replaceAll(".", "");
 }

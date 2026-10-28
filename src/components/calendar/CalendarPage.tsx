@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Workspace } from "@/lib/types";
 import { eventsByDay, inArea, minutesOf, monthGrid, weekOf } from "@/lib/events";
 import { dateOf, groupOf } from "@/lib/model";
 import { MONTHS, addDays, pad, parseD, today } from "@/lib/util";
-import { go, moveEvent, openEvent, openPeek, patchItem, updateTodo, useStore } from "@/store";
+import { go, moveEvent, openEvent, openPeek, setProp, updateTodo, useStore } from "@/store";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -13,30 +13,36 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DRAG_TYPE, EntryChip, MonthView, type Entry } from "./MonthView";
 import { areaVar } from "../common";
 
-/** Events, plus (optionally) dated tasks and to-dos, for each day between `from` and `to`. */
+type Dropped = { kind: Entry["kind"]; id: string; from?: string };
+
+/** Events (each repeat on its own day), plus dated tasks and to-dos when shown, for each day between `from` and `to`. */
 function collect(ws: Workspace, from: string, to: string, area: string, showTasks: boolean) {
   const areaOf = (id?: string) => ws.settings.areas.find((a) => a.id === id);
   const byDay: Record<string, Entry[]> = {};
   const ev = eventsByDay(ws, from, to, area);
   for (const d in ev)
     byDay[d] = ev[d].map((e) => ({
-      key: "e" + e.id,
+      key: "e" + e.id + d,
       id: e.id,
       kind: "event",
       title: e.title,
+      date: d,
       time: e.allDay ? undefined : e.start,
       area: areaOf(e.area),
+      repeat: !!e.repeat && e.repeat !== "none",
     }));
   if (showTasks) {
     for (const it of Object.values(ws.items)) {
       const db = ws.dbs[it.db];
       const d = db ? dateOf(db, it) : "";
-      if (!d || d.slice(0, 10) < from || d.slice(0, 10) > to || !inArea(it.area, area)) continue;
-      (byDay[d.slice(0, 10)] ??= []).push({
+      const day = d.slice(0, 10);
+      if (!d || day < from || day > to || !inArea(it.area, area)) continue;
+      (byDay[day] ??= []).push({
         key: "t" + it.id,
         id: it.id,
         kind: "task",
         title: it.title,
+        date: day,
         time: d.slice(11, 16) || undefined,
         area: areaOf(it.area),
         done: groupOf(db, it) === "done",
@@ -44,7 +50,15 @@ function collect(ws: Workspace, from: string, to: string, area: string, showTask
     }
     for (const t of Object.values(ws.todos)) {
       if (!t.date || t.date < from || t.date > to || !inArea(t.area, area)) continue;
-      (byDay[t.date] ??= []).push({ key: "d" + t.id, id: t.id, kind: "todo", title: t.text, area: areaOf(t.area), done: t.done });
+      (byDay[t.date] ??= []).push({
+        key: "d" + t.id,
+        id: t.id,
+        kind: "todo",
+        title: t.text,
+        date: t.date,
+        area: areaOf(t.area),
+        done: t.done,
+      });
     }
   }
   for (const d in byDay)
@@ -57,29 +71,39 @@ function collect(ws: Workspace, from: string, to: string, area: string, showTask
 function openEntry(e: Entry) {
   if (e.kind === "event") openEvent(e.id);
   else if (e.kind === "task") openPeek(e.id);
-  else go("todo");
+  else {
+    const p = useStore.getState().ws.pages.find((x) => x.type === "todo");
+    if (p) go(p.id);
+  }
 }
 
 /** Moves anything dropped on a day to that day (and, for events in the week view, to that time). */
-function moveEntry(e: { kind: Entry["kind"]; id: string }, date: string, minutes?: number) {
+function moveEntry(e: Dropped, date: string, minutes?: number) {
+  const { ws, mut } = useStore.getState();
   if (e.kind === "event") {
-    moveEvent(e.id, date);
+    moveEvent(e.id, date, e.from);
     if (minutes !== undefined)
-      useStore.getState().mut((w) => {
+      mut((w) => {
         const ev = w.events[e.id];
         if (!ev || ev.allDay) return;
         const length = Math.max(15, minutesOf(ev.end || ev.start) - minutesOf(ev.start));
         const hhmm = (m: number) => pad(Math.floor(m / 60) % 24) + ":" + pad(m % 60);
         ev.start = hhmm(minutes);
         ev.end = hhmm(Math.min(minutes + length, 23 * 60 + 59));
+        ev.updated = Date.now();
       });
-  } else if (e.kind === "task")
-    patchItem(e.id, (it) => {
-      const cur = typeof it.props.date === "string" ? it.props.date : "";
-      it.props.date = date + cur.slice(10);
-    });
-  else updateTodo(e.id, { date });
+  } else if (e.kind === "task") {
+    const cur = ws.items[e.id]?.props.date;
+    setProp(e.id, "date", date + (typeof cur === "string" ? cur.slice(10) : ""));
+  } else updateTodo(e.id, { date });
 }
+const parseDrop = (dt: DataTransfer): Dropped | null => {
+  try {
+    return JSON.parse(dt.getData(DRAG_TYPE));
+  } catch {
+    return null;
+  }
+};
 
 export function CalendarPage() {
   const ws = useStore((s) => s.ws);
@@ -100,18 +124,19 @@ export function CalendarPage() {
     set({ anchor: `${n.getFullYear()}-${pad(n.getMonth() + 1)}-01` });
   };
   const week = weekOf(anchor);
+  const w0 = parseD(week[0]),
+    w6 = parseD(week[6]);
   const label =
     cal.view === "month"
       ? `${MONTHS[d.getMonth()]} ${d.getFullYear()}`
-      : `${parseD(week[0]).getDate()} ${MONTHS[parseD(week[0]).getMonth()].slice(0, 3)} – ${parseD(week[6]).getDate()} ${MONTHS[parseD(week[6]).getMonth()].slice(0, 3)} ${parseD(week[6]).getFullYear()}`;
+      : `${w0.getDate()} ${MONTHS[w0.getMonth()].slice(0, 3)} – ${w6.getDate()} ${MONTHS[w6.getMonth()].slice(0, 3)} ${w6.getFullYear()}`;
+  const newEventDay = cal.view === "month" && anchor.slice(0, 7) !== today().slice(0, 7) ? anchor : today();
 
   return (
     <div className="flex flex-col gap-4 px-4 py-6 md:px-8">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="mr-auto text-2xl font-bold tracking-tight capitalize md:text-3xl">{label}</h1>
-        <Button
-          onClick={() => openEvent(null, cal.view === "month" && anchor.slice(0, 7) !== today().slice(0, 7) ? anchor : today())}
-        >
+        <Button onClick={() => openEvent(null, newEventDay)}>
           <Plus data-icon="inline-start" />
           Novo evento
         </Button>
@@ -142,7 +167,7 @@ export function CalendarPage() {
         </ToggleGroup>
         <div className="ml-auto flex items-center gap-2">
           <Switch id="show-tasks" checked={cal.showTasks} onCheckedChange={(v) => set({ showTasks: v })} />
-          <Label htmlFor="show-tasks">Mostrar tarefas</Label>
+          <Label htmlFor="show-tasks">Mostrar tarefas e afazeres</Label>
         </div>
       </div>
       {cal.view === "month" ? (
@@ -157,8 +182,8 @@ export function CalendarPage() {
         <WeekView days={week} byDay={byDay} />
       )}
       <p className="text-xs text-muted-foreground">
-        Arraste um evento ou tarefa para outro dia para remarcar. Os eventos aparecem com fundo colorido; tarefas e afazeres, só
-        com o ponto da área.
+        Arraste para remarcar. Eventos aparecem com fundo colorido; tarefas e afazeres, só com o ponto da área. Na semana, clique
+        duas vezes num horário para criar um evento.
       </p>
     </div>
   );
@@ -170,18 +195,18 @@ const START_H = 6,
 
 function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry[]> }) {
   const ws = useStore((s) => s.ws);
+  const area = useStore((s) => s.ui.area);
   const T = today();
   const [over, setOver] = useState<string | null>(null);
   const hours = Array.from({ length: END_H - START_H }, (_, i) => START_H + i);
-  const timed = (day: string) =>
-    Object.values(ws.events).filter(
-      (e) => e.date === day && !e.allDay && (byDay[day] ?? []).some((x) => x.kind === "event" && x.id === e.id),
-    );
+  const occ = eventsByDay(ws, days[0], days[6], area);
+  const timed = (day: string) => (occ[day] ?? []).filter((e) => !e.allDay);
   const untimed = (day: string) => (byDay[day] ?? []).filter((x) => x.kind !== "event" || !x.time);
   const minutesAt = (e: React.DragEvent | React.MouseEvent, el: HTMLElement) => {
     const y = e.clientY - el.getBoundingClientRect().top;
     return Math.max(START_H * 60, Math.min((END_H - 1) * 60 + 45, START_H * 60 + Math.round(((y / HOUR) * 60) / 15) * 15));
   };
+  const accepts = (e: React.DragEvent) => e.dataTransfer.types.includes(DRAG_TYPE);
   return (
     <div className="overflow-x-auto rounded-xl border bg-card">
       <div className="min-w-[720px]">
@@ -210,7 +235,7 @@ function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry
               key={d}
               className={cn("flex min-h-9 min-w-0 flex-col gap-0.5 border-l p-1", over === d + "-all" && "bg-primary/8")}
               onDragOver={(e) => {
-                if (e.dataTransfer.types.includes(DRAG_TYPE)) {
+                if (accepts(e)) {
                   e.preventDefault();
                   setOver(d + "-all");
                 }
@@ -219,11 +244,8 @@ function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry
               onDrop={(e) => {
                 e.preventDefault();
                 setOver(null);
-                try {
-                  moveEntry(JSON.parse(e.dataTransfer.getData(DRAG_TYPE)), d);
-                } catch {
-                  /* ignore */
-                }
+                const x = parseDrop(e.dataTransfer);
+                if (x) moveEntry(x, d);
               }}
             >
               {untimed(d).map((x) => (
@@ -238,7 +260,7 @@ function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry
               <div
                 key={h}
                 style={{ height: HOUR }}
-                className="pr-2 text-right text-[11px] text-muted-foreground tabular-nums -translate-y-2"
+                className="-translate-y-2 pr-2 text-right text-[11px] text-muted-foreground tabular-nums"
               >
                 {h > START_H ? `${pad(h)}:00` : ""}
               </div>
@@ -250,7 +272,7 @@ function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry
               className={cn("relative border-l", over === d && "bg-primary/5")}
               style={{ height: hours.length * HOUR }}
               onDragOver={(e) => {
-                if (e.dataTransfer.types.includes(DRAG_TYPE)) {
+                if (accepts(e)) {
                   e.preventDefault();
                   setOver(d);
                 }
@@ -261,11 +283,8 @@ function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry
               onDrop={(e) => {
                 e.preventDefault();
                 setOver(null);
-                try {
-                  moveEntry(JSON.parse(e.dataTransfer.getData(DRAG_TYPE)), d, minutesAt(e, e.currentTarget));
-                } catch {
-                  /* ignore */
-                }
+                const x = parseDrop(e.dataTransfer);
+                if (x) moveEntry(x, d, minutesAt(e, e.currentTarget));
               }}
               onDoubleClick={(e) => {
                 const m = minutesAt(e, e.currentTarget);
@@ -283,10 +302,13 @@ function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry
                 const s = Math.max(minutesOf(ev.start), START_H * 60),
                   e = Math.max(minutesOf(ev.end || ev.start), s + 30);
                 const a = ws.settings.areas.find((x) => x.id === ev.area);
+                const repeating = !!ev.repeat && ev.repeat !== "none";
                 return (
                   <button
                     key={ev.id}
                     draggable
+                    data-del={"event:" + ev.id}
+                    title={ev.title}
                     style={{
                       ...areaVar(a),
                       top: ((s - START_H * 60) / 60) * HOUR,
@@ -294,13 +316,16 @@ function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry
                     }}
                     onDragStart={(x) => {
                       x.dataTransfer.effectAllowed = "move";
-                      x.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ kind: "event", id: ev.id }));
+                      x.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ kind: "event", id: ev.id, from: d }));
                     }}
                     onClick={() => openEvent(ev.id)}
-                    className="area-soft area-stripe absolute inset-x-1 flex flex-col overflow-hidden rounded-md py-1 pr-1.5 pl-3 text-left text-xs hover:brightness-95"
+                    className="area-soft area-stripe absolute inset-x-1 flex flex-col overflow-hidden rounded-md py-1 pr-1.5 pl-3 text-left text-xs hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
-                    <span className="truncate font-semibold">{ev.title || "Sem título"}</span>
-                    <span className="truncate tabular-nums text-muted-foreground">
+                    <span className="flex items-center gap-1 truncate font-semibold">
+                      {ev.title || "Sem título"}
+                      {repeating && <Repeat className="size-3 shrink-0" aria-label="Repete" />}
+                    </span>
+                    <span className="truncate text-muted-foreground tabular-nums">
                       {ev.start}
                       {ev.end ? `–${ev.end}` : ""}
                     </span>

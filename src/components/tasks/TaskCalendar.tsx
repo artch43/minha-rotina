@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Database, Item } from "@/lib/types";
 import { groupOf } from "@/lib/model";
 import { MONTHS, parseD, pad, today, ymd } from "@/lib/util";
-import { openPeek, patchItem, useStore } from "@/store";
+import { openPeek, setProp, useStore } from "@/store";
 import { Button } from "@/components/ui/button";
 import { MonthView, type Entry } from "../calendar/MonthView";
 import { useAreas } from "../common";
@@ -85,10 +85,8 @@ export function TaskCalendar({
         onAdd={onCreate}
         onMove={(e, date) => {
           if (e.kind !== "task") return;
-          patchItem(e.id, (it) => {
-            const cur = typeof it.props.date === "string" ? it.props.date : "";
-            it.props.date = date + cur.slice(10);
-          });
+          const cur = useStore.getState().ws.items[e.id]?.props.date;
+          setProp(e.id, "date", date + (typeof cur === "string" ? cur.slice(10) : ""));
         }}
       />
     </div>

@@ -4,9 +4,10 @@ Um espaço pessoal e simples para organizar a rotina:
 
 - **Listas de tarefas** com quadro de status (colunas renomeáveis), tabela e calendário.
 - **Áreas** (Pessoal, Profissional, Estudos…) com um seletor no topo que filtra tudo.
-- **Calendário** com eventos e **alertas por e-mail** no horário que você escolher.
+- **Calendário** com eventos (inclusive repetidos) e **alertas por e-mail** no horário que você escolher. Tarefas com data também aparecem lá e podem ter alertas.
 - **To-do** para afazeres rápidos.
-- **Anotações** em Markdown com links `[[entre notas]]`, pastas e tags.
+- **Anotações** em Markdown, com barra de formatação, links `[[entre notas]]`, menções, pastas, tags e modo foco.
+- **Instalável como app** (PWA) no celular e no computador.
 - **Hábitos** com sequência de dias.
 
 ## Como rodar
@@ -27,6 +28,20 @@ Outros comandos:
 | `npm run typecheck` | Só confere os tipos do TypeScript                 |
 | `npm test`          | Roda os testes automáticos (Vitest)               |
 | `npm run lint`      | Procura problemas no código (ESLint)              |
+
+## Atalhos
+
+| Atalho                           | O que faz                                                   |
+| -------------------------------- | ----------------------------------------------------------- |
+| `Ctrl/⌘ + K`                     | Buscar                                                      |
+| `Ctrl + Delete` (`⌘ + ⌫` no Mac) | Apagar o item selecionado ou sob o mouse (dá para desfazer) |
+| `Ctrl/⌘ + B` / `I`               | Negrito / itálico nas anotações                             |
+| `Esc`                            | Fechar painel ou janela                                     |
+
+## Instalar como app
+
+Com o site publicado (HTTPS), abra no navegador e use **Instalar app** (Chrome/Edge,
+ícone na barra de endereço) ou **Compartilhar → Adicionar à Tela de Início** (iPhone).
 
 ## Estrutura
 

@@ -14,6 +14,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AreaDot, OptionBadge, areaVar, useAreas } from "../common";
+import { AlertPicker } from "../calendar/AlertPicker";
+import { Kbd } from "@/components/ui/kbd";
+import { MOD } from "@/lib/shortcuts";
 
 const NONE = "__none";
 
@@ -157,6 +160,20 @@ export function TaskSheet() {
                     </Select>
                   </Field>
                 )}
+                {date && (
+                  <div className="sm:col-span-2">
+                    <AlertPicker
+                      what="compromisso"
+                      value={it.alerts ?? []}
+                      allDay={!date.slice(11, 16)}
+                      onChange={(alerts) =>
+                        patchItem(it.id, (x) => {
+                          x.alerts = alerts;
+                        })
+                      }
+                    />
+                  </div>
+                )}
                 <Field className="sm:col-span-2">
                   <FieldLabel>Etiquetas</FieldLabel>
                   <TagPicker dbId={it.db} itemId={it.id} value={(it.props.tags as string[]) ?? []} />
@@ -210,6 +227,7 @@ export function TaskSheet() {
               <Button variant="ghost" className="text-destructive" onClick={() => deleteItem(it.id)}>
                 <Trash2 data-icon="inline-start" />
                 Excluir tarefa
+                <Kbd className="ml-1 hidden sm:inline-flex">{MOD}⌫</Kbd>
               </Button>
               <Button onClick={closePeek}>
                 <Check data-icon="inline-start" />

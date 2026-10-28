@@ -3,6 +3,7 @@ import { ThemeProvider, useTheme } from "next-themes";
 import { checkReviews, closePeek, openModal, useStore } from "./store";
 import { cloudEnabled, supabase } from "./lib/supabase";
 import { startCloud, useSync } from "./lib/sync";
+import { installDeleteShortcut } from "./lib/shortcuts";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -153,7 +154,7 @@ function Workspace() {
         Pular para o conteúdo
       </a>
       <SidebarInset className="min-w-0" id="conteudo">
-        <Topbar title={title} />
+        <Topbar title={title} showAreas={route !== "notes"} />
         {route === "notes" ? (
           <Suspense fallback={<Loading text="Abrindo anotações…" />}>
             <NotesView />
@@ -180,8 +181,9 @@ function Workspace() {
   );
 }
 
-/** Esc closes the task panel when no dialog is open (dialogs handle Esc themselves). */
+/** Esc closes the task panel when no dialog is open (dialogs handle Esc themselves); Ctrl/⌘+Delete deletes. */
 function EscToClose() {
+  useEffect(() => installDeleteShortcut(), []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented) return;

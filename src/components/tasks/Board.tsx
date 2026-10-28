@@ -320,6 +320,7 @@ function Card({
     <div
       ref={ref}
       data-card
+      data-del={"task:" + it.id}
       data-dragging={dragging || undefined}
       draggable
       role="button"

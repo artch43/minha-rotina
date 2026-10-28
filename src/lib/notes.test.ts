@@ -48,3 +48,15 @@ describe("anotações", () => {
     expect(folderList(notes, ["Diário"])).toEqual(["Diário", "Faculdade", "Faculdade/Cálculo"]);
   });
 });
+
+describe("prévia das notas", () => {
+  it("tira marcações do Markdown", async () => {
+    const { plainSnippet, ago } = await import("./notes");
+    expect(plainSnippet("# Título\n- [ ] fazer **isso** com [[Outra nota|apelido]] e [site](https://x.com)\n`código`")).toBe(
+      "Título fazer isso com apelido e site",
+    );
+    expect(ago(Date.now() - 30_000)).toBe("agora");
+    expect(ago(Date.now() - 3 * 3600_000)).toBe("há 3 h");
+    expect(ago(Date.now() - 86400_000 - 1000)).toBe("ontem");
+  });
+});

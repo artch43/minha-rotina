@@ -1,16 +1,52 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { EditorSelection, EditorState, type Range } from "@codemirror/state";
-import { Decoration, EditorView, ViewPlugin, keymap, placeholder, type DecorationSet, type ViewUpdate } from "@codemirror/view";
+import {
+  Decoration,
+  EditorView,
+  ViewPlugin,
+  WidgetType,
+  keymap,
+  placeholder,
+  type DecorationSet,
+  type ViewUpdate,
+} from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { HighlightStyle, syntaxHighlighting, syntaxTree } from "@codemirror/language";
-import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
+import { autocompletion, startCompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { tags as t } from "@lezer/highlight";
 import { TAG_RE, parseWiki } from "../../lib/notes";
 
 export interface EditorApi {
   gotoLine: (line: number) => void;
   focus: () => void;
+  /** Formatting toolbar: wrap the selection (bold, italic, code), prefix the current lines (headings, lists), or insert a link. */
+  wrap: (mark: string) => void;
+  linePrefix: (prefix: string) => void;
+  link: () => void;
+  /** Types text at the cursor as if typed (so "[[" opens the note picker). */
+  insert: (text: string) => void;
+}
+
+/** Adds a prefix like "## " or "- [ ] " to the selected lines, replacing any heading/list/quote prefix they had; toggles it off if already there. */
+function setLinePrefix(view: EditorView, prefix: string) {
+  const { state } = view;
+  const changes: { from: number; to: number; insert: string }[] = [];
+  const seen = new Set<number>();
+  for (const r of state.selection.ranges)
+    for (let pos = r.from; pos <= r.to; ) {
+      const line = state.doc.lineAt(pos);
+      if (!seen.has(line.number)) {
+        seen.add(line.number);
+        const m = /^(#{1,6} |- \[[ x]\] |[-*] |\d+\. |> )/.exec(line.text);
+        const current = m ? m[1] : "";
+        const next = current === prefix ? "" : prefix;
+        changes.push({ from: line.from, to: line.from + current.length, insert: next });
+      }
+      pos = line.to + 1;
+    }
+  view.dispatch({ changes, userEvent: "input" });
+  view.focus();
 }
 
 const highlight = HighlightStyle.define([
@@ -53,6 +89,48 @@ const theme = EditorView.theme({
 });
 
 const hide = Decoration.replace({});
+
+/** A real checkbox in place of "- [ ]" / "- [x]"; clicking it ticks the item in the text. */
+class CheckboxWidget extends WidgetType {
+  constructor(
+    readonly checked: boolean,
+    readonly pos: number,
+  ) {
+    super();
+  }
+  eq(other: CheckboxWidget) {
+    return other.checked === this.checked && other.pos === this.pos;
+  }
+  toDOM(view: EditorView) {
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = this.checked;
+    box.className = "cm-task-box";
+    box.setAttribute("aria-label", this.checked ? "Desmarcar item" : "Marcar item");
+    box.addEventListener("mousedown", (e) => e.preventDefault());
+    box.addEventListener("click", (e) => {
+      e.preventDefault();
+      view.dispatch({ changes: { from: this.pos, to: this.pos + 1, insert: this.checked ? " " : "x" }, userEvent: "input" });
+    });
+    return box;
+  }
+  ignoreEvent() {
+    return true;
+  }
+}
+/** "•" in place of "-" / "*" for plain list items. */
+class BulletWidget extends WidgetType {
+  eq() {
+    return true;
+  }
+  toDOM() {
+    const s = document.createElement("span");
+    s.className = "cm-bullet";
+    s.textContent = "•";
+    return s;
+  }
+}
+const bullet = Decoration.replace({ widget: new BulletWidget() });
 const WIKI = /\[\[([^\]\n]+?)\]\]/g;
 const lineDeco = (cls: string) => Decoration.line({ class: cls });
 
@@ -109,6 +187,23 @@ function buildDecorations(view: EditorView): DecorationSet {
         }
       },
     });
+    // Checklists and bullets render as widgets outside the line being edited.
+    for (let pos = from; pos <= to; ) {
+      const line = state.doc.lineAt(pos);
+      if (!active.has(line.number) && !inCode(line.from, line.to)) {
+        const task = /^(\s*)[-*+] \[([ xX])\] /.exec(line.text);
+        const item = !task && /^(\s*)[-*+] /.exec(line.text);
+        if (task) {
+          const start = line.from + task[1].length;
+          out.push(Decoration.replace({ widget: new CheckboxWidget(task[2] !== " ", start + 3) }).range(start, start + 6));
+          if (task[2] !== " ") out.push(Decoration.mark({ class: "cm-task-done" }).range(start + 6, line.to));
+        } else if (item) {
+          const start = line.from + item[1].length;
+          out.push(bullet.range(start, start + 1));
+        }
+      }
+      pos = line.to + 1;
+    }
     const text = state.doc.sliceString(from, to);
     for (const m of text.matchAll(WIKI)) {
       const s = from + m.index!,
@@ -265,6 +360,30 @@ export function NoteEditor(props: {
           view.dispatch({
             selection: { anchor: line.from },
             effects: EditorView.scrollIntoView(line.from, { y: "start", yMargin: 80 }),
+          });
+          view.focus();
+        },
+        wrap: (mark) => {
+          wrapWith(mark)(view);
+          view.focus();
+        },
+        linePrefix: (prefix) => setLinePrefix(view, prefix),
+        insert: (text) => {
+          const r = view.state.selection.main;
+          view.dispatch({
+            changes: { from: r.from, to: r.to, insert: text },
+            selection: { anchor: r.from + text.length },
+            userEvent: "input.type",
+          });
+          view.focus();
+          startCompletion(view);
+        },
+        link: () => {
+          const r = view.state.selection.main;
+          const text = view.state.sliceDoc(r.from, r.to) || "texto";
+          view.dispatch({
+            changes: { from: r.from, to: r.to, insert: `[${text}](https://)` },
+            selection: EditorSelection.range(r.from + text.length + 3, r.from + text.length + 11),
           });
           view.focus();
         },

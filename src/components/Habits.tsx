@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import type { Habit } from "@/lib/types";
 import { streakOf } from "@/lib/model";
 import { addDays, fmtDate, parseD, today, uid } from "@/lib/util";
-import { toast, toggleHabit, useStore } from "@/store";
+import { deleteHabit, toggleHabit, useStore } from "@/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -71,20 +71,9 @@ function HabitRow({ h }: { h: Habit }) {
   const days = Array.from({ length: N }, (_, k) => addDays(T, -(N - 1 - k)));
   const total = days.filter((d) => (log[d] || []).includes(h.id)).length;
   const edit = (fn: (x: Habit) => void) => mut((w) => fn(w.habits.find((x) => x.id === h.id)!));
-  const remove = () => {
-    const snap = { ...h },
-      index = useStore.getState().ws.habits.findIndex((x) => x.id === h.id);
-    mut((w) => {
-      w.habits = w.habits.filter((x) => x.id !== h.id);
-    });
-    toast(`Hábito “${h.name}” excluído`, () =>
-      mut((w) => {
-        w.habits.splice(index, 0, snap);
-      }),
-    );
-  };
+  const remove = () => deleteHabit(h.id);
   return (
-    <div className="flex flex-col gap-3 py-4 md:flex-row md:items-center">
+    <div data-del={"habit:" + h.id} className="flex flex-col gap-3 py-4 md:flex-row md:items-center">
       <div className="flex min-w-0 items-center gap-1 md:w-56">
         <EmojiPicker
           value={h.icon}
