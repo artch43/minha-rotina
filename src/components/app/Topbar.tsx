@@ -6,42 +6,44 @@ import { useStore } from "@/store";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { AreaDot, areaVar, useAreas } from "../common";
+import { AreaDot, NewAreaButton, areaVar, useAreas } from "../common";
 
 export function AreaSwitcher({ className }: { className?: string }) {
   const areas = useAreas();
   const area = useStore((s) => s.ui.area);
   const setUi = useStore((s) => s.setUi);
+  const select = (id: string) =>
+    setUi((u) => {
+      u.area = id;
+    });
   return (
-    <ToggleGroup
-      type="single"
-      variant="outline"
-      size="sm"
-      aria-label="Mostrar a área"
-      className={cn("max-w-full overflow-x-auto", className)}
-      value={area}
-      onValueChange={(v) =>
-        v &&
-        setUi((u) => {
-          u.area = v;
-        })
-      }
-    >
-      <ToggleGroupItem value="all" className="px-3">
-        Todas
-      </ToggleGroupItem>
-      {areas.map((a) => (
-        <ToggleGroupItem
-          key={a.id}
-          value={a.id}
-          style={areaVar(a)}
-          className="gap-1.5 px-3 data-[state=on]:border-(--area) data-[state=on]:bg-(--area)/12 data-[state=on]:text-foreground"
-        >
-          <AreaDot area={a} />
-          {a.name}
+    <div className={cn("flex max-w-full items-center gap-1.5", className)}>
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
+        aria-label="Mostrar a área"
+        className="min-w-0 overflow-x-auto"
+        value={area}
+        onValueChange={(v) => v && select(v)}
+      >
+        <ToggleGroupItem value="all" className="px-3">
+          Todas
         </ToggleGroupItem>
-      ))}
-    </ToggleGroup>
+        {areas.map((a) => (
+          <ToggleGroupItem
+            key={a.id}
+            value={a.id}
+            style={areaVar(a)}
+            className="gap-1.5 px-3 data-[state=on]:border-(--area) data-[state=on]:bg-(--area)/12 data-[state=on]:text-foreground"
+          >
+            <AreaDot area={a} />
+            {a.name}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+      <NewAreaButton onCreated={select} className="shrink-0" />
+    </div>
   );
 }
 

@@ -71,10 +71,7 @@ function collect(ws: Workspace, from: string, to: string, area: string, showTask
 function openEntry(e: Entry) {
   if (e.kind === "event") openEvent(e.id);
   else if (e.kind === "task") openPeek(e.id);
-  else {
-    const p = useStore.getState().ws.pages.find((x) => x.type === "todo");
-    if (p) go(p.id);
-  }
+  else go("home");
 }
 
 /** Moves anything dropped on a day to that day (and, for events in the week view, to that time). */
@@ -167,7 +164,7 @@ export function CalendarPage() {
         </ToggleGroup>
         <div className="ml-auto flex items-center gap-2">
           <Switch id="show-tasks" checked={cal.showTasks} onCheckedChange={(v) => set({ showTasks: v })} />
-          <Label htmlFor="show-tasks">Mostrar tarefas e afazeres</Label>
+          <Label htmlFor="show-tasks">Mostrar tarefas</Label>
         </div>
       </div>
       {cal.view === "month" ? (
@@ -182,7 +179,7 @@ export function CalendarPage() {
         <WeekView days={week} byDay={byDay} />
       )}
       <p className="text-xs text-muted-foreground">
-        Arraste para remarcar. Eventos aparecem com fundo colorido; tarefas e afazeres, só com o ponto da área. Na semana, clique
+        Arraste para remarcar. Eventos aparecem com fundo colorido; tarefas, só com o ponto da área. Na semana, clique
         duas vezes num horário para criar um evento.
       </p>
     </div>

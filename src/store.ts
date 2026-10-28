@@ -484,7 +484,7 @@ export function deleteTodo(id: string) {
   mut((w) => {
     delete w.todos[id];
   });
-  toast("Afazer excluído", () =>
+  toast("Tarefa excluída", () =>
     mut((w) => {
       w.todos[id] = snap;
     }),

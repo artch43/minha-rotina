@@ -16,7 +16,6 @@ import { Trash } from "./components/Trash";
 import { Auth, ChooseStart, Loading, NewPassword } from "./components/Auth";
 import { Home } from "./components/Home";
 import { Habits } from "./components/Habits";
-import { TodoPage } from "./components/TodoPage";
 import { DbPage } from "./components/tasks/DbPage";
 import { TaskSheet } from "./components/tasks/TaskSheet";
 import { StatusDialog } from "./components/tasks/StatusDialog";
@@ -164,7 +163,6 @@ function Workspace() {
             {current?.type === "home" && <Home />}
             {current?.type === "calendar" && <CalendarPage />}
             {current?.type === "habits" && <Habits />}
-            {current?.type === "todo" && <TodoPage />}
             {current?.type === "db" && <DbPage key={current.id} page={current} />}
           </div>
         )}

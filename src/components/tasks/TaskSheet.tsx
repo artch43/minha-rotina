@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AreaDot, OptionBadge, areaVar, useAreas } from "../common";
+import { AreaDot, NewAreaButton, OptionBadge, areaVar, useAreas } from "../common";
 import { AlertPicker } from "../calendar/AlertPicker";
 import { Kbd } from "@/components/ui/kbd";
 import { MOD } from "@/lib/shortcuts";
@@ -92,29 +92,39 @@ export function TaskSheet() {
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="task-area">Área</FieldLabel>
-                  <Select
-                    value={it.area ?? NONE}
-                    onValueChange={(v) =>
-                      patchItem(it.id, (x) => {
-                        x.area = v === NONE ? undefined : v;
-                      })
-                    }
-                  >
-                    <SelectTrigger id="task-area" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value={NONE}>Sem área</SelectItem>
-                        {areas.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>
-                            <AreaDot area={a} />
-                            {a.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Select
+                      value={it.area ?? NONE}
+                      onValueChange={(v) =>
+                        patchItem(it.id, (x) => {
+                          x.area = v === NONE ? undefined : v;
+                        })
+                      }
+                    >
+                      <SelectTrigger id="task-area" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value={NONE}>Sem área</SelectItem>
+                          {areas.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              <AreaDot area={a} />
+                              {a.name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <NewAreaButton
+                      className="size-9"
+                      onCreated={(id) =>
+                        patchItem(it.id, (x) => {
+                          x.area = id;
+                        })
+                      }
+                    />
+                  </div>
                 </Field>
                 <Field className="sm:col-span-2">
                   <FieldLabel htmlFor="task-date">Data</FieldLabel>

@@ -1,7 +1,7 @@
 import type { Block, Color, Database, Item, Note, Page, Prop, Workspace } from "./types";
 import { FIXED_PROPS } from "./types";
 import { DEFAULT_SETTINGS } from "./template";
-import { uid } from "./util";
+import { today, uid } from "./util";
 
 const FIXED = new Set<string>(FIXED_PROPS);
 const DEFAULT_AREA_BY_DB: Record<string, string> = { estudos: "estudos", trabalho: "profissional", compromissos: "pessoal" };
@@ -134,8 +134,9 @@ export function normalizeWorkspace(input: Workspace): Workspace {
     .map((p): Page => (p.parent && removed.has(p.parent) ? { ...p, parent: null } : p));
   delete w.docs;
 
-  if (!w.pages.some((p) => p.type === "todo"))
-    w.pages.push({ id: "todo", title: "To-do", icon: "✅", type: "todo", parent: null, order: 1.5 });
+  // The To-do page is gone: quick to-dos now live on Início, as today's tasks.
+  w.pages = w.pages.filter((p) => (p.type as string) !== "todo");
+  for (const t of Object.values(w.todos)) if (!t.done && !t.date) t.date = today();
   if (!w.pages.some((p) => p.type === "calendar")) {
     for (const p of w.pages) if (p.order >= 1) p.order += 1;
     w.pages.push({ id: "calendario", title: "Calendário", icon: "🗓️", type: "calendar", parent: null, order: 1 });

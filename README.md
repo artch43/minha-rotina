@@ -3,12 +3,12 @@
 Um espaço pessoal e simples para organizar a rotina:
 
 - **Listas de tarefas** com quadro de status (colunas renomeáveis), tabela e calendário.
-- **Áreas** (Pessoal, Profissional, Estudos…) com um seletor no topo que filtra tudo.
+- **Áreas** (Pessoal, Profissional, Estudos…) com um seletor no topo que filtra tudo; crie novas pelo botão ＋.
 - **Calendário** com eventos (inclusive repetidos) e **alertas por e-mail** no horário que você escolher. Tarefas com data também aparecem lá e podem ter alertas.
-- **To-do** para afazeres rápidos.
+- **Início** com as tarefas de hoje e um campo para adicionar mais; agenda do dia e atrasadas logo abaixo.
 - **Anotações** em Markdown, com barra de formatação, links `[[entre notas]]`, menções, pastas, tags e modo foco.
 - **Instalável como app** (PWA) no celular e no computador.
-- **Hábitos** com sequência de dias.
+- **Hábitos**: marque o de hoje; o histórico fica recolhido para consulta.
 
 ## Como rodar
 
@@ -54,7 +54,7 @@ src/
   index.css             tema: cores, cores das áreas, claro/escuro
   styles.css            só o editor de notas e o Markdown renderizado
   lib/
-    types.ts            formatos dos dados (Tarefa, Evento, Afazer, Nota…)
+    types.ts            formatos dos dados (Tarefa, Evento, Tarefa do dia, Nota…)
     model.ts            regras: filtros, áreas, revisão espaçada
     events.ts           calendário e cálculo dos alertas
     migrate.ts          atualiza dados salvos por versões antigas
@@ -68,7 +68,7 @@ src/
     tasks/              página da lista, quadro, tabela, calendário, painel da tarefa, status
     calendar/           Calendário (mês/semana) e diálogo de evento
     notes/              Anotações: NotesView, NoteEditor (CodeMirror), NoteReader
-    Home.tsx, TodoPage.tsx, Habits.tsx, Search.tsx, Settings.tsx, Trash.tsx, Auth.tsx
+    Home.tsx, Habits.tsx, Search.tsx, Settings.tsx, Trash.tsx, Auth.tsx
 supabase/
   migrations/           SQL do banco (rode na ordem: 001 a 004, ou tudo de uma vez com setup.sql)
   functions/            send-reminders: envia os alertas por e-mail
@@ -125,7 +125,7 @@ Quando alguém salva um evento com alertas, o app grava os lembretes na tabela
 ### Como os dados são guardados
 
 Uma tabela, `records`, com uma linha por entidade (lista, tarefa, evento,
-afazer, anotação, hábito…), em JSON. A sincronização fica em `src/lib/sync.ts`:
+tarefa do dia, anotação, hábito…), em JSON. A sincronização fica em `src/lib/sync.ts`:
 as mudanças são enviadas em lotes e as de outros aparelhos são buscadas ao
 voltar para a aba e a cada minuto. Sem internet, as mudanças ficam numa fila e
 são enviadas quando a conexão volta.

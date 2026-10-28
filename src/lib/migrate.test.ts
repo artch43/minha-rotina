@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { blocksToMarkdown, normalizeWorkspace } from "./migrate";
+import { today } from "./util";
 import type { Workspace } from "./types";
 
 /** A workspace saved by version 1 of the app (block pages, extra properties, list view). */
@@ -115,5 +116,21 @@ describe("migração para a versão 2", () => {
     expect(twice.items).toEqual(once.items);
     expect(twice.pages).toEqual(once.pages);
     expect(twice.dbs).toEqual(once.dbs);
+  });
+
+  it("tira a página To-do e leva os afazeres pendentes sem data para hoje", () => {
+    const w = v1();
+    w.pages.push({ id: "todo", title: "To-do", icon: "✅", type: "todo" as never, parent: null, order: 1.5 });
+    w.todos = {
+      a: { id: "a", text: "Sem data", done: false, order: 1, created: 1 },
+      b: { id: "b", text: "Feito sem data", done: true, order: 2, created: 1 },
+      c: { id: "c", text: "Amanhã", done: false, order: 3, created: 1, date: "2099-01-01" },
+    };
+    const out = normalizeWorkspace(w);
+    expect(out.pages.some((p) => (p.type as string) === "todo")).toBe(false);
+    expect(Object.keys(out.todos)).toEqual(["a", "b", "c"]);
+    expect(out.todos.a.date).toBe(today());
+    expect(out.todos.b.date).toBeUndefined();
+    expect(out.todos.c.date).toBe("2099-01-01");
   });
 });

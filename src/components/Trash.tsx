@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const SHOWN = new Set(["page", "item", "note", "event", "todo"]);
 const sameBatch = (a: string, b: string) => Math.abs(new Date(a).getTime() - new Date(b).getTime()) < 3000;
-const KIND: Record<string, string> = { page: "Lista", item: "Tarefa", note: "Anotação", event: "Evento", todo: "Afazer" };
+const KIND: Record<string, string> = { page: "Lista", item: "Tarefa", note: "Anotação", event: "Evento", todo: "Tarefa do dia" };
 
 export function Trash() {
   const setUi = useStore((s) => s.setUi);
@@ -44,7 +44,7 @@ export function Trash() {
   const label = (r: TrashRow) => {
     const d = r.data as Partial<Page & Note & CalendarEvent & Todo & Item>;
     if (r.kind === "page") return `${d.icon} ${d.title || "Sem título"}`;
-    if (r.kind === "todo") return d.text || "Afazer";
+    if (r.kind === "todo") return d.text || "Tarefa do dia";
     return d.title || "Sem título";
   };
   const where = (r: TrashRow) =>

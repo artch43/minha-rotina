@@ -1,4 +1,4 @@
-import { CalendarDays, CheckSquare, FileText, LayoutGrid, ListTodo } from "lucide-react";
+import { CalendarDays, CheckSquare, FileText, LayoutGrid } from "lucide-react";
 import { go, openEvent, openNotes, openPeek, useStore } from "@/store";
 import {
   Command,
@@ -10,8 +10,11 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { fmtDate } from "@/lib/util";
+import { dateOf, statusProp } from "@/lib/model";
+import { REPEAT_LABELS } from "@/lib/events";
+import { plainSnippet } from "@/lib/notes";
 
-/** Ctrl/Cmd + K: find pages, tasks, events, to-dos and notes. */
+/** Ctrl/Cmd + K: find pages, tasks, events and notes. Each result has a second line so look-alike names can be told apart. */
 export function Search() {
   const ws = useStore((s) => s.ws);
   const setUi = useStore((s) => s.setUi);
@@ -23,13 +26,12 @@ export function Search() {
     close();
     fn();
   };
-  const todoPage = ws.pages.find((p) => p.type === "todo");
   return (
     <CommandDialog
       open
       onOpenChange={(o) => !o && close()}
       title="Buscar"
-      description="Busque páginas, tarefas, eventos, afazeres e anotações"
+      description="Busque páginas, tarefas, eventos e anotações"
     >
       <Command>
         <CommandInput placeholder="Buscar páginas, tarefas, eventos e anotações…" />
@@ -51,18 +53,33 @@ export function Search() {
             {Object.values(ws.items)
               .filter((i) => i.title)
               .slice(0, 200)
-              .map((i) => (
-                <CommandItem
-                  key={i.id}
-                  value={"tarefa " + i.title + " " + i.id}
-                  onSelect={run(() => {
-                    go(i.db);
-                    openPeek(i.id);
-                  })}
-                >
+              .map((i) => {
+                const db = ws.dbs[i.db];
+                const list = ws.pages.find((p) => p.id === i.db);
+                const sp = db && statusProp(db);
+                const status = sp?.options?.find((o) => o.id === i.props[sp.id])?.name;
+                const date = db && dateOf(db, i);
+                return (
+                  <CommandItem
+                    key={i.id}
+                    value={"tarefa " + i.title + " " + i.id}
+                    keywords={list ? [list.title] : undefined}
+                    onSelect={run(() => {
+                      go(i.db);
+                      openPeek(i.id);
+                    })}
+                  >
+                    <CheckSquare />
+                    <Two title={i.title} sub={[list && `${list.icon} ${list.title}`, status, date && fmtDate(date)]} />
+                  </CommandItem>
+                );
+              })}
+            {Object.values(ws.todos)
+              .slice(0, 200)
+              .map((t) => (
+                <CommandItem key={t.id} value={"tarefa " + t.text + " " + t.id} onSelect={run(() => go("home"))}>
                   <CheckSquare />
-                  <span className="truncate">{i.title}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">{ws.pages.find((p) => p.id === i.db)?.title}</span>
+                  <Two title={t.text} sub={["Tarefa do dia", t.done ? "Concluída" : "", t.date && fmtDate(t.date)]} />
                 </CommandItem>
               ))}
           </CommandGroup>
@@ -80,19 +97,14 @@ export function Search() {
                   })}
                 >
                   <CalendarDays />
-                  <span className="truncate">{e.title}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">{fmtDate(e.date)}</span>
-                </CommandItem>
-              ))}
-          </CommandGroup>
-          <CommandGroup heading="To-do">
-            {Object.values(ws.todos)
-              .filter((t) => !t.done)
-              .slice(0, 200)
-              .map((t) => (
-                <CommandItem key={t.id} value={"afazer " + t.text + " " + t.id} onSelect={run(() => todoPage && go(todoPage.id))}>
-                  <ListTodo />
-                  <span className="truncate">{t.text}</span>
+                  <Two
+                    title={e.title}
+                    sub={[
+                      fmtDate(e.date) + (e.allDay ? ", dia inteiro" : `, ${e.start}`),
+                      e.repeat && e.repeat !== "none" ? REPEAT_LABELS[e.repeat] : "",
+                      e.location,
+                    ]}
+                  />
                 </CommandItem>
               ))}
           </CommandGroup>
@@ -104,13 +116,22 @@ export function Search() {
                 onSelect={run(() => openNotes(n.id))}
               >
                 <FileText />
-                <span className="truncate">{n.title}</span>
-                {n.folder && <span className="ml-auto text-xs text-muted-foreground">{n.folder}</span>}
+                <Two title={n.title} sub={[n.folder && `📁 ${n.folder}`, plainSnippet(n.body, 70)]} />
               </CommandItem>
             ))}
           </CommandGroup>
         </CommandList>
       </Command>
     </CommandDialog>
+  );
+}
+
+function Two({ title, sub }: { title: string; sub: (string | false | undefined | null)[] }) {
+  const line = sub.filter(Boolean).join(" · ");
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span className="truncate">{title}</span>
+      {line && <span className="truncate text-xs text-muted-foreground">{line}</span>}
+    </span>
   );
 }

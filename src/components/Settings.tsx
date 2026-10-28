@@ -178,7 +178,7 @@ function AreasTab() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        As áreas separam suas tarefas, afazeres e eventos (por exemplo, pessoal e profissional). Escolha uma no topo da tela para
+        As áreas separam suas tarefas e eventos (por exemplo, pessoal e profissional). Escolha uma no topo da tela para
         ver só o que é dela.
       </p>
       {areas.map((a) => (
@@ -270,7 +270,7 @@ function AccountTab({ onClose }: { onClose: () => void }) {
       <FieldSeparator />
       <Field>
         <FieldLabel>Backup</FieldLabel>
-        <FieldDescription>Uma cópia de tudo: listas, tarefas, eventos, afazeres, anotações e hábitos.</FieldDescription>
+        <FieldDescription>Uma cópia de tudo: listas, tarefas, eventos, anotações e hábitos.</FieldDescription>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => downloadBackup(useStore.getState().ws)}>
             <Download data-icon="inline-start" />

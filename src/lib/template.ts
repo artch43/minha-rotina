@@ -72,7 +72,7 @@ export const GUIDE_NOTE = (id = uid()): Note => ({
     "- Cada banco (Estudos, Trabalho, Compromissos) tem um quadro com colunas de status. Arraste os cartões entre as colunas.",
     "- Clique no nome de uma coluna para renomeá-la.",
     "- Use o seletor de área no topo para ver só o que é Pessoal, Profissional ou Estudos.",
-    "- Para coisas rápidas, use o To-do: é só escrever e marcar quando terminar.",
+    "- Para coisas rápidas do dia, escreva no campo do Início e marque quando terminar.",
     "",
     "## Calendário",
     "- Crie eventos (inclusive repetidos, como aulas toda semana) e escolha quando quer ser avisado por e-mail.",
@@ -202,7 +202,7 @@ export function template(): Workspace {
   const todos = [
     todo("Comprar pão (exemplo)", 1, { date: T, area: "pessoal" }),
     todo("Mandar o relatório para a Ana (exemplo)", 2, { date: addDays(T, 1), area: "profissional" }),
-    todo("Separar o material da prova (exemplo)", 3, { area: "estudos" }),
+    todo("Separar o material da prova (exemplo)", 3, { date: T, area: "estudos" }),
   ];
   const guide = GUIDE_NOTE();
   const ideas: Note = {
@@ -219,7 +219,6 @@ export function template(): Workspace {
     pages: [
       { id: "home", title: "Início", icon: "🏠", type: "home", parent: null, order: 0 },
       { id: "calendario", title: "Calendário", icon: "🗓️", type: "calendar", parent: null, order: 1 },
-      { id: "todo", title: "To-do", icon: "✅", type: "todo", parent: null, order: 1.5 },
       { id: E, title: "Estudos", icon: "📚", type: "db", parent: null, order: 2, fav: true },
       { id: W, title: "Trabalho", icon: "💼", type: "db", parent: null, order: 3 },
       { id: C, title: "Compromissos", icon: "📅", type: "db", parent: null, order: 4 },

@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AreaDot, useAreas } from "../common";
+import { AreaDot, NewAreaButton, useAreas } from "../common";
 import { Kbd } from "@/components/ui/kbd";
 import { MOD } from "@/lib/shortcuts";
 
@@ -133,22 +133,25 @@ export function EventDialog() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="ev-area">Área</FieldLabel>
-                <Select value={d.area ?? NONE} onValueChange={(v) => set({ area: v === NONE ? undefined : v })}>
-                  <SelectTrigger id="ev-area" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value={NONE}>Sem área</SelectItem>
-                      {areas.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          <AreaDot area={a} />
-                          {a.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select value={d.area ?? NONE} onValueChange={(v) => set({ area: v === NONE ? undefined : v })}>
+                    <SelectTrigger id="ev-area" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value={NONE}>Sem área</SelectItem>
+                        {areas.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            <AreaDot area={a} />
+                            {a.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <NewAreaButton className="size-9" onCreated={(id) => set({ area: id })} />
+                </div>
               </Field>
               <Field>
                 <FieldLabel htmlFor="ev-loc">Local</FieldLabel>

@@ -1,13 +1,14 @@
 import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import type { Area, AreaColor, Color, Option } from "@/lib/types";
-import { useStore } from "@/store";
+import { addArea, useStore } from "@/store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { EMOJIS } from "@/lib/util";
 import { useState } from "react";
+import { Plus } from "lucide-react";
 
 export const AREA_COLORS: { id: AreaColor; name: string }[] = [
   { id: "coral", name: "Coral" },
@@ -155,4 +156,76 @@ export function EmojiPicker({
 export function greeting(name?: string) {
   const h = new Date().getHours();
   return (h < 5 ? "Boa noite" : h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite") + (name ? `, ${name}` : "");
+}
+
+/** "+" button that opens a small form to create an area. Calls onCreated with the new area's id. */
+export function NewAreaButton({
+  onCreated,
+  className,
+  label = "Nova área",
+  showLabel = false,
+}: {
+  onCreated?: (id: string) => void;
+  className?: string;
+  label?: string;
+  showLabel?: boolean;
+}) {
+  const areas = useAreas();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const nextColor = () => AREA_COLORS.find((c) => !areas.some((a) => a.color === c.id))?.id ?? "amber";
+  const [color, setColor] = useState<AreaColor>(nextColor);
+  const create = () => {
+    if (!name.trim()) return;
+    const id = addArea(name, color);
+    setOpen(false);
+    setName("");
+    onCreated?.(id);
+  };
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (o) setColor(nextColor());
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size={showLabel ? "sm" : "icon-sm"}
+          aria-label={showLabel ? undefined : label}
+          title={label}
+          className={className}
+        >
+          <Plus data-icon={showLabel ? "inline-start" : undefined} />
+          {showLabel && label}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72" align="end">
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            create();
+          }}
+        >
+          <Input
+            autoFocus
+            autoComplete="off"
+            aria-label="Nome da área"
+            placeholder="Ex.: Saúde, Casa, Faculdade…"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <AreaSwatches value={color} onChange={setColor} />
+          <Button type="submit" disabled={!name.trim()}>
+            Criar área
+          </Button>
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
 }

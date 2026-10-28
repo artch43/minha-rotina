@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   CalendarDays,
-  ListTodo,
   ChevronDown,
   ChevronUp,
   Home,
@@ -80,8 +79,7 @@ export function AppSidebar() {
   };
   const home = fixed("home"),
     cal = fixed("calendar"),
-    habits = fixed("habits"),
-    todo = fixed("todo");
+    habits = fixed("habits");
   const toRemove = pages.find((p) => p.id === remove);
 
   return (
@@ -118,14 +116,6 @@ export function AppSidebar() {
                   <SidebarMenuButton isActive={route === cal.id} onClick={nav(() => go(cal.id))}>
                     <CalendarDays />
                     <span>Calendário</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {todo && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton isActive={route === todo.id} onClick={nav(() => go(todo.id))}>
-                    <ListTodo />
-                    <span>To-do</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}

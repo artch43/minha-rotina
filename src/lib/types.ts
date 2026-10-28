@@ -2,7 +2,7 @@ export type Color = "gray" | "brown" | "orange" | "yellow" | "green" | "blue" | 
 export type Group = "todo" | "doing" | "done" | "review";
 export type PropType = "status" | "select" | "multi" | "date" | "checkbox" | "number" | "text" | "url";
 export type ViewType = "board" | "table" | "calendar";
-export type PageType = "home" | "db" | "habits" | "calendar" | "todo";
+export type PageType = "home" | "db" | "habits" | "calendar";
 export type BlockType = "p" | "h1" | "h2" | "h3" | "ul" | "ol" | "todo" | "quote" | "callout" | "divider";
 
 export interface Option {

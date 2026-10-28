@@ -54,7 +54,7 @@ function Shell({
         {footer && <CardFooter className="flex-wrap justify-between gap-2 text-sm">{footer}</CardFooter>}
       </Card>
       <p className="max-w-sm text-center text-xs text-muted-foreground">
-        Tarefas, calendário, afazeres, hábitos e anotações num só lugar.{" "}
+        Tarefas, calendário, hábitos e anotações num só lugar.{" "}
         <a className="underline underline-offset-2" href="/privacidade.html" target="_blank" rel="noopener">
           Privacidade e termos
         </a>
