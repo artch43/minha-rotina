@@ -1,0 +1,305 @@
+import { useEffect, useRef, useState } from "react";
+import { Check, RotateCcw, Trash2, X } from "lucide-react";
+import type { PropValue } from "@/lib/types";
+import { groupOf, optOf, statusProp } from "@/lib/model";
+import { COLORS, INTERVALS, fmtDate, uid } from "@/lib/util";
+import { closePeek, deleteItem, patchItem, setProp, useStore } from "@/store";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AreaDot, OptionBadge, areaVar, useAreas } from "../common";
+
+const NONE = "__none";
+
+/** Side panel with everything about one task. */
+export function TaskSheet() {
+  const id = useStore((s) => s.ui.peek);
+  const it = useStore((s) => (id ? s.ws.items[id] : undefined));
+  const db = useStore((s) => (it ? s.ws.dbs[it.db] : undefined));
+  const page = useStore((s) => (it ? s.ws.pages.find((p) => p.id === it.db) : undefined));
+  const focus = useStore((s) => s.ui.peekFocus);
+  const setUi = useStore((s) => s.setUi);
+  const areas = useAreas();
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!focus || !it) return;
+    setUi((u) => {
+      u.peekFocus = false;
+    });
+    setTimeout(() => titleRef.current?.focus(), 80);
+  }, [focus, id]);
+
+  const open = !!it && !!db;
+  const sp = db ? statusProp(db) : undefined;
+  const prio = db?.props.find((p) => p.id === "prio");
+  const date = it && typeof it.props.date === "string" ? it.props.date : "";
+  const area = areas.find((a) => a.id === it?.area);
+  const r = it?.review;
+  const g = it && db ? groupOf(db, it) : null;
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && closePeek()}>
+      <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto sm:max-w-lg">
+        {it && db && sp && (
+          <>
+            <SheetHeader className="area-stripe gap-1 border-b pl-7" style={areaVar(area)}>
+              <SheetDescription>{page ? `${page.icon} ${page.title}` : "Tarefa"}</SheetDescription>
+              <SheetTitle className="sr-only">{it.title || "Tarefa sem título"}</SheetTitle>
+              <Input
+                ref={titleRef}
+                autoComplete="off"
+                aria-label="Nome da tarefa"
+                placeholder="Nome da tarefa"
+                value={it.title}
+                className="h-auto border-0 bg-transparent px-0 text-xl font-bold shadow-none focus-visible:ring-0 md:text-xl dark:bg-transparent"
+                onChange={(e) =>
+                  patchItem(it.id, (x) => {
+                    x.title = e.target.value;
+                  })
+                }
+              />
+            </SheetHeader>
+
+            <div className="flex flex-col gap-6 p-4">
+              <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="task-status">Status</FieldLabel>
+                  <Select value={String(it.props[sp.id] ?? "")} onValueChange={(v) => setProp(it.id, sp.id, v)}>
+                    <SelectTrigger id="task-status" className="w-full">
+                      <SelectValue placeholder="Escolha" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {sp.options!.map((o) => (
+                          <SelectItem key={o.id} value={o.id}>
+                            <span data-color={o.color} className="swatch-color size-2 rounded-full" />
+                            {o.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="task-area">Área</FieldLabel>
+                  <Select
+                    value={it.area ?? NONE}
+                    onValueChange={(v) =>
+                      patchItem(it.id, (x) => {
+                        x.area = v === NONE ? undefined : v;
+                      })
+                    }
+                  >
+                    <SelectTrigger id="task-area" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value={NONE}>Sem área</SelectItem>
+                        {areas.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            <AreaDot area={a} />
+                            {a.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field className="sm:col-span-2">
+                  <FieldLabel htmlFor="task-date">Data</FieldLabel>
+                  <div className="flex gap-2">
+                    <Input
+                      id="task-date"
+                      type="date"
+                      value={date.slice(0, 10)}
+                      className="min-w-0 flex-1"
+                      onChange={(e) => setProp(it.id, "date", e.target.value ? e.target.value + (date.slice(10) || "") : null)}
+                    />
+                    <Input
+                      type="time"
+                      aria-label="Horário"
+                      value={date.slice(11, 16)}
+                      disabled={!date}
+                      className="w-28"
+                      onChange={(e) => setProp(it.id, "date", date.slice(0, 10) + (e.target.value ? " " + e.target.value : ""))}
+                    />
+                  </div>
+                </Field>
+                {prio && (
+                  <Field className="sm:col-span-2">
+                    <FieldLabel htmlFor="task-prio">Prioridade</FieldLabel>
+                    <Select
+                      value={String(it.props.prio ?? NONE)}
+                      onValueChange={(v) => setProp(it.id, "prio", v === NONE ? null : v)}
+                    >
+                      <SelectTrigger id="task-prio" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value={NONE}>Sem prioridade</SelectItem>
+                          {prio.options!.map((o) => (
+                            <SelectItem key={o.id} value={o.id}>
+                              <span data-color={o.color} className="swatch-color size-2 rounded-full" />
+                              {o.name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
+                <Field className="sm:col-span-2">
+                  <FieldLabel>Etiquetas</FieldLabel>
+                  <TagPicker dbId={it.db} itemId={it.id} value={(it.props.tags as string[]) ?? []} />
+                </Field>
+              </FieldGroup>
+
+              {db.srs && r && (
+                <Alert>
+                  <RotateCcw />
+                  <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="flex-1">
+                      {r.finished
+                        ? "Ciclo de revisões concluído."
+                        : g === "review"
+                          ? `Hora de revisar! Quando terminar, mude para “${sp.options!.find((o) => o.group === "done")?.name ?? "concluído"}”.`
+                          : `Próxima revisão ${fmtDate(r.next!).toLowerCase()} (${INTERVALS[r.stage]} ${INTERVALS[r.stage] === 1 ? "dia" : "dias"} depois).`}
+                    </span>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={() =>
+                        patchItem(it.id, (x) => {
+                          delete x.review;
+                        })
+                      }
+                    >
+                      Parar revisões
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <Field>
+                <FieldLabel htmlFor="task-notes">Anotações</FieldLabel>
+                <Textarea
+                  id="task-notes"
+                  placeholder="Detalhes, links, resumo…"
+                  value={it.notes}
+                  className="min-h-40 field-sizing-content"
+                  onChange={(e) =>
+                    patchItem(it.id, (x) => {
+                      x.notes = e.target.value;
+                    })
+                  }
+                />
+              </Field>
+            </div>
+
+            <SheetFooter className="mt-auto flex-row justify-between border-t">
+              <Button variant="ghost" className="text-destructive" onClick={() => deleteItem(it.id)}>
+                <Trash2 data-icon="inline-start" />
+                Excluir tarefa
+              </Button>
+              <Button onClick={closePeek}>
+                <Check data-icon="inline-start" />
+                Pronto
+              </Button>
+            </SheetFooter>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/** Pick existing tags or create a new one by typing. */
+function TagPicker({ dbId, itemId, value }: { dbId: string; itemId: string; value: string[] }) {
+  const tags = useStore((s) => s.ws.dbs[dbId]?.props.find((p) => p.id === "tags"));
+  const mut = useStore((s) => s.mut);
+  const [q, setQ] = useState("");
+  const set = (v: PropValue) => setProp(itemId, "tags", v);
+  const toggle = (id: string) => set(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+  const create = () => {
+    const name = q.trim();
+    if (!name || !tags) return;
+    const existing = tags.options!.find((o) => o.name.toLowerCase() === name.toLowerCase());
+    const id = existing?.id ?? uid();
+    if (!existing)
+      mut((w) => {
+        w.dbs[dbId].props
+          .find((p) => p.id === "tags")!
+          .options!.push({ id, name, color: COLORS[(tags.options!.length + 3) % COLORS.length] });
+      });
+    if (!value.includes(id)) set([...value, id]);
+    setQ("");
+  };
+  const exact = tags?.options?.some((o) => o.name.toLowerCase() === q.trim().toLowerCase());
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {value.map((id) => {
+        const o = optOf(tags, id);
+        return o ? (
+          <span key={id} className="flex items-center">
+            <OptionBadge opt={o} className="pr-1" />
+            <button
+              aria-label={`Tirar ${o.name}`}
+              className="-ml-5 rounded-full p-0.5 hover:bg-background/60"
+              onClick={() => toggle(id)}
+            >
+              <X className="size-3" />
+            </button>
+          </span>
+        ) : null;
+      })}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm">
+            Adicionar etiqueta
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-0" align="start">
+          <Command>
+            <CommandInput
+              placeholder="Buscar ou criar…"
+              value={q}
+              onValueChange={setQ}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && q.trim() && !exact) {
+                  e.preventDefault();
+                  create();
+                }
+              }}
+            />
+            <CommandList>
+              <CommandEmpty>{q.trim() ? "Tecle Enter para criar." : "Nenhuma etiqueta ainda."}</CommandEmpty>
+              <CommandGroup>
+                {tags?.options?.map((o) => (
+                  <CommandItem key={o.id} value={o.name} onSelect={() => toggle(o.id)}>
+                    <OptionBadge opt={o} />
+                    {value.includes(o.id) && <Check className="ml-auto" />}
+                  </CommandItem>
+                ))}
+                {q.trim() && !exact && (
+                  <CommandItem value={"__create " + q} onSelect={create}>
+                    Criar “{q.trim()}”
+                  </CommandItem>
+                )}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}

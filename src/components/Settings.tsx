@@ -1,30 +1,36 @@
 import { useState } from "react";
-import type { Settings as S } from "../lib/types";
-import { ACCENTS } from "../lib/util";
-import { replaceWorkspace, toast, useStore } from "../store";
-import { downloadBackup, parseBackup } from "../lib/backup";
-import type { Workspace } from "../lib/types";
-import { cloudEnabled } from "../lib/supabase";
-import { deleteAllMyData, signOut, useSync } from "../lib/sync";
-import { Modal } from "./ui";
+import { Download, LogOut, Plus, Trash2, Upload } from "lucide-react";
+import type { AreaColor, Settings as S, Workspace } from "@/lib/types";
+import { ALERT_PRESETS } from "@/lib/events";
+import { downloadBackup, parseBackup } from "@/lib/backup";
+import { cloudEnabled } from "@/lib/supabase";
+import { deleteAllMyData, signOut, useSync } from "@/lib/sync";
+import { addArea, deleteArea, replaceWorkspace, toast, updateArea, useStore } from "@/store";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldSeparator,
+  FieldSet,
+  FieldLegend,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AreaSwatches, areaVar, useAreas } from "./common";
 
 export function Settings() {
   const ws = useStore((s) => s.ws);
-  const { mut, setUi } = useStore.getState();
+  const setUi = useStore((s) => s.setUi);
+  const mut = useStore((s) => s.mut);
   const st = ws.settings;
-  const [name, setName] = useState(st.name);
-  const [pending, setPending] = useState<Workspace | null>(null);
-  const [importErr, setImportErr] = useState("");
-  const onFile = async (f: File | undefined) => {
-    setImportErr("");
-    setPending(null);
-    if (!f) return;
-    try {
-      setPending(parseBackup(await f.text()));
-    } catch (e) {
-      setImportErr((e as Error).message);
-    }
-  };
   const set = <K extends keyof S>(k: K, v: S[K]) =>
     mut((w) => {
       w.settings[k] = v;
@@ -33,101 +39,249 @@ export function Settings() {
     setUi((u) => {
       u.modal = null;
     });
-  const seg = <K extends keyof S>(k: K, opts: [S[K], string][]) => (
-    <div className="seg">
-      {opts.map(([v, n]) => (
-        <button key={String(v)} className={st[k] === v ? "on" : ""} aria-pressed={st[k] === v} onClick={() => set(k, v)}>
-          {n}
-        </button>
+  return (
+    <Dialog open onOpenChange={(o) => !o && close()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Configurações</DialogTitle>
+          <DialogDescription>Ajuste o site do seu jeito.</DialogDescription>
+        </DialogHeader>
+        <Tabs defaultValue="geral" className="gap-5">
+          <TabsList className="w-full">
+            <TabsTrigger value="geral">Geral</TabsTrigger>
+            <TabsTrigger value="areas">Áreas</TabsTrigger>
+            <TabsTrigger value="alertas">Alertas</TabsTrigger>
+            <TabsTrigger value="conta">Conta</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="geral">
+            <FieldGroup>
+              <NameField value={st.name} onSave={(v) => set("name", v)} />
+              <Field>
+                <FieldLabel htmlFor="set-start">Abrir em</FieldLabel>
+                <Select value={st.start} onValueChange={(v) => set("start", v)}>
+                  <SelectTrigger id="set-start" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {ws.pages.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.icon} {p.title}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field>
+                <FieldLabel>Tema</FieldLabel>
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
+                  value={st.theme}
+                  onValueChange={(v) => v && set("theme", v as S["theme"])}
+                >
+                  <ToggleGroupItem value="system" className="px-3">
+                    Automático
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="light" className="px-3">
+                    Claro
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="dark" className="px-3">
+                    Escuro
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </Field>
+            </FieldGroup>
+          </TabsContent>
+
+          <TabsContent value="areas">
+            <AreasTab />
+          </TabsContent>
+
+          <TabsContent value="alertas">
+            <FieldGroup>
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldLabel htmlFor="set-email">Alertas de eventos por e-mail</FieldLabel>
+                  <FieldDescription>
+                    {cloudEnabled
+                      ? "Enviados para o e-mail da sua conta."
+                      : "Precisa de uma conta. Com o site salvando só neste navegador, nenhum e-mail é enviado."}
+                  </FieldDescription>
+                </FieldContent>
+                <Switch id="set-email" checked={st.emailAlerts} onCheckedChange={(v) => set("emailAlerts", v)} />
+              </Field>
+              <FieldSeparator />
+              <FieldSet>
+                <FieldLegend variant="label">Alertas já marcados em eventos novos</FieldLegend>
+                <ToggleGroup
+                  type="multiple"
+                  variant="outline"
+                  size="sm"
+                  spacing={2}
+                  className="flex-wrap"
+                  value={st.defaultAlerts.map(String)}
+                  onValueChange={(v) =>
+                    set(
+                      "defaultAlerts",
+                      v.map(Number).sort((a, b) => a - b),
+                    )
+                  }
+                >
+                  {ALERT_PRESETS.map((p) => (
+                    <ToggleGroupItem key={p.minutes} value={String(p.minutes)} className="px-2.5">
+                      {p.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </FieldSet>
+            </FieldGroup>
+          </TabsContent>
+
+          <TabsContent value="conta">
+            <AccountTab onClose={close} />
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NameField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [v, setV] = useState(value);
+  return (
+    <Field>
+      <FieldLabel htmlFor="set-name">Seu nome</FieldLabel>
+      <Input
+        id="set-name"
+        placeholder="Como quer ser chamado?"
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => onSave(v.trim())}
+      />
+      <FieldDescription>Aparece na saudação do Início.</FieldDescription>
+    </Field>
+  );
+}
+
+function AreasTab() {
+  const areas = useAreas();
+  const [name, setName] = useState("");
+  const [color, setColor] = useState<AreaColor>("amber");
+  const create = () => {
+    if (!name.trim()) return;
+    addArea(name, color);
+    setName("");
+  };
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">
+        As áreas separam suas tarefas, afazeres e eventos (por exemplo, pessoal e profissional). Escolha uma no topo da tela para
+        ver só o que é dela.
+      </p>
+      {areas.map((a) => (
+        <div key={a.id} style={areaVar(a)} className="area-stripe flex flex-col gap-3 rounded-lg border py-3 pr-3 pl-5">
+          <div className="flex gap-2">
+            <Input
+              key={a.name}
+              aria-label="Nome da área"
+              defaultValue={a.name}
+              onBlur={(e) => e.target.value.trim() && updateArea(a.id, { name: e.target.value.trim() })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Excluir ${a.name}`}
+              disabled={areas.length <= 1}
+              onClick={() => {
+                deleteArea(a.id);
+                toast(`Área “${a.name}” excluída. Os itens dela ficaram sem área.`);
+              }}
+            >
+              <Trash2 />
+            </Button>
+          </div>
+          <AreaSwatches value={a.color} onChange={(c) => updateArea(a.id, { color: c })} />
+        </div>
       ))}
+      <div className="flex flex-col gap-3 rounded-lg border border-dashed p-3">
+        <div className="flex gap-2">
+          <Input
+            aria-label="Nome da nova área"
+            placeholder="Nova área, ex.: Saúde…"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") create();
+            }}
+          />
+          <Button onClick={create} disabled={!name.trim()}>
+            <Plus data-icon="inline-start" />
+            Criar
+          </Button>
+        </div>
+        <AreaSwatches value={color} onChange={setColor} />
+      </div>
     </div>
   );
+}
+
+function AccountTab({ onClose }: { onClose: () => void }) {
+  const user = useSync((s) => s.user);
+  const [pending, setPending] = useState<Workspace | null>(null);
+  const [err, setErr] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const onFile = async (f?: File) => {
+    setErr("");
+    setPending(null);
+    if (!f) return;
+    try {
+      setPending(parseBackup(await f.text()));
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  };
   return (
-    <Modal onClose={close}>
-      <div className="modal-head">
-        <h3>Configurações</h3>
-        <button className="iconbtn" aria-label="Fechar" onClick={close}>
-          ✕
-        </button>
-      </div>
-      <div className="modal-body">
-        <div className="setrow">
-          <label htmlFor="set-name">Seu nome</label>
-          <input
-            id="set-name"
-            className="inp"
-            value={name}
-            placeholder="Como quer ser chamado?"
-            onChange={(e) => setName(e.target.value)}
-            onBlur={() => set("name", name.trim())}
-          />
-        </div>
-        <div className="setrow">
-          <label htmlFor="set-start">Abrir em</label>
-          <select id="set-start" className="inp" value={st.start} onChange={(e) => set("start", e.target.value)}>
-            {ws.pages.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.icon} {p.title || "Sem título"}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="setrow">
-          <span>Tema</span>
-          {seg("theme", [
-            ["system", "Sistema"],
-            ["light", "Claro"],
-            ["dark", "Escuro"],
-          ])}
-        </div>
-        <div className="setrow">
-          <span>Cor de destaque</span>
-          <div className="swatches" style={{ padding: 0 }}>
-            {Object.entries(ACCENTS).map(([k, [c, n]]) => (
-              <button
-                key={k}
-                className={"sw" + (st.accent === k ? " on" : "")}
-                style={{ background: c, width: 28, height: 28 }}
-                title={n}
-                aria-label={n}
-                onClick={() => set("accent", k)}
-              />
-            ))}
-          </div>
-        </div>
-        <div className="setrow">
-          <span>Fonte</span>
-          {seg("font", [
-            ["sans", "Sem serifa"],
-            ["serif", "Serifada"],
-            ["mono", "Mono"],
-          ])}
-        </div>
-        <div className="setrow">
-          <span>Largura da página</span>
-          {seg("width", [
-            ["normal", "Normal"],
-            ["wide", "Larga"],
-          ])}
-        </div>
-        <div className="setrow">
-          <span>Densidade</span>
-          {seg("density", [
-            ["comfy", "Confortável"],
-            ["compact", "Compacta"],
-          ])}
-        </div>
-        <h4 className="set-h">Conta</h4>
-        <AccountSection />
-        <h4 className="set-h">Backup</h4>
-        <p className="small muted">Baixe uma cópia de tudo (páginas, itens, anotações e hábitos) ou restaure uma cópia salva.</p>
-        <div className="set-actions">
-          <button className="btn" onClick={() => downloadBackup(useStore.getState().ws)}>
-            ⬇ Baixar backup
-          </button>
-          <label className="btn" htmlFor="backup-file">
-            ⬆ Restaurar backup…
-          </label>
+    <FieldGroup>
+      {cloudEnabled ? (
+        <Field orientation="horizontal">
+          <FieldContent>
+            <FieldLabel>Conta</FieldLabel>
+            <FieldDescription>
+              Conectado como <b className="text-foreground">{user?.email}</b>. Seus dados ficam salvos na nuvem.
+            </FieldDescription>
+          </FieldContent>
+          <Button variant="outline" onClick={() => signOut()}>
+            <LogOut data-icon="inline-start" />
+            Sair
+          </Button>
+        </Field>
+      ) : (
+        <Alert>
+          <AlertTitle>Sem conta</AlertTitle>
+          <AlertDescription>Seus dados ficam salvos apenas neste navegador. Baixe um backup de vez em quando.</AlertDescription>
+        </Alert>
+      )}
+      <FieldSeparator />
+      <Field>
+        <FieldLabel>Backup</FieldLabel>
+        <FieldDescription>Uma cópia de tudo: listas, tarefas, eventos, afazeres, anotações e hábitos.</FieldDescription>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => downloadBackup(useStore.getState().ws)}>
+            <Download data-icon="inline-start" />
+            Baixar backup
+          </Button>
+          <Button variant="outline" asChild>
+            <label htmlFor="backup-file" className="cursor-pointer">
+              <Upload data-icon="inline-start" />
+              Restaurar backup
+            </label>
+          </Button>
           <input
             id="backup-file"
             type="file"
@@ -139,88 +293,58 @@ export function Settings() {
             }}
           />
         </div>
-        {importErr && (
-          <p className="small" style={{ color: "var(--bad)" }}>
-            {importErr}
-          </p>
-        )}
+        {err && <p className="text-sm text-destructive">{err}</p>}
         {pending && (
-          <div className="confirmbar">
-            <span className="small">
-              Substituir tudo pelo backup ({pending.pages.length} páginas, {Object.keys(pending.items).length} itens)?
-            </span>
-            <button
-              className="btn"
-              onClick={() => {
-                replaceWorkspace(pending);
-                setPending(null);
-                close();
-                toast("Backup restaurado");
-              }}
-            >
-              Substituir
-            </button>
-            <button className="ghostbtn" onClick={() => setPending(null)}>
-              Cancelar
-            </button>
-          </div>
+          <Alert>
+            <AlertTitle>Substituir tudo pelo backup?</AlertTitle>
+            <AlertDescription className="flex flex-col gap-3">
+              {pending.pages.length} páginas e {Object.keys(pending.items).length} tarefas. O que está no site agora será trocado.
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    replaceWorkspace(pending);
+                    setPending(null);
+                    onClose();
+                    toast("Backup restaurado");
+                  }}
+                >
+                  Substituir
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setPending(null)}>
+                  Cancelar
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
         )}
-      </div>
-    </Modal>
-  );
-}
-
-function AccountSection() {
-  const user = useSync((s) => s.user);
-  const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState("");
-  if (!cloudEnabled) return <p className="small muted">Sem conta: seus dados ficam salvos apenas neste navegador.</p>;
-  return (
-    <>
-      <div className="set-actions" style={{ alignItems: "center" }}>
-        <span className="small" style={{ flex: 1 }}>
-          Conectado como <b>{user?.email}</b>. Seus dados ficam salvos na sua conta.
-        </span>
-        <button className="btn" onClick={() => signOut()}>
-          Sair
-        </button>
-      </div>
-      <details className="danger-zone">
-        <summary className="small">Apagar todos os meus dados</summary>
-        <p className="small muted">
-          Isto apaga para sempre todas as suas páginas, itens, anotações e hábitos da nuvem. Baixe um backup antes, se quiser
-          guardar uma cópia.
-        </p>
-        <label className="small" htmlFor="erase-confirm">
-          Digite APAGAR para confirmar
-        </label>
-        <div className="set-actions">
-          <input
-            id="erase-confirm"
-            className="inp"
-            style={{ maxWidth: 180 }}
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-          <button
-            className="btn danger-btn"
-            disabled={confirm.trim().toUpperCase() !== "APAGAR"}
-            onClick={() => deleteAllMyData().catch((e: Error) => setError(e.message))}
-          >
-            Apagar tudo
-          </button>
-        </div>
-        {error && (
-          <p className="small" style={{ color: "var(--bad)" }}>
-            {error}
-          </p>
-        )}
-      </details>
-      <p className="small muted">
-        <a href="/privacidade.html" target="_blank" rel="noopener">
+      </Field>
+      {cloudEnabled && (
+        <>
+          <FieldSeparator />
+          <Field>
+            <FieldLabel htmlFor="erase">Apagar todos os meus dados</FieldLabel>
+            <FieldDescription>
+              Apaga para sempre tudo o que está na nuvem e sai da conta. Digite APAGAR para confirmar.
+            </FieldDescription>
+            <div className="flex gap-2">
+              <Input id="erase" className="max-w-40" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+              <Button
+                variant="destructive"
+                disabled={confirm.trim().toUpperCase() !== "APAGAR"}
+                onClick={() => deleteAllMyData().catch((e: Error) => setErr(e.message))}
+              >
+                Apagar tudo
+              </Button>
+            </div>
+          </Field>
+        </>
+      )}
+      <p className="text-xs text-muted-foreground">
+        <a className="underline underline-offset-2" href="/privacidade.html" target="_blank" rel="noopener">
           Privacidade e termos de uso
         </a>
       </p>
-    </>
+    </FieldGroup>
   );
 }

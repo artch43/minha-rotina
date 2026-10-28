@@ -1,127 +1,106 @@
-import { useState } from "react";
-import { go, openNotes, openPeek, useStore } from "../store";
-import { Modal } from "./ui";
+import { CalendarDays, CheckSquare, FileText, LayoutGrid, ListTodo } from "lucide-react";
+import { go, openEvent, openNotes, openPeek, useStore } from "@/store";
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { fmtDate } from "@/lib/util";
 
-type Result =
-  | { kind: "note"; id: string; title: string; snippet: string; folder: string }
-  | { kind: "page"; id: string; icon: string; title: string }
-  | { kind: "item"; id: string; db: string; title: string; dbTitle: string };
-
+/** Ctrl/Cmd + K: find pages, tasks, events, to-dos and notes. */
 export function Search() {
   const ws = useStore((s) => s.ws);
   const setUi = useStore((s) => s.setUi);
-  const [q, setQ] = useState("");
-  const [sel, setSel] = useState(0);
   const close = () =>
     setUi((u) => {
       u.modal = null;
     });
-  const qq = q.trim().toLowerCase();
-  const results: Result[] = [
-    ...ws.pages
-      .filter((p) => !qq || (p.title || "").toLowerCase().includes(qq))
-      .slice(0, qq ? 20 : 8)
-      .map((p) => ({ kind: "page" as const, id: p.id, icon: p.icon, title: p.title })),
-    ...(qq
-      ? Object.values(ws.items)
-          .filter((i) => (i.title || "").toLowerCase().includes(qq))
-          .slice(0, 30)
-          .map((i) => ({
-            kind: "item" as const,
-            id: i.id,
-            db: i.db,
-            title: i.title,
-            dbTitle: ws.pages.find((p) => p.id === i.db)?.title ?? "",
-          }))
-      : []),
-    ...(qq
-      ? Object.values(ws.notes)
-          .filter((n) => n.title.toLowerCase().includes(qq) || n.body.toLowerCase().includes(qq))
-          .sort((a, b) => Number(b.title.toLowerCase().includes(qq)) - Number(a.title.toLowerCase().includes(qq)))
-          .slice(0, 30)
-          .map((n) => {
-            const at = n.body.toLowerCase().indexOf(qq);
-            const snippet = at >= 0 ? n.body.slice(Math.max(0, at - 30), at + 60).replace(/\s+/g, " ") : "";
-            return { kind: "note" as const, id: n.id, title: n.title, snippet, folder: n.folder };
-          })
-      : []),
-  ];
-  const s = Math.min(sel, Math.max(0, results.length - 1));
-  const pick = (r: Result) => {
+  const run = (fn: () => void) => () => {
     close();
-    if (r.kind === "page") go(r.id);
-    else if (r.kind === "note") openNotes(r.id);
-    else {
-      go(r.db);
-      openPeek(r.id);
-    }
+    fn();
   };
+  const todoPage = ws.pages.find((p) => p.type === "todo");
   return (
-    <Modal onClose={close}>
-      <div className="modal-head">
-        <span className="muted">⌕</span>
-        <input
-          autoFocus
-          className="qsearch"
-          placeholder="Buscar páginas, itens e anotações…"
-          aria-label="Buscar"
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setSel(0);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowDown") {
-              e.preventDefault();
-              setSel(Math.min(results.length - 1, s + 1));
-            }
-            if (e.key === "ArrowUp") {
-              e.preventDefault();
-              setSel(Math.max(0, s - 1));
-            }
-            if (e.key === "Enter" && results[s]) pick(results[s]);
-          }}
-        />
-        <kbd>Esc</kbd>
-      </div>
-      <div className="modal-body" style={{ paddingTop: 6 }}>
-        {results.length ? (
-          results.map((r, k) => (
-            <button key={r.kind + r.id} className={"mi" + (k === s ? " sel" : "")} onClick={() => pick(r)}>
-              {r.kind === "page" ? (
-                <>
-                  {r.icon || "📄"} {r.title || "Sem título"}
-                  <span className="sub">Página</span>
-                </>
-              ) : r.kind === "note" ? (
-                <>
-                  📓
-                  <span style={{ minWidth: 0, display: "grid" }}>
-                    {r.title || "Sem título"}
-                    {r.snippet && (
-                      <span
-                        className="small muted"
-                        style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                      >
-                        …{r.snippet}…
-                      </span>
-                    )}
-                  </span>
-                  <span className="sub">{r.folder || "Anotações"}</span>
-                </>
-              ) : (
-                <>
-                  <span className="muted">▪</span>
-                  {r.title || "Sem título"}
-                  <span className="sub">{r.dbTitle}</span>
-                </>
-              )}
-            </button>
-          ))
-        ) : (
-          <p className="muted">Nada encontrado para “{q}”.</p>
-        )}
-      </div>
-    </Modal>
+    <CommandDialog
+      open
+      onOpenChange={(o) => !o && close()}
+      title="Buscar"
+      description="Busque páginas, tarefas, eventos, afazeres e anotações"
+    >
+      <CommandInput placeholder="Buscar páginas, tarefas, eventos e anotações…" />
+      <CommandList>
+        <CommandEmpty>Nada encontrado.</CommandEmpty>
+        <CommandGroup heading="Páginas">
+          {ws.pages.map((p) => (
+            <CommandItem key={p.id} value={"pagina " + p.title} onSelect={run(() => go(p.id))}>
+              <LayoutGrid />
+              {p.icon} {p.title}
+            </CommandItem>
+          ))}
+          <CommandItem value="pagina anotacoes" onSelect={run(() => openNotes(null))}>
+            <FileText />
+            📓 Anotações
+          </CommandItem>
+        </CommandGroup>
+        <CommandGroup heading="Tarefas">
+          {Object.values(ws.items)
+            .filter((i) => i.title)
+            .slice(0, 200)
+            .map((i) => (
+              <CommandItem
+                key={i.id}
+                value={"tarefa " + i.title + " " + i.id}
+                onSelect={run(() => {
+                  go(i.db);
+                  openPeek(i.id);
+                })}
+              >
+                <CheckSquare />
+                <span className="truncate">{i.title}</span>
+                <span className="ml-auto text-xs text-muted-foreground">{ws.pages.find((p) => p.id === i.db)?.title}</span>
+              </CommandItem>
+            ))}
+        </CommandGroup>
+        <CommandGroup heading="Eventos">
+          {Object.values(ws.events)
+            .slice(0, 200)
+            .map((e) => (
+              <CommandItem
+                key={e.id}
+                value={"evento " + e.title + " " + e.id}
+                onSelect={run(() => {
+                  const c = ws.pages.find((p) => p.type === "calendar");
+                  if (c) go(c.id);
+                  openEvent(e.id);
+                })}
+              >
+                <CalendarDays />
+                <span className="truncate">{e.title}</span>
+                <span className="ml-auto text-xs text-muted-foreground">{fmtDate(e.date)}</span>
+              </CommandItem>
+            ))}
+        </CommandGroup>
+        <CommandGroup heading="To-do">
+          {Object.values(ws.todos)
+            .filter((t) => !t.done)
+            .slice(0, 200)
+            .map((t) => (
+              <CommandItem key={t.id} value={"afazer " + t.text + " " + t.id} onSelect={run(() => todoPage && go(todoPage.id))}>
+                <ListTodo />
+                <span className="truncate">{t.text}</span>
+              </CommandItem>
+            ))}
+        </CommandGroup>
+        <CommandGroup heading="Anotações">
+          {Object.values(ws.notes).map((n) => (
+            <CommandItem
+              key={n.id}
+              value={"nota " + n.title + " " + n.body.slice(0, 400) + " " + n.id}
+              onSelect={run(() => openNotes(n.id))}
+            >
+              <FileText />
+              <span className="truncate">{n.title}</span>
+              {n.folder && <span className="ml-auto text-xs text-muted-foreground">{n.folder}</span>}
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      </CommandList>
+    </CommandDialog>
   );
 }

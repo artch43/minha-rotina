@@ -99,3 +99,13 @@ describe("sequência de hábitos", () => {
     expect(streakOf({ "2026-10-24": ["h"], "2026-10-25": ["h"] }, "h")).toBe(0);
   });
 });
+
+describe("áreas", () => {
+  it("filtra as tarefas pela área escolhida no topo", () => {
+    const w = template();
+    const v = w.dbs.trabalho.views[0];
+    expect(applyFilters(w, "trabalho", v, "", "profissional").length).toBe(2);
+    expect(applyFilters(w, "trabalho", v, "", "pessoal").length).toBe(0);
+    expect(applyFilters(w, "trabalho", v, "", "all").length).toBe(2);
+  });
+});

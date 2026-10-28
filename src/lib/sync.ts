@@ -4,7 +4,8 @@ import { supabase } from "./supabase";
 import { applyRecords, diffEntities, fromRecords, keyOf, toEntities, type Ent, type Kind, type Rec } from "./records";
 import { normalizeWorkspace } from "./backup";
 import { template } from "./template";
-import type { Workspace } from "./types";
+import type { CalendarEvent, Workspace } from "./types";
+import { remindersFor } from "./events";
 import { STORAGE_KEY } from "./storage";
 import { useStore } from "../store";
 
@@ -87,11 +88,33 @@ function onStoreChange(ws: Workspace) {
     const e = prev.get(k)!;
     pending.set(k, { kind: e.kind, id: e.id, data: e.data, deleted_at: now });
   }
+  // Turning e-mail alerts on or off rewrites the reminders of every event.
+  const alerts = ws.settings.emailAlerts;
+  if (lastAlerts !== null && alerts !== lastAlerts)
+    for (const e of next.values())
+      if (e.kind === "event") pending.set(keyOf("event", e.id), { kind: "event", id: e.id, data: e.data, deleted_at: null });
+  lastAlerts = alerts;
   prev = next;
   saveMeta();
   setStatus("saving");
   clearTimeout(flushTimer);
   flushTimer = window.setTimeout(flush, 800);
+}
+
+let lastAlerts: boolean | null = null;
+
+/** Rewrites the pending e-mail reminders of these events (sent ones are kept as history). */
+async function syncReminders(rows: Rec[]) {
+  const enabled = useStore.getState().ws.settings.emailAlerts;
+  for (const r of rows) {
+    const del = await supabase!.from("reminders").delete().eq("event_id", r.id).is("sent_at", null);
+    if (del.error) throw del.error;
+    if (r.deleted_at || !enabled) continue;
+    const list = remindersFor(r.data as CalendarEvent);
+    if (!list.length) continue;
+    const ins = await supabase!.from("reminders").insert(list.map((x) => ({ ...x, user_id: uid })));
+    if (ins.error) throw ins.error;
+  }
 }
 
 export async function flush() {
@@ -107,6 +130,8 @@ export async function flush() {
       const { error } = await supabase.from(TABLE).upsert(rows, { onConflict: "user_id,kind,id" });
       if (error) throw error;
     }
+    const events = batch.map(([, r]) => r).filter((r) => r.kind === "event");
+    if (events.length) await syncReminders(events);
     setStatus(pending.size ? "saving" : "saved");
   } catch {
     // Keep anything that failed, unless a newer change for the same entity arrived meanwhile.
@@ -232,12 +257,25 @@ export function seedAccount(ws: Workspace) {
   begin();
 }
 
+/** Data saved in the cloud by an older version is upgraded once, and the result is uploaded like any edit. */
+function migrateIfNeeded() {
+  const cur = useStore.getState().ws as Workspace & { docs?: unknown };
+  if (cur.version === 2 && !cur.docs) return;
+  const next = normalizeWorkspace(cur);
+  useStore.getState().mut((w) => {
+    Object.assign(w, next);
+    delete (w as { docs?: unknown }).docs;
+  });
+}
+
 function begin() {
   prev = toEntities(useStore.getState().ws);
+  lastAlerts = useStore.getState().ws.settings.emailAlerts;
   unsubscribe?.();
   unsubscribe = useStore.subscribe((s, old) => {
     if (s.ws !== old.ws) onStoreChange(s.ws);
   });
+  migrateIfNeeded();
   useSync.setState({ phase: "ready", status: pending.size ? "saving" : "saved" });
   flush();
   purgeOld();

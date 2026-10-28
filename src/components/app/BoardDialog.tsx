@@ -1,0 +1,94 @@
+import { useState } from "react";
+import { addBoard, renamePage, useStore } from "@/store";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AreaDot, EmojiPicker, useAreas } from "../common";
+
+/** Create a task list, or rename one when `pageId` is given. */
+export function BoardDialog({
+  pageId,
+  open,
+  onOpenChange,
+}: {
+  pageId?: string;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
+  const page = useStore((s) => (pageId ? s.ws.pages.find((p) => p.id === pageId) : undefined));
+  const db = useStore((s) => (pageId ? s.ws.dbs[pageId] : undefined));
+  const areas = useAreas();
+  const [title, setTitle] = useState(page?.title ?? "");
+  const [icon, setIcon] = useState(page?.icon ?? "🗂️");
+  const [area, setArea] = useState(db?.defaultArea ?? "none");
+  const save = () => {
+    const a = area === "none" ? undefined : area;
+    if (pageId) {
+      renamePage(pageId, title, icon);
+      useStore.getState().mut((w) => {
+        if (w.dbs[pageId]) w.dbs[pageId].defaultArea = a;
+      });
+    } else addBoard(title, icon, a);
+    onOpenChange(false);
+  };
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{pageId ? "Editar lista" : "Nova lista de tarefas"}</DialogTitle>
+          <DialogDescription>Cada lista tem seu próprio quadro com colunas de status.</DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            save();
+          }}
+        >
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="board-title">Nome</FieldLabel>
+              <div className="flex gap-2">
+                <EmojiPicker value={icon} onChange={setIcon} />
+                <Input
+                  id="board-title"
+                  autoFocus
+                  autoComplete="off"
+                  placeholder="Ex.: Casa, Faculdade, Projetos…"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="board-area">Área das tarefas novas</FieldLabel>
+              <Select value={area} onValueChange={setArea}>
+                <SelectTrigger id="board-area" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="none">Sem área</SelectItem>
+                    {areas.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        <AreaDot area={a} />
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+          </FieldGroup>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit">{pageId ? "Salvar" : "Criar lista"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

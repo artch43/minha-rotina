@@ -1,16 +1,26 @@
 import { Suspense, lazy, useEffect, useState } from "react";
-import { checkReviews, closePeek, closePop, usePop, useStore } from "./store";
-import { Sidebar } from "./components/Sidebar";
-import { Topbar } from "./components/Topbar";
-import { PageView } from "./components/PageView";
-import { Peek } from "./components/Peek";
-import { Search } from "./components/Search";
-import { Settings } from "./components/Settings";
-import { PopHost, Toast } from "./components/ui";
-import { Auth, ChooseStart, Loading, NewPassword } from "./components/Auth";
-import { Trash } from "./components/Trash";
+import { ThemeProvider, useTheme } from "next-themes";
+import { checkReviews, closePeek, openModal, useStore } from "./store";
 import { cloudEnabled, supabase } from "./lib/supabase";
 import { startCloud, useSync } from "./lib/sync";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
+import { AppSidebar } from "./components/app/AppSidebar";
+import { Topbar } from "./components/app/Topbar";
+import { BoardDialog } from "./components/app/BoardDialog";
+import { Search } from "./components/Search";
+import { Settings } from "./components/Settings";
+import { Trash } from "./components/Trash";
+import { Auth, ChooseStart, Loading, NewPassword } from "./components/Auth";
+import { Home } from "./components/Home";
+import { Habits } from "./components/Habits";
+import { TodoPage } from "./components/TodoPage";
+import { DbPage } from "./components/tasks/DbPage";
+import { TaskSheet } from "./components/tasks/TaskSheet";
+import { StatusDialog } from "./components/tasks/StatusDialog";
+import { CalendarPage } from "./components/calendar/CalendarPage";
+import { EventDialog } from "./components/calendar/EventDialog";
 
 const NotesView = lazy(() => import("./components/notes/NotesView"));
 
@@ -22,8 +32,7 @@ function routeFromHash() {
     setUi((u) => {
       u.route = "notes";
       u.peek = null;
-      u.noteGraph = rest === "grafo";
-      if (rest && rest !== "grafo" && ws.notes[rest]) u.noteId = rest;
+      if (rest && ws.notes[rest]) u.noteId = rest;
       u.notesTab = rest ? "note" : "list";
     });
     return true;
@@ -37,7 +46,14 @@ function routeFromHash() {
 }
 
 export default function App() {
-  return cloudEnabled ? <CloudGate /> : <Workspace />;
+  return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <TooltipProvider>
+        {cloudEnabled ? <CloudGate /> : <Workspace />}
+        <Toaster position="bottom-center" />
+      </TooltipProvider>
+    </ThemeProvider>
+  );
 }
 
 /** With a backend configured: sign in first, then load the person's data, then show the workspace. */
@@ -63,38 +79,26 @@ function CloudGate() {
 
   if (!checked) return <Loading text="Abrindo…" />;
   if (recovery) return <NewPassword />;
-  if (error && phase === "auth")
-    return (
-      <>
-        <Auth />
-        <p className="auth-err" style={{ textAlign: "center" }}>
-          {error}
-        </p>
-      </>
-    );
-  if (phase === "auth") return <Auth />;
+  if (phase === "auth") return <Auth error={error} />;
   if (phase === "loading") return <Loading />;
   if (phase === "choose") return <ChooseStart />;
   return <Workspace />;
 }
 
-function Workspace() {
-  const settings = useStore((s) => s.ws.settings);
-  const sideOpen = useStore((s) => s.ui.sideOpen);
-  const modal = useStore((s) => s.ui.modal);
-  const peek = useStore((s) => s.ui.peek);
-  const route = useStore((s) => s.ui.route);
-  const setUi = useStore((s) => s.setUi);
+/** Keeps the light/dark choice from Settings in sync with the page. */
+function ThemeSync() {
+  const theme = useStore((s) => s.ws.settings.theme);
+  const { setTheme } = useTheme();
+  useEffect(() => setTheme(theme), [theme]);
+  return null;
+}
 
-  useEffect(() => {
-    const r = document.documentElement;
-    if (settings.theme === "system") r.removeAttribute("data-theme");
-    else r.setAttribute("data-theme", settings.theme);
-    r.dataset.accent = settings.accent;
-    r.dataset.font = settings.font;
-    r.dataset.width = settings.width;
-    r.dataset.density = settings.density;
-  }, [settings]);
+function Workspace() {
+  const route = useStore((s) => s.ui.route);
+  const modal = useStore((s) => s.ui.modal);
+  const page = useStore((s) => s.ws.pages.find((p) => p.id === s.ui.route));
+  const note = useStore((s) => (s.ui.route === "notes" && s.ui.noteId ? s.ws.notes[s.ui.noteId] : undefined));
+  const setUi = useStore((s) => s.setUi);
 
   useEffect(() => {
     if (!routeFromHash()) {
@@ -116,15 +120,7 @@ function Workspace() {
         setUi((u) => {
           u.modal = u.modal === "search" ? null : "search";
         });
-        return;
       }
-      if (e.key !== "Escape" || usePop.getState().pop) return;
-      const { ui } = useStore.getState();
-      if (ui.modal)
-        setUi((u) => {
-          u.modal = null;
-        });
-      else if (ui.peek) closePeek();
     };
     addEventListener("hashchange", onHash);
     document.addEventListener("visibilitychange", onVis);
@@ -136,43 +132,64 @@ function Workspace() {
     };
   }, []);
 
+  const title =
+    route === "notes" ? (
+      <span>📓 Anotações{note ? <span className="text-muted-foreground"> / {note.title}</span> : null}</span>
+    ) : page ? (
+      <span>
+        {page.icon} {page.title || "Sem título"}
+      </span>
+    ) : null;
+  const current = page ?? (route === "notes" ? null : useStore.getState().ws.pages.find((p) => p.type === "home"));
+
   return (
-    <div className={"app" + (sideOpen ? " side-open" : "")}>
-      <div
-        className="side-scrim"
-        onClick={() =>
-          setUi((u) => {
-            u.sideOpen = false;
-          })
-        }
-      />
-      <aside className="side" aria-label="Páginas">
-        <Sidebar />
-      </aside>
-      <main className="main">
-        <Topbar />
+    <SidebarProvider>
+      <ThemeSync />
+      <AppSidebar />
+      <a
+        href="#conteudo"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:ring-2 focus:ring-ring"
+      >
+        Pular para o conteúdo
+      </a>
+      <SidebarInset className="min-w-0" id="conteudo">
+        <Topbar title={title} />
         {route === "notes" ? (
-          <Suspense
-            fallback={
-              <p className="muted" style={{ padding: 24 }}>
-                Abrindo anotações…
-              </p>
-            }
-          >
+          <Suspense fallback={<Loading text="Abrindo anotações…" />}>
             <NotesView />
           </Suspense>
         ) : (
-          <div className="scroll" onScroll={() => closePop()}>
-            <PageView />
+          <div data-scroll className="min-h-0 flex-1 overflow-y-auto">
+            {current?.type === "home" && <Home />}
+            {current?.type === "calendar" && <CalendarPage />}
+            {current?.type === "habits" && <Habits />}
+            {current?.type === "todo" && <TodoPage />}
+            {current?.type === "db" && <DbPage key={current.id} page={current} />}
           </div>
         )}
-      </main>
-      {peek && <Peek />}
+      </SidebarInset>
+      <TaskSheet />
+      <EventDialog />
+      <StatusDialog />
       {modal === "search" && <Search />}
       {modal === "settings" && <Settings />}
       {modal === "trash" && <Trash />}
-      <PopHost />
-      <Toast />
-    </div>
+      {modal === "newBoard" && <BoardDialog open onOpenChange={(o) => !o && openModal(null)} />}
+      <EscToClose />
+    </SidebarProvider>
   );
+}
+
+/** Esc closes the task panel when no dialog is open (dialogs handle Esc themselves). */
+function EscToClose() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const { ui } = useStore.getState();
+      if (ui.peek && !ui.modal && !ui.eventDialog && !ui.statusDialog) closePeek();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+  return null;
 }

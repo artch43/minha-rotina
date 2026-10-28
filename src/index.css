@@ -1,0 +1,316 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/plus-jakarta-sans";
+@import "@fontsource-variable/jetbrains-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, Menlo, monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-area-coral: var(--area-coral);
+  --color-area-petrol: var(--area-petrol);
+  --color-area-violet: var(--area-violet);
+  --color-area-amber: var(--area-amber);
+  --color-area-green: var(--area-green);
+  --color-area-pink: var(--area-pink);
+  --color-area-sky: var(--area-sky);
+  --color-area-slate: var(--area-slate);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: #f7f8fa;
+  --foreground: #1e2330;
+  --card: #ffffff;
+  --card-foreground: #1e2330;
+  --popover: #ffffff;
+  --popover-foreground: #1e2330;
+  --primary: #1f7a8c;
+  --primary-foreground: #ffffff;
+  --secondary: #edf0f4;
+  --secondary-foreground: #1e2330;
+  --muted: #edf0f4;
+  --muted-foreground: #5b6272;
+  --accent: #e8eef2;
+  --accent-foreground: #1e2330;
+  --destructive: #c93b3b;
+  --border: #e1e5eb;
+  --input: #d9dee6;
+  --ring: #1f7a8c;
+  --chart-1: #1f7a8c;
+  --chart-2: #e0604f;
+  --chart-3: #7b5cd6;
+  --chart-4: #b97a0c;
+  --chart-5: #2f8f5b;
+  --radius: 0.75rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1e2330;
+  --sidebar-primary: #1f7a8c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #edf2f5;
+  --sidebar-accent-foreground: #1e2330;
+  --sidebar-border: #e6e9ee;
+  --sidebar-ring: #1f7a8c;
+  --success: #2f8f5b;
+  --warning: #b26a00;
+  --area-coral: #e0604f;
+  --area-petrol: #1f7a8c;
+  --area-violet: #7b5cd6;
+  --area-amber: #b97a0c;
+  --area-green: #2f8f5b;
+  --area-pink: #c9488a;
+  --area-sky: #2d7fd3;
+  --area-slate: #5f6b7e;
+  --tag-gray-bg: #edeff3;
+  --tag-gray-fg: #4b5262;
+  --tag-brown-bg: #f2e7dd;
+  --tag-brown-fg: #6e4a2f;
+  --tag-orange-bg: #fce6d6;
+  --tag-orange-fg: #93460f;
+  --tag-yellow-bg: #f8eec6;
+  --tag-yellow-fg: #6f5605;
+  --tag-green-bg: #ddf1e4;
+  --tag-green-fg: #22663c;
+  --tag-blue-bg: #dee8fb;
+  --tag-blue-fg: #2547a1;
+  --tag-purple-bg: #ece3f9;
+  --tag-purple-fg: #5c3593;
+  --tag-pink-bg: #f9e0ec;
+  --tag-pink-fg: #8d2b5e;
+  --tag-red-bg: #fbdedb;
+  --tag-red-fg: #9d2a22;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #14171d;
+  --foreground: #e8eaee;
+  --card: #1b1f27;
+  --card-foreground: #e8eaee;
+  --popover: #1e222b;
+  --popover-foreground: #e8eaee;
+  --primary: #5cc2d3;
+  --primary-foreground: #0c1b1f;
+  --secondary: #232833;
+  --secondary-foreground: #e8eaee;
+  --muted: #232833;
+  --muted-foreground: #9ca3b1;
+  --accent: #262c38;
+  --accent-foreground: #e8eaee;
+  --destructive: #f0776f;
+  --border: #2a303b;
+  --input: #343b49;
+  --ring: #5cc2d3;
+  --chart-1: #5cc2d3;
+  --chart-2: #f08a7b;
+  --chart-3: #a994f0;
+  --chart-4: #f0ba4e;
+  --chart-5: #6fd39a;
+  --sidebar: #181c23;
+  --sidebar-foreground: #e8eaee;
+  --sidebar-primary: #5cc2d3;
+  --sidebar-primary-foreground: #0c1b1f;
+  --sidebar-accent: #242a35;
+  --sidebar-accent-foreground: #e8eaee;
+  --sidebar-border: #262b35;
+  --sidebar-ring: #5cc2d3;
+  --success: #6fd39a;
+  --warning: #f0ba4e;
+  --area-coral: #f08a7b;
+  --area-petrol: #5cc2d3;
+  --area-violet: #a994f0;
+  --area-amber: #f0ba4e;
+  --area-green: #6fd39a;
+  --area-pink: #f08cc0;
+  --area-sky: #7db8f5;
+  --area-slate: #a7b1c2;
+  --tag-gray-bg: #2c313b;
+  --tag-gray-fg: #c6cbd5;
+  --tag-brown-bg: #3a2f27;
+  --tag-brown-fg: #e2c4aa;
+  --tag-orange-bg: #45311f;
+  --tag-orange-fg: #f7bc8e;
+  --tag-yellow-bg: #403919;
+  --tag-yellow-fg: #edd67c;
+  --tag-green-bg: #1f3b2b;
+  --tag-green-fg: #92ddae;
+  --tag-blue-bg: #1f2d4e;
+  --tag-blue-fg: #abc1ff;
+  --tag-purple-bg: #34274b;
+  --tag-purple-fg: #d1b6f6;
+  --tag-pink-bg: #44243b;
+  --tag-pink-fg: #f4acd2;
+  --tag-red-bg: #4b2523;
+  --tag-red-fg: #ffada4;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    -webkit-font-smoothing: antialiased;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  [data-slot="sheet-content"],
+  [data-slot="dialog-content"],
+  [data-slot="alert-dialog-content"] {
+    overscroll-behavior: contain;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+}
+/* Colored labels for status, priority and tags (one of 9 fixed colors). */
+@layer components {
+  .tag-color {
+    background: var(--tag-gray-bg);
+    color: var(--tag-gray-fg);
+    border-color: transparent;
+  }
+  .tag-color[data-color="brown"] {
+    background: var(--tag-brown-bg);
+    color: var(--tag-brown-fg);
+  }
+  .tag-color[data-color="orange"] {
+    background: var(--tag-orange-bg);
+    color: var(--tag-orange-fg);
+  }
+  .tag-color[data-color="yellow"] {
+    background: var(--tag-yellow-bg);
+    color: var(--tag-yellow-fg);
+  }
+  .tag-color[data-color="green"] {
+    background: var(--tag-green-bg);
+    color: var(--tag-green-fg);
+  }
+  .tag-color[data-color="blue"] {
+    background: var(--tag-blue-bg);
+    color: var(--tag-blue-fg);
+  }
+  .tag-color[data-color="purple"] {
+    background: var(--tag-purple-bg);
+    color: var(--tag-purple-fg);
+  }
+  .tag-color[data-color="pink"] {
+    background: var(--tag-pink-bg);
+    color: var(--tag-pink-fg);
+  }
+  .tag-color[data-color="red"] {
+    background: var(--tag-red-bg);
+    color: var(--tag-red-fg);
+  }
+  .swatch-color {
+    background: var(--tag-gray-fg);
+  }
+  .swatch-color[data-color="brown"] {
+    background: var(--tag-brown-fg);
+  }
+  .swatch-color[data-color="orange"] {
+    background: var(--tag-orange-fg);
+  }
+  .swatch-color[data-color="yellow"] {
+    background: var(--tag-yellow-fg);
+  }
+  .swatch-color[data-color="green"] {
+    background: var(--tag-green-fg);
+  }
+  .swatch-color[data-color="blue"] {
+    background: var(--tag-blue-fg);
+  }
+  .swatch-color[data-color="purple"] {
+    background: var(--tag-purple-fg);
+  }
+  .swatch-color[data-color="pink"] {
+    background: var(--tag-pink-fg);
+  }
+  .swatch-color[data-color="red"] {
+    background: var(--tag-red-fg);
+  }
+
+  /* The area stripe: the one bold element of the design. --area is set inline from the area's color. */
+  .area-stripe {
+    position: relative;
+  }
+  .area-stripe::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 4px;
+    border-radius: 4px;
+    background: var(--area, var(--border));
+  }
+  .area-soft {
+    background: color-mix(in oklab, var(--area, var(--muted)) 12%, var(--card));
+  }
+}

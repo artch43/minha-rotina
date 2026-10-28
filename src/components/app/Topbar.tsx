@@ -1,0 +1,85 @@
+import { CloudOff, Check, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { cloudEnabled } from "@/lib/supabase";
+import { useSync } from "@/lib/sync";
+import { useStore } from "@/store";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { AreaDot, areaVar, useAreas } from "../common";
+
+export function AreaSwitcher({ className }: { className?: string }) {
+  const areas = useAreas();
+  const area = useStore((s) => s.ui.area);
+  const setUi = useStore((s) => s.setUi);
+  return (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="sm"
+      aria-label="Mostrar a área"
+      className={cn("max-w-full overflow-x-auto", className)}
+      value={area}
+      onValueChange={(v) =>
+        v &&
+        setUi((u) => {
+          u.area = v;
+        })
+      }
+    >
+      <ToggleGroupItem value="all" className="px-3">
+        Todas
+      </ToggleGroupItem>
+      {areas.map((a) => (
+        <ToggleGroupItem
+          key={a.id}
+          value={a.id}
+          style={areaVar(a)}
+          className="gap-1.5 px-3 data-[state=on]:border-(--area) data-[state=on]:bg-(--area)/12 data-[state=on]:text-foreground"
+        >
+          <AreaDot area={a} />
+          {a.name}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+}
+
+function SaveState() {
+  const status = useSync((s) => s.status);
+  if (!cloudEnabled) return <span className="hidden text-xs text-muted-foreground lg:inline">Salvo neste navegador</span>;
+  if (status === "saving")
+    return (
+      <span className="flex items-center gap-1 text-xs text-muted-foreground" role="status">
+        <Loader2 className="size-3.5 animate-spin" />
+        Salvando…
+      </span>
+    );
+  if (status === "offline" || status === "error")
+    return (
+      <span className="flex items-center gap-1 text-xs text-warning" role="status">
+        <CloudOff className="size-3.5" />
+        {status === "offline" ? "Sem conexão" : "Tentando salvar"}
+      </span>
+    );
+  if (status === "saved")
+    return (
+      <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex" role="status">
+        <Check className="size-3.5" />
+        Salvo
+      </span>
+    );
+  return null;
+}
+
+export function Topbar({ title }: { title: React.ReactNode }) {
+  return (
+    <header className="sticky top-0 z-10 flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 border-b bg-background/90 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/75">
+      <SidebarTrigger className="-ml-1" />
+      <Separator orientation="vertical" className="h-5" />
+      <div className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</div>
+      <SaveState />
+      <AreaSwitcher className="order-last w-full sm:order-none sm:w-auto" />
+    </header>
+  );
+}

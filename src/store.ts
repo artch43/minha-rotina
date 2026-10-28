@@ -1,28 +1,32 @@
-import type { ReactNode } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import type { Workspace, PropValue, PageType, Item, Note } from "./lib/types";
+import { toast as sonner } from "sonner";
+import type { Area, CalendarEvent, Color, Group, Item, Note, PropValue, Todo, Workspace } from "./lib/types";
 import { template, mkDb, DEFAULT_STATUS } from "./lib/template";
-import { applyStatusChange, descendants, childrenOf, runReviews, statusProp } from "./lib/model";
+import { applyStatusChange, childrenOf, runReviews, statusProp } from "./lib/model";
 import { today, uid } from "./lib/util";
 import { dailyBody, findByTitle, renameLinks, uniqueTitle } from "./lib/notes";
 import { STORAGE_KEY, workspaceStorage } from "./lib/storage";
-import { normalizeWorkspace } from "./lib/backup";
+import { normalizeWorkspace } from "./lib/migrate";
 
+export type Modal = "search" | "settings" | "trash" | "newBoard" | null;
 export interface UI {
   route: string;
   peek: string | null;
   peekFocus: boolean;
-  collapsed: Record<string, boolean>;
   viewByDb: Record<string, string>;
   calMonth: Record<string, string>;
   search: Record<string, string>;
-  sideOpen: boolean;
-  modal: "search" | "settings" | "trash" | null;
+  modal: Modal;
+  /** "all" or an area id: filters tasks and events everywhere. */
+  area: string;
+  /** Open event dialog: an event id, or a new event on a day. */
+  eventDialog: { id: string | null; date?: string; start?: string } | null;
+  statusDialog: string | null;
+  calendar: { view: "month" | "week"; anchor: string; showTasks: boolean };
   noteId: string | null;
   noteMode: "edit" | "read";
-  noteGraph: boolean;
   noteTag: string | null;
   notesTab: "list" | "note" | "side";
 }
@@ -37,15 +41,16 @@ const defaultUi: UI = {
   route: "home",
   peek: null,
   peekFocus: false,
-  collapsed: {},
   viewByDb: {},
   calMonth: {},
   search: {},
-  sideOpen: false,
   modal: null,
+  area: "all",
+  eventDialog: null,
+  statusDialog: null,
+  calendar: { view: "month", anchor: today(), showTasks: true },
   noteId: null,
   noteMode: "edit",
-  noteGraph: false,
   noteTag: null,
   notesTab: "list",
 };
@@ -66,43 +71,40 @@ export const useStore = create<Store>()(
     })),
     {
       name: STORAGE_KEY,
-      version: 1,
+      version: 2,
       storage: workspaceStorage,
+      // Older saves are kept as they are here; `merge` below upgrades them with normalizeWorkspace.
+      migrate: (persisted) => persisted as Store,
       partialize: (s) =>
-        ({ ws: s.ws, ui: { collapsed: s.ui.collapsed, viewByDb: s.ui.viewByDb, noteMode: s.ui.noteMode } }) as unknown as Store,
+        ({
+          ws: s.ws,
+          ui: {
+            viewByDb: s.ui.viewByDb,
+            noteMode: s.ui.noteMode,
+            area: s.ui.area,
+            calendar: { view: s.ui.calendar.view, showTasks: s.ui.calendar.showTasks },
+          },
+        }) as unknown as Store,
       merge: (persisted, current) => {
         const p = persisted as Partial<Store> | undefined;
-        return { ...current, ws: p?.ws ? normalizeWorkspace(p.ws) : current.ws, ui: { ...current.ui, ...(p?.ui ?? {}) } };
+        const ui = { ...current.ui, ...(p?.ui ?? {}) } as UI;
+        ui.calendar = { ...current.ui.calendar, ...(p?.ui?.calendar ?? {}), anchor: today() };
+        return { ...current, ws: p?.ws ? normalizeWorkspace(p.ws) : current.ws, ui };
       },
     },
   ),
 );
-
-/* ---------- popovers live outside the persisted store (they hold React nodes) ---------- */
-interface PopState {
-  pop: { anchor: HTMLElement; node: ReactNode; id: number } | null;
-}
-export const usePop = create<PopState>(() => ({ pop: null }));
-export const openPop = (anchor: HTMLElement, node: ReactNode) => usePop.setState({ pop: { anchor, node, id: Date.now() } });
-export const closePop = () => usePop.setState({ pop: null });
 
 /* ---------- actions ---------- */
 const mut = (fn: (ws: Workspace) => void) => useStore.getState().mut(fn);
 const setUi = (fn: (ui: UI) => void) => useStore.getState().setUi(fn);
 const ws = () => useStore.getState().ws;
 
-/* ---------- toasts (with an optional "Desfazer") ---------- */
-interface ToastState {
-  toast: { msg: string; undo?: () => void; id: number } | null;
-}
-export const useToast = create<ToastState>(() => ({ toast: null }));
-let toastTimer: number | undefined;
+/** Short confirmation, with an optional "Desfazer". */
 export function toast(msg: string, undo?: () => void) {
-  useToast.setState({ toast: { msg, undo, id: Date.now() } });
-  clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => useToast.setState({ toast: null }), undo ? 6000 : 2600);
+  if (undo) sonner(msg, { action: { label: "Desfazer", onClick: undo }, duration: 6000 });
+  else sonner(msg);
 }
-export const dismissToast = () => useToast.setState({ toast: null });
 
 export function replaceWorkspace(next: Workspace) {
   mut((w) => {
@@ -115,17 +117,14 @@ export function replaceWorkspace(next: Workspace) {
 }
 
 export function go(id: string) {
-  closePop();
   setUi((u) => {
     u.route = id;
     u.peek = null;
-    u.sideOpen = false;
   });
   if (location.hash !== "#/" + id) history.pushState(null, "", "#/" + id);
-  document.querySelector(".scroll")?.scrollTo(0, 0);
+  document.querySelector("[data-scroll]")?.scrollTo(0, 0);
 }
 export function openPeek(id: string, focus = false) {
-  closePop();
   setUi((u) => {
     u.peek = id;
     u.peekFocus = focus;
@@ -135,7 +134,12 @@ export const closePeek = () =>
   setUi((u) => {
     u.peek = null;
   });
+export const openModal = (m: Modal) =>
+  setUi((u) => {
+    u.modal = m;
+  });
 
+/* ---------- tasks ---------- */
 export function setProp(itemId: string, propId: string, value: PropValue | null) {
   mut((w) => {
     const item = w.items[itemId];
@@ -159,21 +163,24 @@ export function patchItem(itemId: string, fn: (it: Item) => void) {
     }
   });
 }
-export function newItem(dbId: string, props: Record<string, PropValue> = {}) {
+/** New task: gets the area chosen at the top, or the database's default area. */
+export function newItem(dbId: string, props: Record<string, PropValue> = {}, title = "") {
   const id = uid();
+  const area = useStore.getState().ui.area;
   mut((w) => {
     const db = w.dbs[dbId];
     const sp = statusProp(db);
     const it: Item = {
       id,
       db: dbId,
-      title: "",
+      title,
       props: {},
-      blocks: [],
+      notes: "",
       created: Date.now(),
       updated: Date.now(),
       order: Date.now(),
       log: [],
+      area: area !== "all" ? area : db.defaultArea,
     };
     if (sp?.options?.[0]) it.props[sp.id] = sp.options[0].id;
     Object.assign(it.props, props);
@@ -190,7 +197,7 @@ export function deleteItem(id: string) {
     if (u.peek === id) u.peek = null;
   });
   toast(
-    "Item excluído",
+    "Tarefa excluída",
     snap &&
       (() =>
         mut((w) => {
@@ -199,80 +206,253 @@ export function deleteItem(id: string) {
   );
 }
 
-export function addPage(type: PageType, parent: string | null = null) {
+/* ---------- status columns ---------- */
+function statusOf(w: Workspace, dbId: string) {
+  return statusProp(w.dbs[dbId])!;
+}
+export function renameStatus(dbId: string, optId: string, name: string) {
+  const clean = name.trim();
+  if (!clean) return;
+  mut((w) => {
+    const o = statusOf(w, dbId).options!.find((x) => x.id === optId);
+    if (o) o.name = clean;
+  });
+}
+export function setStatusColor(dbId: string, optId: string, color: Color) {
+  mut((w) => {
+    const o = statusOf(w, dbId).options!.find((x) => x.id === optId);
+    if (o) o.color = color;
+  });
+}
+export function setStatusGroup(dbId: string, optId: string, group: Group) {
+  mut((w) => {
+    const o = statusOf(w, dbId).options!.find((x) => x.id === optId);
+    if (o) o.group = group;
+  });
+}
+export function moveStatus(dbId: string, optId: string, dir: -1 | 1) {
+  mut((w) => {
+    const list = statusOf(w, dbId).options!;
+    const i = list.findIndex((x) => x.id === optId),
+      j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+  });
+}
+export function addStatus(dbId: string, name = "Nova coluna") {
   const id = uid();
   mut((w) => {
-    const sib = childrenOf(w, parent);
+    statusOf(w, dbId).options!.push({ id, name, color: "gray", group: "todo" });
+  });
+  return id;
+}
+/** Removes a column; its tasks move to the first remaining column. */
+export function deleteStatus(dbId: string, optId: string) {
+  const before = ws();
+  const sp = statusProp(before.dbs[dbId])!;
+  if (sp.options!.length <= 1) return;
+  const opt = sp.options!.find((o) => o.id === optId)!;
+  const index = sp.options!.indexOf(opt);
+  const moved = Object.values(before.items)
+    .filter((i) => i.db === dbId && i.props[sp.id] === optId)
+    .map((i) => i.id);
+  mut((w) => {
+    const s = statusOf(w, dbId);
+    s.options = s.options!.filter((o) => o.id !== optId);
+    for (const id of moved) w.items[id].props[s.id] = s.options[0].id;
+  });
+  toast(`Coluna “${opt.name}” excluída`, () =>
+    mut((w) => {
+      const s = statusOf(w, dbId);
+      s.options!.splice(index, 0, opt);
+      for (const id of moved) if (w.items[id]) w.items[id].props[s.id] = optId;
+    }),
+  );
+}
+
+/* ---------- boards (databases) ---------- */
+export function addBoard(title: string, icon: string, defaultArea?: string) {
+  const id = uid();
+  mut((w) => {
+    const top = childrenOf(w, null);
     w.pages.push({
       id,
-      title: "",
-      icon: type === "db" ? "🗂️" : "📝",
-      type,
-      parent,
-      order: (sib.length ? sib[sib.length - 1].order : 0) + 1,
+      title: title.trim() || "Nova lista",
+      icon: icon || "🗂️",
+      type: "db",
+      parent: null,
+      order: (top.at(-1)?.order ?? 0) + 1,
     });
-    if (type === "db") w.dbs[id] = mkDb(DEFAULT_STATUS);
-    if (type === "doc") w.docs[id] = [];
+    w.dbs[id] = mkDb(DEFAULT_STATUS, defaultArea);
   });
-  if (parent)
-    setUi((u) => {
-      u.collapsed[parent] = false;
-    });
   go(id);
+  return id;
+}
+export function renamePage(id: string, title: string, icon?: string) {
+  mut((w) => {
+    const p = w.pages.find((x) => x.id === id);
+    if (!p) return;
+    if (title.trim()) p.title = title.trim();
+    if (icon) p.icon = icon;
+  });
+}
+export function movePage(id: string, dir: -1 | 1) {
+  mut((w) => {
+    const list = childrenOf(w, null);
+    const i = list.findIndex((p) => p.id === id),
+      j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    list.forEach((p, k) => {
+      p.order = k;
+    });
+  });
 }
 export function deletePage(id: string) {
-  const ids = [id, ...descendants(ws(), id)];
   const before = ws();
   const snap = {
-    pages: before.pages.filter((p) => ids.includes(p.id)),
-    dbs: Object.fromEntries(ids.filter((i) => before.dbs[i]).map((i) => [i, before.dbs[i]])),
-    docs: Object.fromEntries(ids.filter((i) => before.docs[i]).map((i) => [i, before.docs[i]])),
-    items: Object.values(before.items).filter((it) => ids.includes(it.db)),
+    page: before.pages.find((p) => p.id === id)!,
+    db: before.dbs[id],
+    items: Object.values(before.items).filter((it) => it.db === id),
   };
   mut((w) => {
-    for (const pid of ids) {
-      for (const it of Object.values(w.items)) if (it.db === pid) delete w.items[it.id];
-      delete w.dbs[pid];
-      delete w.docs[pid];
-    }
-    w.pages = w.pages.filter((p) => !ids.includes(p.id));
+    for (const it of Object.values(w.items)) if (it.db === id) delete w.items[it.id];
+    delete w.dbs[id];
+    w.pages = w.pages.filter((p) => p.id !== id);
   });
-  if (ids.includes(useStore.getState().ui.route)) go("home");
-  toast("Página excluída", () =>
+  if (useStore.getState().ui.route === id) go("home");
+  toast(`“${snap.page.title}” excluída`, () =>
     mut((w) => {
-      w.pages.push(...snap.pages);
-      Object.assign(w.dbs, snap.dbs);
-      Object.assign(w.docs, snap.docs);
+      w.pages.push(snap.page);
+      if (snap.db) w.dbs[id] = snap.db;
       for (const it of snap.items) w.items[it.id] = it;
     }),
   );
 }
-export function movePage(id: string, targetId: string, mode: "before" | "after" | "in") {
-  if (id === targetId || descendants(ws(), id).includes(targetId)) return;
+
+/* ---------- areas ---------- */
+export function addArea(name: string, color: Area["color"]) {
+  const id = uid();
   mut((w) => {
-    const pg = w.pages.find((p) => p.id === id),
-      tg = w.pages.find((p) => p.id === targetId);
-    if (!pg || !tg) return;
-    if (mode === "in") {
-      const kids = childrenOf(w, tg.id).filter((x) => x.id !== id);
-      pg.parent = tg.id;
-      pg.order = (kids.length ? kids[kids.length - 1].order : 0) + 1;
-    } else {
-      pg.parent = tg.parent || null;
-      const sib = childrenOf(w, pg.parent).filter((x) => x.id !== id);
-      const idx = sib.findIndex((x) => x.id === tg.id) + (mode === "after" ? 1 : 0);
-      sib.splice(idx, 0, pg);
-      sib.forEach((x, i) => {
-        x.order = i + 1;
-      });
-    }
+    w.settings.areas.push({ id, name: name.trim() || "Nova área", color });
   });
-  if (mode === "in")
-    setUi((u) => {
-      u.collapsed[targetId] = false;
-    });
+  return id;
+}
+export function updateArea(id: string, patch: Partial<Omit<Area, "id">>) {
+  mut((w) => {
+    const a = w.settings.areas.find((x) => x.id === id);
+    if (a) Object.assign(a, patch);
+  });
+}
+/** Deletes an area; its tasks and events become "Sem área". */
+export function deleteArea(id: string) {
+  mut((w) => {
+    w.settings.areas = w.settings.areas.filter((a) => a.id !== id);
+    for (const it of Object.values(w.items)) if (it.area === id) delete it.area;
+    for (const ev of Object.values(w.events)) if (ev.area === id) delete ev.area;
+    for (const db of Object.values(w.dbs)) if (db.defaultArea === id) delete db.defaultArea;
+  });
+  setUi((u) => {
+    if (u.area === id) u.area = "all";
+  });
 }
 
+/* ---------- events ---------- */
+export function saveEvent(data: Omit<CalendarEvent, "id" | "created" | "updated">, id?: string | null) {
+  const eid = id || uid();
+  mut((w) => {
+    const prev = w.events[eid];
+    w.events[eid] = { ...data, id: eid, created: prev?.created ?? Date.now(), updated: Date.now() };
+  });
+  return eid;
+}
+export function moveEvent(id: string, date: string) {
+  mut((w) => {
+    const e = w.events[id];
+    if (e && e.date !== date) {
+      e.date = date;
+      e.updated = Date.now();
+    }
+  });
+}
+export function deleteEvent(id: string) {
+  const snap = ws().events[id];
+  if (!snap) return;
+  mut((w) => {
+    delete w.events[id];
+  });
+  toast("Evento excluído", () =>
+    mut((w) => {
+      w.events[id] = snap;
+    }),
+  );
+}
+export const openEvent = (id: string | null, date?: string, start?: string) =>
+  setUi((u) => {
+    u.eventDialog = { id, date, start };
+  });
+
+/* ---------- to-do ---------- */
+export function addTodo(text: string, extra: Partial<Todo> = {}) {
+  const clean = text.trim();
+  if (!clean) return null;
+  const id = uid();
+  const area = useStore.getState().ui.area;
+  mut((w) => {
+    const top = Math.min(0, ...Object.values(w.todos).map((t) => t.order));
+    w.todos[id] = {
+      id,
+      text: clean,
+      done: false,
+      order: top - 1,
+      created: Date.now(),
+      ...(area !== "all" ? { area } : {}),
+      ...extra,
+    };
+  });
+  return id;
+}
+export function updateTodo(id: string, patch: Partial<Todo>) {
+  mut((w) => {
+    const t = w.todos[id];
+    if (t) Object.assign(t, patch);
+  });
+}
+export function toggleTodo(id: string) {
+  mut((w) => {
+    const t = w.todos[id];
+    if (t) {
+      t.done = !t.done;
+      t.doneAt = t.done ? Date.now() : undefined;
+    }
+  });
+}
+export function deleteTodo(id: string) {
+  const snap = ws().todos[id];
+  if (!snap) return;
+  mut((w) => {
+    delete w.todos[id];
+  });
+  toast("Afazer excluído", () =>
+    mut((w) => {
+      w.todos[id] = snap;
+    }),
+  );
+}
+export function clearDoneTodos() {
+  const done = Object.values(ws().todos).filter((t) => t.done);
+  if (!done.length) return;
+  mut((w) => {
+    for (const t of done) delete w.todos[t.id];
+  });
+  toast(`${done.length} ${done.length === 1 ? "concluído apagado" : "concluídos apagados"}`, () =>
+    mut((w) => {
+      for (const t of done) w.todos[t.id] = t;
+    }),
+  );
+}
+
+/* ---------- habits ---------- */
 export function toggleHabit(hid: string, day: string) {
   mut((w) => {
     const cur = w.habitLog[day] || [];
@@ -284,18 +464,15 @@ export function toggleHabit(hid: string, day: string) {
 export const checkReviews = () => mut(runReviews);
 
 /* ---------- notes ---------- */
-export function openNotes(noteId?: string | null, opts: { graph?: boolean } = {}) {
-  closePop();
+export function openNotes(noteId?: string | null) {
   setUi((u) => {
     u.route = "notes";
     u.peek = null;
-    u.sideOpen = false;
-    u.noteGraph = !!opts.graph;
     if (noteId !== undefined) u.noteId = noteId;
-    u.notesTab = opts.graph || noteId ? "note" : "list";
+    u.notesTab = noteId ? "note" : "list";
   });
   const id = useStore.getState().ui.noteId;
-  const hash = "#/notas" + (opts.graph ? "/grafo" : id ? "/" + id : "");
+  const hash = "#/notas" + (id ? "/" + id : "");
   if (location.hash !== hash) history.pushState(null, "", hash);
 }
 
@@ -367,25 +544,22 @@ export function deleteNote(id: string) {
   });
 }
 
-export function addFolder(path: string) {
-  const clean = path
+const cleanPath = (p: string) =>
+  p
     .split("/")
-    .map((p) => p.trim())
+    .map((x) => x.trim())
     .filter(Boolean)
     .join("/");
+export function addFolder(path: string) {
+  const clean = cleanPath(path);
   if (!clean) return;
   mut((w) => {
     const list = w.settings.noteFolders ?? [];
     if (!list.includes(clean)) w.settings.noteFolders = [...list, clean];
   });
 }
-
 export function renameFolder(from: string, to: string) {
-  const dest = to
-    .split("/")
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .join("/");
+  const dest = cleanPath(to);
   if (!dest || dest === from) return;
   const swap = (f: string) => (f === from ? dest : f.startsWith(from + "/") ? dest + f.slice(from.length) : f);
   mut((w) => {
@@ -399,7 +573,6 @@ export function renameFolder(from: string, to: string) {
     w.settings.noteFolders = (w.settings.noteFolders ?? []).map(swap);
   });
 }
-
 export function deleteFolder(path: string) {
   const inside = (f: string) => f === path || f.startsWith(path + "/");
   const before = ws();
@@ -416,7 +589,6 @@ export function deleteFolder(path: string) {
     }),
   );
 }
-
 export function openDailyNote() {
   const t = today();
   const found = Object.values(ws().notes).find((n) => n.folder === "Diário" && n.title === t);

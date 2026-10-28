@@ -1,10 +1,10 @@
-import type { Block, Database, Habit, Item, Note, Page, Settings, Workspace } from "./types";
+import type { Block, CalendarEvent, Todo, Database, Habit, Item, Note, Page, Settings, Workspace } from "./types";
 
 /**
  * The workspace is stored in the cloud as one row per entity. These pure helpers
  * convert between the in-memory Workspace and those rows, and find what changed.
  */
-export type Kind = "page" | "db" | "item" | "doc" | "note" | "habit" | "habitlog" | "settings";
+export type Kind = "page" | "db" | "item" | "doc" | "event" | "todo" | "note" | "habit" | "habitlog" | "settings";
 export interface Rec {
   kind: Kind;
   id: string;
@@ -28,7 +28,8 @@ export function toEntities(ws: Workspace): Map<string, Ent> {
   for (const p of ws.pages) put("page", p.id, p);
   for (const id in ws.dbs) put("db", id, ws.dbs[id]);
   for (const id in ws.items) put("item", id, ws.items[id]);
-  for (const id in ws.docs) put("doc", id, { blocks: ws.docs[id] }, ws.docs[id]);
+  for (const id in ws.events ?? {}) put("event", id, ws.events[id]);
+  for (const id in ws.todos ?? {}) put("todo", id, ws.todos[id]);
   for (const id in ws.notes ?? {}) put("note", id, ws.notes[id]);
   ws.habits.forEach((h, i) => {
     const data = { ...h, order: i };
@@ -77,9 +78,20 @@ export function applyRecords(ws: Workspace, rows: Rec[]) {
         if (gone) delete ws.items[r.id];
         else ws.items[r.id] = r.data as Item;
         break;
-      case "doc":
+      case "doc": // legacy block pages; normalizeWorkspace turns them into notes
+        ws.docs ??= {};
         if (gone) delete ws.docs[r.id];
         else ws.docs[r.id] = (r.data as { blocks: Block[] }).blocks;
+        break;
+      case "todo":
+        ws.todos ??= {};
+        if (gone) delete ws.todos[r.id];
+        else ws.todos[r.id] = r.data as Todo;
+        break;
+      case "event":
+        ws.events ??= {};
+        if (gone) delete ws.events[r.id];
+        else ws.events[r.id] = r.data as CalendarEvent;
         break;
       case "note":
         ws.notes ??= {};
@@ -111,11 +123,12 @@ export function applyRecords(ws: Workspace, rows: Rec[]) {
 /** Builds a whole workspace from the server's rows (ignoring deleted ones). */
 export function fromRecords(rows: Rec[], fallbackSettings: Settings): Workspace {
   const ws: Workspace = {
-    version: 1,
+    version: 2,
     pages: [],
     dbs: {},
     items: {},
-    docs: {},
+    events: {},
+    todos: {},
     notes: {},
     habits: [],
     habitLog: {},

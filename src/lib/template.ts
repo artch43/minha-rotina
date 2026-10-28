@@ -1,4 +1,4 @@
-import type { Block, Color, Database, Group, Item, Option, Prop, Workspace } from "./types";
+import type { Area, CalendarEvent, Color, Database, Group, Item, Note, Option, Settings, Todo, Workspace } from "./types";
 import { addDays, today, uid } from "./util";
 
 export const opts = (list: [string, Color, Group?][]): Option[] =>
@@ -11,9 +11,31 @@ export const DEFAULT_STATUS: [string, Color, Group][] = [
   ["Revisar", "orange", "review"],
 ];
 
-export function mkDb(status: [string, Color, Group][], extra: Prop[] = [], srs = false): Database {
+export const DEFAULT_AREAS: Area[] = [
+  { id: "pessoal", name: "Pessoal", color: "coral" },
+  { id: "profissional", name: "Profissional", color: "petrol" },
+  { id: "estudos", name: "Estudos", color: "violet" },
+];
+
+export const DEFAULT_SETTINGS: Settings = {
+  theme: "system",
+  start: "home",
+  name: "",
+  areas: DEFAULT_AREAS,
+  emailAlerts: true,
+  defaultAlerts: [30],
+  noteFolders: [],
+};
+
+export function mkDb(
+  status: [string, Color, Group][],
+  defaultArea?: string,
+  srs = false,
+  tags: [string, Color][] = [],
+): Database {
   return {
     srs,
+    defaultArea,
     props: [
       { id: "status", name: "Status", type: "status", options: opts(status) },
       { id: "date", name: "Data", type: "date" },
@@ -27,29 +49,50 @@ export function mkDb(status: [string, Color, Group][], extra: Prop[] = [], srs =
           ["Baixa", "gray"],
         ]),
       },
-      ...extra,
-      { id: "tags", name: "Etiquetas", type: "multi", options: opts([["Exemplo", "gray"]]) },
+      { id: "tags", name: "Etiquetas", type: "multi", options: opts([...tags, ["Exemplo", "gray"]]) },
     ],
     views: [
       { id: uid(), name: "Quadro", type: "board", filters: [], hidden: [] },
       { id: uid(), name: "Tabela", type: "table", filters: [], hidden: [], widths: {} },
-      { id: uid(), name: "Lista", type: "list", filters: [], hidden: [] },
       { id: uid(), name: "Calendário", type: "calendar", filters: [], hidden: [] },
     ],
   };
 }
 
-const b = (type: Block["type"], text: string, extra: Partial<Block> = {}): Block => ({ id: uid(), type, text, ...extra });
+export const GUIDE_NOTE = (id = uid()): Note => ({
+  id,
+  folder: "",
+  title: "Guia rápido",
+  created: Date.now(),
+  updated: Date.now(),
+  body: [
+    "Bem-vindo! Este espaço é só seu.",
+    "",
+    "## Tarefas",
+    "- Cada banco (Estudos, Trabalho, Compromissos) tem um quadro com colunas de status. Arraste os cartões entre as colunas.",
+    "- Clique no nome de uma coluna para renomeá-la.",
+    "- Use o seletor de área no topo para ver só o que é Pessoal, Profissional ou Estudos.",
+    "- Para coisas rápidas, use o To-do: é só escrever e marcar quando terminar.",
+    "",
+    "## Calendário",
+    "- Crie eventos e escolha quando quer ser avisado por e-mail.",
+    "- As tarefas com data também aparecem lá.",
+    "",
+    "## Anotações",
+    "- Escreva em Markdown e ligue notas com [[Nome da nota]].",
+    "- Ctrl/Cmd + K abre a busca.",
+    "",
+    "- [ ] Apagar os itens de exemplo quando terminar de explorar",
+    "",
+  ].join("\n"),
+});
 
 /** Starting workspace for a new person. Items tagged "Exemplo" are safe to delete. */
 export function template(): Workspace {
   const T = today();
   const E = "estudos",
     W = "trabalho",
-    C = "compromissos",
-    G = "guia";
-  const N1 = uid(),
-    N2 = uid();
+    C = "compromissos";
   const dbE = mkDb(
     [
       ["Não comecei", "gray", "todo"],
@@ -57,31 +100,17 @@ export function template(): Workspace {
       ["Estudado", "green", "done"],
       ["Revisar", "orange", "review"],
     ],
-    [
-      {
-        id: "subj",
-        name: "Matéria",
-        type: "select",
-        options: opts([
-          ["Matemática", "blue"],
-          ["Português", "orange"],
-          ["História", "brown"],
-          ["Biologia", "green"],
-        ]),
-      },
-    ],
+    "estudos",
     true,
+    [
+      ["Matemática", "blue"],
+      ["Português", "orange"],
+      ["História", "brown"],
+    ],
   );
-  const dbW = mkDb(DEFAULT_STATUS, [
-    {
-      id: "proj",
-      name: "Projeto",
-      type: "select",
-      options: opts([
-        ["Relatórios", "purple"],
-        ["Clientes", "pink"],
-      ]),
-    },
+  const dbW = mkDb(DEFAULT_STATUS, "profissional", false, [
+    ["Relatórios", "purple"],
+    ["Clientes", "pink"],
   ]);
   const dbC = mkDb(
     [
@@ -89,19 +118,20 @@ export function template(): Workspace {
       ["Feito", "green", "done"],
       ["Remarcar", "red", "review"],
     ],
-    [{ id: "place", name: "Local", type: "text" }],
+    "pessoal",
   );
-  dbC.props = dbC.props.filter((p) => p.id !== "prio");
 
   const st = (db: Database, i: number) => db.props[0].options![i].id;
-  const opt = (db: Database, pid: string, i: number) => db.props.find((p) => p.id === pid)!.options![i].id;
+  const opt = (db: Database, pid: string, name: string) =>
+    db.props.find((p) => p.id === pid)!.options!.find((o) => o.name === name)!.id;
   let n = 0;
   const item = (dbId: string, db: Database, title: string, props: Item["props"], extra: Partial<Item> = {}): Item => ({
     id: uid(),
     db: dbId,
     title,
-    props: { tags: [opt(db, "tags", 0)], ...props },
-    blocks: [],
+    area: db.defaultArea,
+    notes: "",
+    props: { ...props, tags: [...((props.tags as string[]) ?? []), opt(db, "tags", "Exemplo")] },
     created: Date.now() + n,
     updated: Date.now(),
     order: ++n,
@@ -113,98 +143,98 @@ export function template(): Workspace {
       E,
       dbE,
       "Funções do 2º grau",
-      { status: st(dbE, 1), subj: opt(dbE, "subj", 0), date: T, prio: opt(dbE, "prio", 0) },
-      {
-        blocks: [
-          b("h2", "Resumo"),
-          b("ul", "Forma geral: f(x) = ax² + bx + c"),
-          b("ul", "Vértice: x = −b / 2a"),
-          b("todo", "Fazer 10 exercícios da lista", { checked: false }),
-        ],
-      },
+      { status: st(dbE, 1), tags: [opt(dbE, "tags", "Matemática")], date: T, prio: opt(dbE, "prio", "Alta") },
+      { notes: "Forma geral: f(x) = ax² + bx + c\nVértice: x = −b / 2a\n\n- [ ] Fazer 10 exercícios da lista" },
     ),
-    item(E, dbE, "Revolução Francesa", { status: st(dbE, 0), subj: opt(dbE, "subj", 2), date: addDays(T, 2) }),
+    item(E, dbE, "Revolução Francesa", { status: st(dbE, 0), tags: [opt(dbE, "tags", "História")], date: addDays(T, 2) }),
     item(
       E,
       dbE,
       "Concordância verbal",
-      { status: st(dbE, 2), subj: opt(dbE, "subj", 1) },
+      { status: st(dbE, 2), tags: [opt(dbE, "tags", "Português")] },
       { review: { stage: 0, next: addDays(T, 1) } },
     ),
-    item(E, dbE, "Logaritmos", { status: st(dbE, 3), subj: opt(dbE, "subj", 0) }, { review: { stage: 1, next: T } }),
+    item(E, dbE, "Logaritmos", { status: st(dbE, 3), tags: [opt(dbE, "tags", "Matemática")] }, { review: { stage: 1, next: T } }),
     item(W, dbW, "Relatório mensal", {
       status: st(dbW, 1),
       date: addDays(T, 2),
-      prio: opt(dbW, "prio", 0),
-      proj: opt(dbW, "proj", 0),
+      prio: opt(dbW, "prio", "Alta"),
+      tags: [opt(dbW, "tags", "Relatórios")],
     }),
-    item(W, dbW, "Responder e-mails do cliente", { status: st(dbW, 0), date: T, proj: opt(dbW, "proj", 1) }),
-    item(C, dbC, "Dentista", { status: st(dbC, 0), date: addDays(T, 1) + " 15:00", place: "Clínica do bairro" }),
+    item(W, dbW, "Responder e-mails do cliente", { status: st(dbW, 0), date: T, tags: [opt(dbW, "tags", "Clientes")] }),
+    item(C, dbC, "Dentista", { status: st(dbC, 0), date: addDays(T, 1) + " 15:00" }, { notes: "Clínica do bairro" }),
   ];
+  const ev = (
+    title: string,
+    date: string,
+    start: string,
+    end: string,
+    area: string,
+    alerts: number[],
+    location = "",
+  ): CalendarEvent => ({
+    id: uid(),
+    title,
+    date,
+    allDay: false,
+    start,
+    end,
+    area,
+    location,
+    notes: "",
+    alerts,
+    created: Date.now(),
+    updated: Date.now(),
+  });
+  const events = [
+    ev("Aula de inglês (exemplo)", addDays(T, 1), "19:00", "20:00", "estudos", [30]),
+    ev("Reunião de equipe (exemplo)", addDays(T, 2), "10:00", "11:00", "profissional", [10, 60]),
+  ];
+  const todo = (text: string, k: number, extra: Partial<Todo> = {}): Todo => ({
+    id: uid(),
+    text,
+    done: false,
+    order: k,
+    created: Date.now(),
+    ...extra,
+  });
+  const todos = [
+    todo("Comprar pão (exemplo)", 1, { date: T, area: "pessoal" }),
+    todo("Mandar o relatório para a Ana (exemplo)", 2, { date: addDays(T, 1), area: "profissional" }),
+    todo("Separar o material da prova (exemplo)", 3, { area: "estudos" }),
+  ];
+  const guide = GUIDE_NOTE();
+  const ideas: Note = {
+    id: uid(),
+    folder: "",
+    title: "Ideias",
+    created: Date.now(),
+    updated: Date.now(),
+    body: "- Anote aqui o que vier à cabeça. Volte para o [[Guia rápido]].\n\n#exemplo\n",
+  };
 
   return {
-    version: 1,
+    version: 2,
     pages: [
       { id: "home", title: "Início", icon: "🏠", type: "home", parent: null, order: 0 },
-      { id: E, title: "Estudos", icon: "📚", type: "db", parent: null, order: 1, cover: "grid", fav: true },
-      { id: W, title: "Trabalho", icon: "💼", type: "db", parent: null, order: 2 },
-      { id: C, title: "Compromissos", icon: "📅", type: "db", parent: null, order: 3 },
-      { id: "habits", title: "Hábitos", icon: "🌱", type: "habits", parent: null, order: 4 },
-      { id: G, title: "Guia rápido", icon: "💡", type: "doc", parent: null, order: 5 },
+      { id: "calendario", title: "Calendário", icon: "🗓️", type: "calendar", parent: null, order: 1 },
+      { id: "todo", title: "To-do", icon: "✅", type: "todo", parent: null, order: 1.5 },
+      { id: E, title: "Estudos", icon: "📚", type: "db", parent: null, order: 2, fav: true },
+      { id: W, title: "Trabalho", icon: "💼", type: "db", parent: null, order: 3 },
+      { id: C, title: "Compromissos", icon: "📅", type: "db", parent: null, order: 4 },
+      { id: "habits", title: "Hábitos", icon: "🌱", type: "habits", parent: null, order: 5 },
     ],
     dbs: { [E]: dbE, [W]: dbW, [C]: dbC },
     items: Object.fromEntries(items.map((i) => [i.id, i])),
-    docs: {
-      [G]: [
-        b("callout", "Bem-vindo! Este espaço é só seu. Tudo o que você escreve fica salvo neste navegador."),
-        b("h2", "Como organizar"),
-        b("ul", "Cada página da barra lateral pode ser um texto (como esta) ou um banco de dados (como Estudos)."),
-        b("ul", "Nos bancos, alterne entre Quadro, Tabela, Lista e Calendário. Arraste os cartões entre as colunas de status."),
-        b("ul", "Ao marcar um estudo como “Estudado”, as revisões são agendadas para 1, 7 e 30 dias depois."),
-        b("h2", "Atalhos"),
-        b("ul", "Digite / numa linha vazia para escolher o tipo de bloco."),
-        b("ul", "Comece a linha com #, ##, -, 1., [] ou > para formatar."),
-        b("ul", "Ctrl/Cmd + K abre a busca."),
-        b("todo", "Apagar os itens de exemplo quando terminar de explorar", { checked: false }),
-      ],
-    },
-    notes: {
-      [N1]: {
-        id: N1,
-        folder: "",
-        title: "Como usar as anotações",
-        created: Date.now(),
-        updated: Date.now(),
-        body: [
-          "Escreva em **Markdown**: `#` para títulos, `-` para listas, `**negrito**` e `*itálico*`.",
-          "",
-          "## Ligue suas ideias",
-          "- Digite `[[` e escolha uma nota para criar um link, como [[Ideias]].",
-          "- Se a nota ainda não existir, clicar no link cria a nota.",
-          "- No painel à direita aparecem as **menções**: as notas que apontam para esta.",
-          "",
-          "## Organize",
-          "- Use pastas no painel da esquerda e #tags no texto, como #exemplo.",
-          "- O botão **Nota do dia** abre um diário com o que está marcado para hoje.",
-          "- O **Grafo** mostra como as notas se conectam.",
-          "",
-        ].join("\n"),
-      },
-      [N2]: {
-        id: N2,
-        folder: "",
-        title: "Ideias",
-        created: Date.now(),
-        updated: Date.now(),
-        body: "- Anote aqui o que vier à cabeça. Volte para [[Como usar as anotações]].\n\n#exemplo\n",
-      },
-    },
+    events: Object.fromEntries(events.map((e) => [e.id, e])),
+    todos: Object.fromEntries(todos.map((t) => [t.id, t])),
+    notes: { [guide.id]: guide, [ideas.id]: ideas },
     habits: [
       { id: uid(), name: "Ler 20 minutos", icon: "📖" },
       { id: uid(), name: "Exercício", icon: "🏃" },
       { id: uid(), name: "Beber 2 L de água", icon: "💧" },
     ],
     habitLog: {},
-    settings: { theme: "system", accent: "ink", font: "sans", width: "normal", density: "comfy", start: "home", name: "" },
+    settings: { ...DEFAULT_SETTINGS, areas: DEFAULT_AREAS.map((a) => ({ ...a })) },
   };
 }

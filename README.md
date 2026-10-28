@@ -1,7 +1,13 @@
 # Minha Rotina
 
-Um espaço pessoal para organizar estudos, trabalho, compromissos e hábitos,
-com páginas, bancos de dados e visões (Quadro, Tabela, Lista e Calendário).
+Um espaço pessoal e simples para organizar a rotina:
+
+- **Listas de tarefas** com quadro de status (colunas renomeáveis), tabela e calendário.
+- **Áreas** (Pessoal, Profissional, Estudos…) com um seletor no topo que filtra tudo.
+- **Calendário** com eventos e **alertas por e-mail** no horário que você escolher.
+- **To-do** para afazeres rápidos.
+- **Anotações** em Markdown com links `[[entre notas]]`, pastas e tags.
+- **Hábitos** com sequência de dias.
 
 ## Como rodar
 
@@ -19,44 +25,39 @@ Outros comandos:
 | `npm run build`     | Confere os tipos e gera a versão final em `dist/` |
 | `npm run preview`   | Serve a versão de `dist/` para testar             |
 | `npm run typecheck` | Só confere os tipos do TypeScript                 |
+| `npm test`          | Roda os testes automáticos (Vitest)               |
+| `npm run lint`      | Procura problemas no código (ESLint)              |
 
 ## Estrutura
 
+Interface feita com [shadcn/ui](https://ui.shadcn.com) + Tailwind CSS v4.
+
 ```
 src/
-  main.tsx              ponto de entrada
-  App.tsx               layout geral, atalhos e rotas (#/id-da-pagina)
+  main.tsx, App.tsx     entrada, login, layout geral e rotas (#/id-da-pagina)
   store.ts              estado global (Zustand) e todas as ações
-  styles.css            visual (cores, temas claro/escuro, layout)
+  index.css             tema: cores, cores das áreas, claro/escuro
+  styles.css            só o editor de notas e o Markdown renderizado
   lib/
-    types.ts            formatos dos dados (Página, Banco, Item, Hábito…)
-    model.ts            regras: filtros, ordenação, revisão espaçada
+    types.ts            formatos dos dados (Tarefa, Evento, Afazer, Nota…)
+    model.ts            regras: filtros, áreas, revisão espaçada
+    events.ts           calendário e cálculo dos alertas
+    migrate.ts          atualiza dados salvos por versões antigas
     template.ts         espaço inicial com exemplos
-    storage.ts          chave do cache local
-    supabase.ts         conexão com o Supabase (se configurado)
-    sync.ts             sincronização com a nuvem e lixeira
-    records.ts          conversão espaço ⇄ linhas do banco
-    notes.ts            links [[ ]], tags, menções, nota do dia
-    notesIO.ts          exportar/importar .md
-    backup.ts           backup em JSON
-    util.ts             datas, constantes e utilidades
+    sync.ts / records.ts   sincronização com a nuvem, lixeira e lembretes
+    notes.ts / notesIO.ts  links [[ ]], tags, menções, exportar .md
+    backup.ts, supabase.ts, storage.ts, util.ts
   components/
-    Sidebar.tsx         árvore de páginas, favoritos, arrastar e soltar
-    PageView.tsx        cabeçalho (ícone, capa, título) e página de texto
-    BlockEditor.tsx     editor em blocos com "/" e atalhos de markdown
-    DbPage.tsx          barra de visões, filtros e busca do banco
-    DbMenus.tsx         menus de visão, filtro, ordenação e propriedades
-    Props.tsx           exibição e edição dos valores das propriedades
-    Peek.tsx            painel lateral de um item
-    Home.tsx            Início: hoje, revisões, hábitos, sugestões, estatísticas
-    Habits.tsx          página de hábitos
-    Search.tsx          busca (Ctrl/Cmd + K)
-    Settings.tsx        tema, cor, fonte, largura, densidade
-    views/              Board, Table, ListView, Calendar
-    notes/              Anotações: NotesView, NoteEditor, NoteReader, Graph
-    Auth.tsx            entrar, criar conta, recuperar senha
-    Trash.tsx           lixeira
-supabase/migrations/    SQL do banco de dados
+    ui/                 componentes do shadcn (gerados pela CLI)
+    app/                barra lateral, topo com seletor de área, nova lista
+    tasks/              página da lista, quadro, tabela, calendário, painel da tarefa, status
+    calendar/           Calendário (mês/semana) e diálogo de evento
+    notes/              Anotações: NotesView, NoteEditor (CodeMirror), NoteReader
+    Home.tsx, TodoPage.tsx, Habits.tsx, Search.tsx, Settings.tsx, Trash.tsx, Auth.tsx
+supabase/
+  migrations/           SQL do banco (rode na ordem: 001, 002)
+  functions/            send-reminders: envia os alertas por e-mail
+  cron.sql              agenda a função para rodar a cada minuto
 ```
 
 ## Dados e contas
@@ -71,8 +72,9 @@ O app funciona de dois jeitos:
 
 1. Crie uma conta gratuita em [supabase.com](https://supabase.com) e um projeto novo.
 2. No projeto, abra **SQL Editor → New query**, cole o conteúdo de
-   `supabase/migrations/001_init.sql` e clique em **Run**. Isso cria a tabela
-   `records` com as regras de acesso (cada usuário só vê os próprios dados).
+   `supabase/migrations/001_init.sql` e clique em **Run**. Depois faça o mesmo com
+   `002_events_reminders.sql`. Isso cria as tabelas `records` e `reminders` com as
+   regras de acesso (cada usuário só vê os próprios dados).
 3. Em **Project Settings → API**, copie a **Project URL** e a chave **anon public**.
 4. Copie `.env.example` para `.env.local` e preencha as duas variáveis.
 5. Em **Authentication → URL Configuration**, coloque em **Site URL** o endereço
@@ -84,10 +86,31 @@ O app funciona de dois jeitos:
 > Para abrir o site para muita gente, configure um SMTP próprio em
 > **Authentication → Emails → SMTP Settings**.
 
+### Alertas por e-mail (opcional, depois do passo anterior)
+
+Os alertas são enviados por uma função do Supabase usando o [Resend](https://resend.com).
+
+1. Crie uma conta gratuita no Resend e gere uma **API key**. Para mandar e-mails
+   para outras pessoas, verifique um domínio seu no Resend; para testar, dá para
+   enviar só para o e-mail da própria conta do Resend.
+2. Publique a função (o token sai de supabase.com → Account → Access Tokens):
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref <PROJECT_REF>
+   npx supabase secrets set RESEND_API_KEY=re_xxx CRON_SECRET=<uma-senha-longa> \
+     REMINDER_FROM="Minha Rotina <alertas@seudominio.com>" APP_URL=https://seu-site.vercel.app
+   npx supabase functions deploy send-reminders --no-verify-jwt
+   ```
+3. No **SQL Editor**, rode `supabase/cron.sql` trocando `<PROJECT_REF>` e
+   `<CRON_SECRET>`. A função passa a rodar a cada minuto.
+
+Quando alguém salva um evento com alertas, o app grava os lembretes na tabela
+`reminders`; a função envia os que venceram e marca como enviados.
+
 ### Como os dados são guardados
 
-Uma única tabela, `records`, com uma linha por entidade (página, banco, item,
-anotação, hábito…), em JSON. A sincronização fica em `src/lib/sync.ts`:
+Uma tabela, `records`, com uma linha por entidade (lista, tarefa, evento,
+afazer, anotação, hábito…), em JSON. A sincronização fica em `src/lib/sync.ts`:
 as mudanças são enviadas em lotes e as de outros aparelhos são buscadas ao
 voltar para a aba e a cada minuto. Sem internet, as mudanças ficam numa fila e
 são enviadas quando a conexão volta.

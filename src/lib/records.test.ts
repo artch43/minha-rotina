@@ -52,3 +52,20 @@ describe("registros na nuvem", () => {
     expect(ws.pages.some((p) => p.id === "guia")).toBe(false);
   });
 });
+
+describe("eventos e afazeres na nuvem", () => {
+  it("vão e voltam sem perder nada", () => {
+    const ws = template();
+    const back = fromRecords(rowsOf(ws), ws.settings);
+    expect(back.events).toEqual(ws.events);
+    expect(back.todos).toEqual(ws.todos);
+  });
+  it("detectam um afazer marcado como feito", () => {
+    const ws = template();
+    const id = Object.keys(ws.todos)[0];
+    const next = produce(ws, (d) => {
+      d.todos[id].done = true;
+    });
+    expect(diffEntities(toEntities(ws), toEntities(next)).changed).toEqual(["todo:" + id]);
+  });
+});

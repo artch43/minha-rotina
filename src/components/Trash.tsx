@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
-import type { Item, Note, Page } from "../lib/types";
-import { deleteForever, loadTrash, restoreRows, type TrashRow } from "../lib/sync";
-import { toast, useStore } from "../store";
-import { Modal } from "./ui";
+import type { CalendarEvent, Item, Note, Page, Todo } from "@/lib/types";
+import { deleteForever, loadTrash, restoreRows, type TrashRow } from "@/lib/sync";
+import { toast, useStore } from "@/store";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const SHOWN = new Set(["page", "item", "note"]);
+const SHOWN = new Set(["page", "item", "note", "event", "todo"]);
 const sameBatch = (a: string, b: string) => Math.abs(new Date(a).getTime() - new Date(b).getTime()) < 3000;
+const KIND: Record<string, string> = { page: "Lista", item: "Tarefa", note: "Anotação", event: "Evento", todo: "Afazer" };
 
 export function Trash() {
   const setUi = useStore((s) => s.setUi);
@@ -16,25 +20,21 @@ export function Trash() {
     setUi((u) => {
       u.modal = null;
     });
-  const reload = () =>
+  useEffect(() => {
     loadTrash()
       .then(setRows)
-      .catch(() => setError("Não foi possível carregar a lixeira. Verifique a conexão."));
-  useEffect(() => {
-    reload();
+      .catch(() => setError("Não foi possível abrir a lixeira. Verifique a conexão."));
   }, []);
 
-  // A page deleted together with its sub-pages and items shows as one entry; restoring it brings all of them back.
+  // A list deleted with its tasks shows as one entry; restoring it brings all of them back.
   const groupOf = (r: TrashRow) =>
     r.kind === "page"
-      ? (rows ?? []).filter((x) => sameBatch(x.deleted_at, r.deleted_at) && (x.id === r.id || x.kind !== "note"))
+      ? (rows ?? []).filter(
+          (x) => sameBatch(x.deleted_at, r.deleted_at) && (x.id === r.id || x.kind === "item" || x.kind === "db"),
+        )
       : [r];
   const visible = (rows ?? []).filter((r) => {
     if (!SHOWN.has(r.kind)) return false;
-    if (r.kind === "page") {
-      const parent = (r.data as Page).parent;
-      return !(rows ?? []).some((x) => x.kind === "page" && x.id === parent && sameBatch(x.deleted_at, r.deleted_at));
-    }
     if (r.kind === "item")
       return !(rows ?? []).some(
         (x) => x.kind === "page" && x.id === (r.data as Item).db && sameBatch(x.deleted_at, r.deleted_at),
@@ -42,76 +42,82 @@ export function Trash() {
     return true;
   });
   const label = (r: TrashRow) => {
-    if (r.kind === "page") {
-      const p = r.data as Page;
-      return `${p.icon} ${p.title || "Sem título"}`;
-    }
-    if (r.kind === "note") return "📓 " + ((r.data as Note).title || "Sem título");
-    return (r.data as Item).title || "Sem título";
+    const d = r.data as Partial<Page & Note & CalendarEvent & Todo & Item>;
+    if (r.kind === "page") return `${d.icon} ${d.title || "Sem título"}`;
+    if (r.kind === "todo") return d.text || "Afazer";
+    return d.title || "Sem título";
   };
-  const where = (r: TrashRow) => {
-    if (r.kind === "item") {
-      const p = ws.pages.find((x) => x.id === (r.data as Item).db);
-      return p ? `em ${p.title}` : "página excluída";
-    }
-    return r.kind === "page" ? "Página" : "Anotação";
-  };
-  const restore = (r: TrashRow) => {
-    const group = groupOf(r);
-    restoreRows(group);
-    setRows((rs) => (rs ?? []).filter((x) => !group.includes(x)));
-    toast("Restaurado: " + label(r));
-  };
-  const forget = async (r: TrashRow) => {
-    const group = groupOf(r);
-    await deleteForever(group);
-    setRows((rs) => (rs ?? []).filter((x) => !group.includes(x)));
-  };
+  const where = (r: TrashRow) =>
+    r.kind === "item"
+      ? `Tarefa em ${ws.pages.find((x) => x.id === (r.data as Item).db)?.title ?? "lista excluída"}`
+      : KIND[r.kind];
+  const drop = (group: TrashRow[]) => setRows((rs) => (rs ?? []).filter((x) => !group.includes(x)));
 
   return (
-    <Modal onClose={close}>
-      <div className="modal-head">
-        <h3>Lixeira</h3>
-        <button className="iconbtn" aria-label="Fechar" onClick={close}>
-          ✕
-        </button>
-      </div>
-      <div className="modal-body">
-        <p className="small muted" style={{ marginTop: 0 }}>
-          Itens excluídos ficam aqui por 30 dias.
-        </p>
-        {error && (
-          <p className="small" style={{ color: "var(--bad)" }}>
-            {error}
-          </p>
+    <Dialog open onOpenChange={(o) => !o && close()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Lixeira</DialogTitle>
+          <DialogDescription>O que você exclui fica aqui por 30 dias.</DialogDescription>
+        </DialogHeader>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        {!rows && !error && (
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+          </div>
         )}
-        {!rows && !error && <p className="muted">Carregando…</p>}
-        {rows && !visible.length && <p className="muted">A lixeira está vazia.</p>}
-        {visible.map((r) => {
-          const orphan = r.kind === "item" && !ws.dbs[(r.data as Item).db];
-          return (
-            <div key={r.kind + r.id} className="trash-row">
-              <div className="trash-main">
-                <span className="ttl">{label(r)}</span>
-                <span className="small muted">
-                  {where(r)} · {new Date(r.deleted_at).toLocaleDateString("pt-BR", { day: "numeric", month: "short" })}
-                </span>
+        {rows && !visible.length && (
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>A lixeira está vazia</EmptyTitle>
+              <EmptyDescription>Nada foi excluído nos últimos 30 dias.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
+        <div className="flex flex-col divide-y">
+          {visible.map((r) => {
+            const orphan = r.kind === "item" && !ws.dbs[(r.data as Item).db];
+            return (
+              <div key={r.kind + r.id} className="flex flex-wrap items-center gap-2 py-3">
+                <div className="flex min-w-44 flex-1 flex-col">
+                  <span className="truncate text-sm font-medium">{label(r)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {where(r)} · excluído em{" "}
+                    {new Date(r.deleted_at).toLocaleDateString("pt-BR", { day: "numeric", month: "short" })}
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={orphan}
+                  title={orphan ? "Restaure primeiro a lista desta tarefa" : undefined}
+                  onClick={() => {
+                    const g = groupOf(r);
+                    restoreRows(g);
+                    drop(g);
+                    toast(`Restaurado: ${label(r)}`);
+                  }}
+                >
+                  Restaurar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive"
+                  onClick={async () => {
+                    const g = groupOf(r);
+                    await deleteForever(g);
+                    drop(g);
+                  }}
+                >
+                  Excluir para sempre
+                </Button>
               </div>
-              <button
-                className="btn small"
-                disabled={orphan}
-                title={orphan ? "Restaure a página deste item primeiro" : ""}
-                onClick={() => restore(r)}
-              >
-                Restaurar
-              </button>
-              <button className="ghostbtn small" onClick={() => forget(r)}>
-                Excluir para sempre
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    </Modal>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

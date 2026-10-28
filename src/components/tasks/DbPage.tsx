@@ -1,0 +1,218 @@
+import { useState } from "react";
+import { CalendarDays, Columns3, Filter, Plus, Search, Settings2, Table2, X } from "lucide-react";
+import type { Filter as F, Page, View } from "@/lib/types";
+import { applyFilters, defaultsFromFilters, filterLabel } from "@/lib/model";
+import { newItem, openPeek, useStore } from "@/store";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { OptionBadge } from "../common";
+import { Board } from "./Board";
+import { TaskTable } from "./TaskTable";
+import { TaskCalendar } from "./TaskCalendar";
+
+const ICON = { board: Columns3, table: Table2, calendar: CalendarDays } as const;
+const DATE_FILTERS: [string, string][] = [
+  ["today", "Hoje"],
+  ["week", "Próximos 7 dias"],
+  ["overdue", "Atrasadas"],
+  ["empty", "Sem data"],
+];
+
+export function DbPage({ page }: { page: Page }) {
+  const ws = useStore((s) => s.ws);
+  const viewId = useStore((s) => s.ui.viewByDb[page.id]);
+  const search = useStore((s) => s.ui.search[page.id]) ?? "";
+  const area = useStore((s) => s.ui.area);
+  const { setUi, mut } = useStore.getState();
+  const db = ws.dbs[page.id];
+  if (!db) return null;
+  const view = db.views.find((v) => v.id === viewId) ?? db.views[0];
+  const list = applyFilters(ws, page.id, view, search, area);
+  const hasAny = Object.values(ws.items).some((i) => i.db === page.id);
+  const mutView = (fn: (v: View) => void) => mut((w) => fn(w.dbs[page.id].views.find((x) => x.id === view.id)!));
+  const create = (props = {}) => openPeek(newItem(page.id, { ...defaultsFromFilters(db, view), ...props }), true);
+
+  return (
+    <div className="flex flex-col gap-4 px-4 py-6 md:px-8">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="mr-auto flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+          <span aria-hidden="true">{page.icon}</span>
+          {page.title || "Sem título"}
+        </h1>
+        <Button
+          variant="outline"
+          onClick={() =>
+            setUi((u) => {
+              u.statusDialog = page.id;
+            })
+          }
+        >
+          <Settings2 data-icon="inline-start" />
+          Editar status
+        </Button>
+        <Button onClick={() => create()}>
+          <Plus data-icon="inline-start" />
+          Nova tarefa
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Tabs
+          value={view.id}
+          onValueChange={(v) =>
+            setUi((u) => {
+              u.viewByDb[page.id] = v;
+            })
+          }
+        >
+          <TabsList>
+            {db.views.map((v) => {
+              const Icon = ICON[v.type];
+              return (
+                <TabsTrigger key={v.id} value={v.id}>
+                  <Icon />
+                  {v.name}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <InputGroup className="w-48">
+            <InputGroupAddon>
+              <Search />
+            </InputGroupAddon>
+            <InputGroupInput
+              type="search"
+              placeholder="Buscar tarefas…"
+              aria-label="Buscar nesta lista"
+              value={search}
+              onChange={(e) => {
+                const v = e.target.value;
+                setUi((u) => {
+                  u.search[page.id] = v;
+                });
+              }}
+            />
+          </InputGroup>
+          <FilterButton
+            dbId={page.id}
+            view={view}
+            onAdd={(f) =>
+              mutView((v) => {
+                v.filters.push(f);
+              })
+            }
+          />
+        </div>
+      </div>
+
+      {view.filters.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {view.filters.map((f, k) => (
+            <Badge key={k} variant="secondary" className="gap-1 pr-1">
+              {filterLabel(db, f)}
+              <button
+                aria-label="Remover filtro"
+                className="rounded-full p-0.5 hover:bg-background"
+                onClick={() =>
+                  mutView((v) => {
+                    v.filters.splice(k, 1);
+                  })
+                }
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          ))}
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() =>
+              mutView((v) => {
+                v.filters = [];
+              })
+            }
+          >
+            Limpar filtros
+          </Button>
+        </div>
+      )}
+
+      {view.type === "board" && <Board page={page} db={db} view={view} list={list} />}
+      {view.type === "table" && <TaskTable db={db} list={list} hasAny={hasAny} onCreate={() => create()} />}
+      {view.type === "calendar" && <TaskCalendar dbId={page.id} db={db} list={list} onCreate={(date) => create({ date })} />}
+    </div>
+  );
+}
+
+function FilterButton({ dbId, view, onAdd }: { dbId: string; view: View; onAdd: (f: F) => void }) {
+  const db = useStore((s) => s.ws.dbs[dbId]);
+  const [open, setOpen] = useState(false);
+  const add = (f: F) => {
+    onAdd(f);
+    setOpen(false);
+  };
+  const status = db.props.find((p) => p.id === "status")!;
+  const prio = db.props.find((p) => p.id === "prio");
+  const tags = db.props.find((p) => p.id === "tags");
+  const section = (title: string, children: React.ReactNode) => (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-muted-foreground">{title}</span>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
+  );
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant={view.filters.length ? "secondary" : "outline"}>
+          <Filter data-icon="inline-start" />
+          Filtrar{view.filters.length ? ` (${view.filters.length})` : ""}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="flex w-80 flex-col gap-4">
+        {section(
+          "Status",
+          status.options!.map((o) => (
+            <button key={o.id} onClick={() => add({ prop: "status", op: "is", val: o.id })}>
+              <OptionBadge opt={o} dot />
+            </button>
+          )),
+        )}
+        {prio?.options?.length
+          ? section(
+              "Prioridade",
+              prio.options.map((o) => (
+                <button key={o.id} onClick={() => add({ prop: "prio", op: "is", val: o.id })}>
+                  <OptionBadge opt={o} />
+                </button>
+              )),
+            )
+          : null}
+        {tags?.options?.length
+          ? section(
+              "Etiqueta",
+              tags.options.map((o) => (
+                <button key={o.id} onClick={() => add({ prop: "tags", op: "is", val: o.id })}>
+                  <OptionBadge opt={o} />
+                </button>
+              )),
+            )
+          : null}
+        <Separator />
+        {section(
+          "Data",
+          DATE_FILTERS.map(([k, n]) => (
+            <Button key={k} variant="outline" size="sm" onClick={() => add({ prop: "date", op: "is", val: k })}>
+              {n}
+            </Button>
+          )),
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}

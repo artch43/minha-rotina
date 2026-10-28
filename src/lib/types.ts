@@ -1,8 +1,8 @@
 export type Color = "gray" | "brown" | "orange" | "yellow" | "green" | "blue" | "purple" | "pink" | "red";
 export type Group = "todo" | "doing" | "done" | "review";
 export type PropType = "status" | "select" | "multi" | "date" | "checkbox" | "number" | "text" | "url";
-export type ViewType = "board" | "table" | "list" | "calendar";
-export type PageType = "home" | "db" | "doc" | "habits";
+export type ViewType = "board" | "table" | "calendar";
+export type PageType = "home" | "db" | "habits" | "calendar" | "todo";
 export type BlockType = "p" | "h1" | "h2" | "h3" | "ul" | "ol" | "todo" | "quote" | "callout" | "divider";
 
 export interface Option {
@@ -35,10 +35,15 @@ export interface View {
   sort?: Sort | null;
   widths?: Record<string, number>;
 }
+/** Fixed fields every task has. Only their options (status columns, priorities, tags) can be edited. */
+export const FIXED_PROPS = ["status", "date", "prio", "tags"] as const;
+
 export interface Database {
   srs: boolean;
   props: Prop[];
   views: View[];
+  /** Area given to new tasks in this database when no area is selected at the top. */
+  defaultArea?: string;
 }
 export interface Page {
   id: string;
@@ -50,6 +55,7 @@ export interface Page {
   cover?: string;
   fav?: boolean;
 }
+/** Only used to read data saved before version 2 (block pages and block notes). */
 export interface Block {
   id: string;
   type: BlockType;
@@ -67,7 +73,11 @@ export interface Item {
   db: string;
   title: string;
   props: Record<string, PropValue>;
-  blocks: Block[];
+  /** Free-text notes for the task. */
+  notes: string;
+  area?: string;
+  /** Legacy (version 1). Converted into `notes` on load. */
+  blocks?: Block[];
   created: number;
   updated: number;
   order: number;
@@ -89,24 +99,63 @@ export interface Habit {
   icon: string;
   order?: number;
 }
+export type AreaColor = "coral" | "petrol" | "violet" | "amber" | "green" | "pink" | "sky" | "slate";
+export interface Area {
+  id: string;
+  name: string;
+  color: AreaColor;
+}
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  /** YYYY-MM-DD */
+  date: string;
+  allDay: boolean;
+  /** HH:MM, local time */
+  start: string;
+  end: string;
+  area?: string;
+  location: string;
+  notes: string;
+  /** Minutes before the start when an e-mail alert is sent. */
+  alerts: number[];
+  created: number;
+  updated: number;
+}
+/** A quick to-do: just text, a checkbox and optionally a day and an area. */
+export interface Todo {
+  id: string;
+  text: string;
+  done: boolean;
+  /** YYYY-MM-DD */
+  date?: string;
+  area?: string;
+  order: number;
+  created: number;
+  doneAt?: number;
+}
 export interface Settings {
   theme: "system" | "light" | "dark";
-  accent: string;
-  font: "sans" | "serif" | "mono";
-  width: "normal" | "wide";
-  density: "comfy" | "compact";
   start: string;
   name: string;
+  areas: Area[];
+  /** Send e-mail alerts for events (needs an account). */
+  emailAlerts: boolean;
+  /** Alerts pre-selected for new events, in minutes before. */
+  defaultAlerts: number[];
   /** Note folders created by the person, kept even while empty. */
   noteFolders?: string[];
 }
 export interface Workspace {
-  version: 1;
+  version: 2;
   pages: Page[];
   dbs: Record<string, Database>;
   items: Record<string, Item>;
-  docs: Record<string, Block[]>;
+  events: Record<string, CalendarEvent>;
+  todos: Record<string, Todo>;
   notes: Record<string, Note>;
+  /** Legacy (version 1) block pages. Converted into notes on load. */
+  docs?: Record<string, Block[]>;
   habits: Habit[];
   habitLog: Record<string, string[]>;
   settings: Settings;

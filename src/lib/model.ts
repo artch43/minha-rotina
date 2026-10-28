@@ -68,9 +68,9 @@ export function runReviews(ws: Workspace) {
   }
 }
 
-export function applyFilters(ws: Workspace, dbId: string, view: View, search: string): Item[] {
+export function applyFilters(ws: Workspace, dbId: string, view: View, search: string, area = "all"): Item[] {
   const db = ws.dbs[dbId];
-  let list = itemsOf(ws, dbId);
+  let list = itemsOf(ws, dbId).filter((i) => area === "all" || i.area === area);
   const q = search.trim().toLowerCase();
   if (q) list = list.filter((i) => (i.title || "").toLowerCase().includes(q));
   const T = today();
