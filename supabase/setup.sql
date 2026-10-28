@@ -103,3 +103,8 @@ revoke all on table public.reminders from anon;
 grant select, insert, delete on table public.reminders to authenticated;
 
 grant select, insert, update, delete on table public.records, public.reminders to service_role;
+
+-- ===== 004_reminder_errors.sql =====
+-- Minha Rotina, version 4: remember why a reminder could not be sent,
+-- so a permanent refusal (e.g. an address the e-mail service rejects) is not retried every minute.
+alter table public.reminders add column if not exists last_error text;

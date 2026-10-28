@@ -70,7 +70,7 @@ src/
     notes/              Anotações: NotesView, NoteEditor (CodeMirror), NoteReader
     Home.tsx, TodoPage.tsx, Habits.tsx, Search.tsx, Settings.tsx, Trash.tsx, Auth.tsx
 supabase/
-  migrations/           SQL do banco (rode na ordem: 001, 002, 003)
+  migrations/           SQL do banco (rode na ordem: 001 a 004, ou tudo de uma vez com setup.sql)
   functions/            send-reminders: envia os alertas por e-mail
   cron.sql              agenda a função para rodar a cada minuto
 ```

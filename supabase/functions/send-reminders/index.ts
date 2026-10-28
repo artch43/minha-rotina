@@ -14,7 +14,7 @@ function emailHtml(title: string, when: string, appUrl: string) {
   <div style="margin-top:6px;font-size:15px;color:#5B6272">${esc(when)}</div></td></tr>
   <tr><td style="padding:24px 28px 28px"><a href="${esc(appUrl)}" style="display:inline-block;background:#1F7A8C;color:#fff;text-decoration:none;font-weight:600;padding:10px 16px;border-radius:8px">Abrir o calendário</a></td></tr>
   </table>
-  <p style="font-size:12px;color:#8A90A0;margin-top:16px">Você recebeu este e-mail porque ativou alertas para este evento. Para parar, desligue os alertas por e-mail nas Configurações.</p>
+  <p style="font-size:12px;color:#8A90A0;margin-top:16px">Você recebeu este e-mail porque ativou alertas para este item. Para parar, desligue os alertas por e-mail nas Configurações.</p>
   </td></tr></table></body></html>`;
 }
 
@@ -41,7 +41,13 @@ Deno.serve(async (req) => {
     if (res.ok) {
       await supabase.from("reminders").update({ sent_at: new Date().toISOString() }).eq("id", r.id);
       sent++;
-    } else failed.push(`${r.id}: ${res.status} ${await res.text()}`);
+    } else {
+      const reason = `${res.status} ${await res.text()}`;
+      failed.push(`${r.id}: ${reason}`);
+      // 4xx (except rate limits) will fail the same way next minute: give up on this one.
+      if (res.status >= 400 && res.status < 500 && res.status !== 429)
+        await supabase.from("reminders").update({ sent_at: new Date().toISOString(), last_error: reason.slice(0, 500) }).eq("id", r.id);
+    }
   }
   return Response.json({ due: due?.length ?? 0, sent, failed });
 });
