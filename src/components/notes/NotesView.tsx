@@ -414,8 +414,13 @@ function NotesPanel() {
         className={cn("flex items-center gap-1 px-3 pt-3 pb-2", over === "" && "rounded-md ring-2 ring-primary")}
         {...dropProps("")}
       >
-        <button className="mr-auto min-w-0 truncate rounded-md px-1 text-[15px] font-semibold hover:text-primary" onClick={() => openNotes(null)}>
-          Todas as notas
+        {/* Short label so it fits next to the four buttons; goes to the overview of all notes. */}
+        <button
+          className="mr-auto min-w-0 truncate rounded-md px-1 text-[15px] font-semibold hover:text-primary"
+          title="Ver todas as notas"
+          onClick={() => openNotes(null)}
+        >
+          Notas
         </button>
         <IconTip label="Nova nota">
           <Button variant="ghost" size="icon-sm" aria-label="Nova nota" onClick={() => createNote({ folder: currentFolder })}>

@@ -92,6 +92,7 @@ export function EventDialog() {
               <Input
                 id="ev-title"
                 autoFocus
+                data-title-field
                 autoComplete="off"
                 placeholder="Ex.: consulta, aula, reunião…"
                 value={d.title}

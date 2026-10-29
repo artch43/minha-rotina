@@ -58,9 +58,9 @@ function openNote(): Target | null {
   return ui.route === "notes" && ui.noteId ? { kind: "note", id: ui.noteId } : null;
 }
 
-/** A one-line field (title, date, time…), not a text area or the note editor. */
+/** The title field of the open task or event (not tags, dates or other text, where ⌘⌫ deletes words). */
 function isShortField(el: Element | null) {
-  return !!el && el.tagName === "INPUT" && !el.closest(".cm-editor");
+  return !!el && el.tagName === "INPUT" && el.hasAttribute("data-title-field");
 }
 
 export function deleteByShortcut(t: Target) {
@@ -97,7 +97,7 @@ export function installDeleteShortcut() {
     let t: Target | null;
     if (isEditable(document.activeElement)) {
       // The task panel and the event window open with the cursor in the title: there the shortcut
-      // still deletes what is open. Only long text (notes, descriptions) keeps "delete the line".
+      // still deletes what is open. Every other field keeps its usual "delete the word/line".
       t = openTarget();
       if (!t || !isShortField(document.activeElement)) return;
     } else t = deleteTarget();

@@ -27,6 +27,18 @@ import { PanelLeftIcon } from "lucide-react"
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "17.5rem"
+/** Width limits (px) when the person drags the sidebar edge; the chosen width is remembered. */
+const SIDEBAR_MIN = 216
+const SIDEBAR_MAX = 440
+const SIDEBAR_WIDTH_KEY = "minha-rotina:sidebar-width"
+const readWidth = () => {
+  try {
+    const n = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))
+    return n >= SIDEBAR_MIN && n <= SIDEBAR_MAX ? n : null
+  } catch {
+    return null
+  }
+}
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
@@ -39,6 +51,11 @@ type SidebarContextProps = {
   setOpenMobile: (open: boolean) => void
   isMobile: boolean
   toggleSidebar: () => void
+  /** Custom width in px, or null for the default. */
+  width: number | null
+  setWidth: (px: number | null) => void
+  resizing: boolean
+  setResizing: (on: boolean) => void
 }
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null)
@@ -67,6 +84,18 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
+  const [width, _setWidth] = React.useState<number | null>(readWidth)
+  const [resizing, setResizing] = React.useState(false)
+  const setWidth = React.useCallback((px: number | null) => {
+    const next = px === null ? null : Math.round(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, px)))
+    _setWidth(next)
+    try {
+      if (next === null) localStorage.removeItem(SIDEBAR_WIDTH_KEY)
+      else localStorage.setItem(SIDEBAR_WIDTH_KEY, String(next))
+    } catch {
+      /* private mode: just don't remember */
+    }
+  }, [])
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -95,9 +124,15 @@ function SidebarProvider({
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Not while typing: in the notes, Ctrl/⌘+B is bold.
+      const el = event.target as HTMLElement | null
+      const typing =
+        !!el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || !!el.closest(".cm-editor"))
       if (
         event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-        (event.metaKey || event.ctrlKey)
+        (event.metaKey || event.ctrlKey) &&
+        !typing &&
+        !event.defaultPrevented
       ) {
         event.preventDefault()
         toggleSidebar()
@@ -121,17 +156,22 @@ function SidebarProvider({
       openMobile,
       setOpenMobile,
       toggleSidebar,
+      width,
+      setWidth,
+      resizing,
+      setResizing,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, width, setWidth, resizing]
   )
 
   return (
     <SidebarContext.Provider value={contextValue}>
       <div
         data-slot="sidebar-wrapper"
+        data-resizing={resizing || undefined}
         style={
           {
-            "--sidebar-width": SIDEBAR_WIDTH,
+            "--sidebar-width": width ? `${width}px` : SIDEBAR_WIDTH,
             "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
             ...style,
           } as React.CSSProperties
@@ -217,7 +257,7 @@ function Sidebar({
       <div
         data-slot="sidebar-gap"
         className={cn(
-          "relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear",
+          "relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear in-data-[resizing]:transition-none",
           "group-data-[collapsible=offcanvas]:w-0",
           "group-data-[side=right]:rotate-180",
           variant === "floating" || variant === "inset"
@@ -229,7 +269,7 @@ function Sidebar({
         data-slot="sidebar-container"
         data-side={side}
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex",
+          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear in-data-[resizing]:transition-none data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex",
           // Adjust the padding for floating and inset variants.
           variant === "floating" || variant === "inset"
             ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
@@ -276,21 +316,73 @@ function SidebarTrigger({
   )
 }
 
+/**
+ * The sidebar's edge. Drag it to make the sidebar wider or narrower (remembered); double-click
+ * goes back to the default width. With the keyboard: focus it and use ← →. When the sidebar is
+ * closed, a click opens it again.
+ */
 function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
-  const { toggleSidebar } = useSidebar()
+  const { open, setOpen, width, setWidth, setResizing } = useSidebar()
+  const current = () =>
+    width ?? (document.querySelector<HTMLElement>("[data-slot=sidebar-container]")?.offsetWidth || 280)
+
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!open || e.button !== 0) return
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = current()
+    let moved = false
+    const el = e.currentTarget
+    el.setPointerCapture(e.pointerId)
+    const move = (ev: PointerEvent) => {
+      if (!moved && Math.abs(ev.clientX - startX) < 3) return
+      if (!moved) {
+        moved = true
+        setResizing(true)
+        document.body.style.cursor = "col-resize"
+        document.body.style.userSelect = "none"
+      }
+      setWidth(startW + ev.clientX - startX)
+    }
+    const up = () => {
+      el.removeEventListener("pointermove", move)
+      el.removeEventListener("pointerup", up)
+      el.removeEventListener("pointercancel", up)
+      document.body.style.cursor = ""
+      document.body.style.userSelect = ""
+      setResizing(false)
+    }
+    el.addEventListener("pointermove", move)
+    el.addEventListener("pointerup", up)
+    el.addEventListener("pointercancel", up)
+  }
 
   return (
     <button
+      type="button"
       data-sidebar="rail"
       data-slot="sidebar-rail"
-      aria-label="Toggle Sidebar"
-      tabIndex={-1}
-      onClick={toggleSidebar}
-      title="Toggle Sidebar"
+      role={open ? "separator" : undefined}
+      aria-orientation={open ? "vertical" : undefined}
+      aria-valuemin={open ? SIDEBAR_MIN : undefined}
+      aria-valuemax={open ? SIDEBAR_MAX : undefined}
+      aria-valuenow={open ? (width ?? undefined) : undefined}
+      aria-label={open ? "Ajustar a largura da barra lateral" : "Abrir a barra lateral"}
+      title={open ? "Arraste para ajustar a largura. Clique duas vezes para voltar ao padrão." : "Abrir a barra lateral"}
+      onPointerDown={onPointerDown}
+      onClick={() => {
+        if (!open) setOpen(true)
+      }}
+      onDoubleClick={() => open && setWidth(null)}
+      onKeyDown={(e) => {
+        if (!open || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return
+        e.preventDefault()
+        setWidth(current() + (e.key === "ArrowRight" ? 16 : -16))
+      }}
       className={cn(
-        "absolute inset-y-0 z-20 hidden w-4 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] hover:after:bg-sidebar-border sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2",
-        "in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize",
-        "[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize",
+        "absolute inset-y-0 z-20 hidden w-4 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] after:transition-colors hover:after:bg-primary/40 focus-visible:outline-none focus-visible:after:bg-primary sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2",
+        "in-data-[resizing]:after:bg-primary/60",
+        "cursor-col-resize [[data-state=collapsed]_&]:cursor-e-resize",
         "group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full hover:group-data-[collapsible=offcanvas]:bg-sidebar",
         "[[data-side=left][data-collapsible=offcanvas]_&]:-right-2",
         "[[data-side=right][data-collapsible=offcanvas]_&]:-left-2",

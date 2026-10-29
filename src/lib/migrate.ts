@@ -177,8 +177,9 @@ export function normalizeWorkspace(input: Workspace): Workspace {
     if (old && untouched) {
       old.body = GUIDE_BODY;
       old.updated = Date.now();
-    } else if (old && old.body.trim() !== GUIDE_BODY.trim()) {
-      const n = GUIDE_NOTE();
+    } else if (old && old.body.trim() !== GUIDE_BODY.trim() && !w.notes["guia-v" + GUIDE_VERSION]) {
+      // Same id on every device, so two devices can't each add their own copy.
+      const n = GUIDE_NOTE("guia-v" + GUIDE_VERSION);
       n.title = "Guia rápido (novo)";
       w.notes[n.id] = n;
     }

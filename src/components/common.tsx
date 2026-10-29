@@ -116,6 +116,7 @@ export function EmojiPicker({
   className,
   extra,
   renderValue,
+  children,
 }: {
   value: string;
   onChange: (e: string) => void;
@@ -125,6 +126,8 @@ export function EmojiPicker({
   extra?: { name: string; items: { value: string; label: string; node: React.ReactNode }[] };
   /** How to show the current value on the button, when it isn't a plain emoji. */
   renderValue?: (v: string) => React.ReactNode;
+  /** A custom trigger (e.g. the icon itself in the sidebar) instead of the default button. */
+  children?: React.ReactElement;
 }) {
   const [open, setOpen] = useState(false);
   // With an extra tab, -1 is that tab (shown first); 0… are the emoji groups.
@@ -137,11 +140,13 @@ export function EmojiPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={label} className={cn("text-2xl", className)}>
-          {renderValue ? renderValue(value) : value}
-        </Button>
+        {children ?? (
+          <Button variant="ghost" size="icon" aria-label={label} className={cn("text-2xl", className)}>
+            {renderValue ? renderValue(value) : value}
+          </Button>
+        )}
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-3" align="start">
+      <PopoverContent className="w-80 p-3" align="start" onClick={(e) => e.stopPropagation()}>
         <div className="mb-2 flex flex-wrap gap-1" role="tablist" aria-label="Categorias de ícones">
           {[...(extra ? [{ name: extra.name, i: -1 }] : []), ...EMOJI_GROUPS.map((g, i) => ({ name: g.name, i }))].map(({ name, i }) => (
             <button

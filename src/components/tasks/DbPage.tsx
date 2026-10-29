@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CalendarDays, Check, Columns3, Filter, Plus, Search, Settings2, Table2, X } from "lucide-react";
 import type { Filter as F, Page, View } from "@/lib/types";
 import { applyFilters, defaultsFromFilters, filterLabel } from "@/lib/model";
@@ -245,7 +245,11 @@ function FilterButton({ dbId, view, onAdd }: { dbId: string; view: View; onAdd: 
 function PageTitle({ page }: { page: Page }) {
   const [editing, setEditing] = useState(false);
   const [v, setV] = useState(page.title);
+  // Esc cancels for good: the blur that may follow when the field goes away must not save.
+  const decided = useRef(false);
   const done = (save: boolean) => {
+    if (decided.current) return;
+    decided.current = true;
     setEditing(false);
     if (save && v.trim() && v.trim() !== page.title) {
       renamePage(page.id, v);
@@ -264,11 +268,8 @@ function PageTitle({ page }: { page: Page }) {
           onChange={(e) => setV(e.target.value)}
           onBlur={() => done(true)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") e.currentTarget.blur();
-            if (e.key === "Escape") {
-              setV(page.title);
-              done(false);
-            }
+            if (e.key === "Enter") done(true);
+            if (e.key === "Escape") done(false);
           }}
           className="min-w-0 flex-1 rounded-lg bg-transparent px-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
@@ -278,6 +279,7 @@ function PageTitle({ page }: { page: Page }) {
           title="Clique duas vezes para renomear"
           onDoubleClick={() => {
             setV(page.title);
+            decided.current = false;
             setEditing(true);
           }}
         >

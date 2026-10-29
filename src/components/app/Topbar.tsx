@@ -90,7 +90,10 @@ export function Topbar({ title, showAreas = true }: { title: React.ReactNode; sh
         </>
       )}
       {showAreas && <AreaSwitcher className={cn("min-w-0", !title && "flex-1")} />}
-      <SaveState />
+      {/* Always at the right edge, also on pages without a title or areas. */}
+      <div className="ml-auto shrink-0">
+        <SaveState />
+      </div>
     </header>
   );
 }

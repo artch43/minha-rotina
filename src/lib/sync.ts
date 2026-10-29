@@ -240,6 +240,8 @@ export async function startCloud(user: User) {
   const legacy = localStorage.getItem(STORAGE_KEY);
   const hadCache = !!localStorage.getItem(cacheKey());
   useStore.persist.setOptions({ name: cacheKey() });
+  // The copy as it was saved, before the load-time upgrades run on it (see migrateIfNeeded).
+  baseline = hadCache ? parseCached(localStorage.getItem(cacheKey())) : null;
   if (hadCache) await useStore.persist.rehydrate();
 
   const meta = hadCache ? loadMeta() : { lastSync: EPOCH, pending: [] };
@@ -273,12 +275,26 @@ export async function startCloud(user: User) {
     applyQuietly((ws) => {
       Object.assign(ws, fromRecords(rows, ws.settings));
     });
+    // A new device gets the same load-time upgrades as a cached one (see migrateIfNeeded).
   } else {
     const fresh = rows.filter((r) => !pending.has(keyOf(r.kind, r.id)));
     if (fresh.length) applyQuietly((ws) => applyRecords(ws, fresh));
+    // What just came from the cloud differs from the saved copy for a good reason: don't send it back.
+    fromServer = new Set(rows.map((r) => keyOf(r.kind, r.id)));
   }
   advance(rows);
   begin();
+}
+
+let baseline: Workspace | null = null;
+let fromServer = new Set<string>();
+function parseCached(raw: string | null): Workspace | null {
+  try {
+    const ws = JSON.parse(raw || "null")?.state?.ws as Workspace | undefined;
+    return ws && Array.isArray(ws.pages) ? ws : null;
+  } catch {
+    return null;
+  }
 }
 
 function parseLegacy(raw: string | null): Workspace | null {
@@ -308,15 +324,47 @@ export function seedAccount(ws: Workspace) {
   begin();
 }
 
-/** Data saved in the cloud by an older version is upgraded once, and the result is uploaded like any edit. */
+/**
+ * Brings the workspace up to date (old formats, the new quick guide, settings…) and uploads what
+ * differs from the saved copy, like any edit. Runs on every start, so a device that loads straight
+ * from the cloud ends up the same as one with a local copy (which was upgraded while loading).
+ */
 function migrateIfNeeded() {
   const cur = useStore.getState().ws as Workspace & { docs?: unknown };
-  if (cur.version === 2 && !cur.docs) return;
   const next = normalizeWorkspace(cur);
-  useStore.getState().mut((w) => {
-    Object.assign(w, next);
-    delete (w as { docs?: unknown }).docs;
-  });
+  const now = toEntities(cur),
+    after = toEntities(next),
+    base = baseline ? toEntities(baseline) : now;
+  const skip = fromServer;
+  baseline = null;
+  fromServer = new Set();
+  const json = (e?: Ent) => JSON.stringify(e?.data);
+  // Bring the screen up to date (this edit is pushed by the normal store subscription)…
+  const changed = [...after.keys()].filter((k) => json(now.get(k)) !== json(after.get(k)));
+  const removed = [...now.keys()].filter((k) => !after.has(k));
+  if (changed.length || removed.length || cur.docs)
+    useStore.getState().mut((w) => {
+      applyRecords(w, [
+        ...changed.map((k) => ({ kind: after.get(k)!.kind, id: after.get(k)!.id, data: after.get(k)!.data })),
+        ...removed.map((k) => ({ kind: now.get(k)!.kind, id: now.get(k)!.id, data: null, deleted_at: "now" })),
+      ]);
+      w.version = 2;
+      delete (w as { docs?: unknown }).docs;
+    });
+  // …and also send what was already upgraded while loading the local copy, which the cloud doesn't have yet.
+  const stamp = new Date().toISOString();
+  let queued = false;
+  for (const [k, e] of after)
+    if (!pending.has(k) && !skip.has(k) && json(base.get(k)) !== json(e) && json(now.get(k)) === json(e)) {
+      pending.set(k, { kind: e.kind, id: e.id, data: e.data, deleted_at: null });
+      queued = true;
+    }
+  for (const [k, e] of base)
+    if (!after.has(k) && !now.has(k) && !pending.has(k) && !skip.has(k)) {
+      pending.set(k, { kind: e.kind, id: e.id, data: e.data, deleted_at: stamp });
+      queued = true;
+    }
+  if (queued) saveMeta();
 }
 
 function begin() {

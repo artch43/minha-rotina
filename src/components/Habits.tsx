@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Check, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Circle, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Habit } from "@/lib/types";
 import { firstDoneOf, streakOf } from "@/lib/model";
-import { addDays, fmtDate, parseD, uid } from "@/lib/util";
+import { DOW, addDays, fmtDate, parseD, uid } from "@/lib/util";
 import { celebrate, deleteHabit, toggleHabit, useStore } from "@/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -89,7 +89,7 @@ function HabitRow({ h, T, i }: { h: Habit; T: string; i: number }) {
   return (
     <div
       data-del={"habit:" + h.id}
-      className="flex flex-col gap-3 py-5"
+      className="group/habit flex flex-col gap-3 py-5"
       style={{ "--i": Math.min(i, 12) } as React.CSSProperties}
     >
       <div className="flex items-center gap-3">
@@ -128,25 +128,34 @@ function HabitRow({ h, T, i }: { h: Habit; T: string; i: number }) {
             )}
           </span>
         </div>
+        {/* The main action: clearly clickable before (teal outline), clearly done after (green). */}
         <Button
           variant={on ? "default" : "outline"}
           aria-pressed={on}
           size="lg"
           className={cn(
-            "h-11 min-w-32 text-base",
-            on && "pop",
-            on && "bg-success text-white hover:bg-success/90 dark:text-background",
+            "h-11 min-w-24 shrink-0 text-base sm:min-w-36",
+            on
+              ? "pop bg-success text-white hover:bg-success/90 dark:text-background"
+              : "border-primary/45 text-primary-strong hover:border-primary hover:bg-primary/8 hover:text-primary-strong",
           )}
           onClick={() => toggleHabit(h.id, T)}
         >
-          {on && <Check data-icon="inline-start" />}
-          {on ? "Feito hoje" : "Hoje"}
+          {on ? <Check data-icon="inline-start" /> : <Circle data-icon="inline-start" />}
+          <span className="sm:hidden">{on ? "Feito" : "Hoje"}</span>
+          <span className="max-sm:hidden">{on ? "Feito hoje" : "Marcar hoje"}</span>
         </Button>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:pl-14">
         <div className="flex gap-1.5" role="group" aria-label="Últimos dias">
           {week.map((d) => (
-            <DayDot key={d} day={d} on={isOn(d)} today={d === T} missed={missed(d)} onClick={() => toggleHabit(h.id, d)} />
+            // The weekday above each day, so "27" reads as "segunda, 27".
+            <div key={d} className="flex flex-col items-center gap-1">
+              <span aria-hidden="true" className={cn("text-[11px] leading-none text-muted-foreground", d === T && "font-semibold text-primary-strong")}>
+                {DOW[parseD(d).getDay()]}
+              </span>
+              <DayDot day={d} on={isOn(d)} today={d === T} missed={missed(d)} onClick={() => toggleHabit(h.id, d)} />
+            </div>
           ))}
         </div>
         <button
@@ -157,7 +166,14 @@ function HabitRow({ h, T, i }: { h: Habit; T: string; i: number }) {
           {history ? <ChevronUp className="size-4" aria-hidden="true" /> : <ChevronDown className="size-4" aria-hidden="true" />}
           {history ? "Esconder histórico" : "Ver histórico"}
         </button>
-        <Button variant="ghost" size="icon-sm" aria-label={`Excluir ${h.name}`} onClick={() => deleteHabit(h.id)}>
+        {/* Quiet until the row is hovered (always shown on touch screens). */}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`Excluir ${h.name}`}
+          className="text-muted-foreground hover:text-destructive pointer-fine:opacity-0 pointer-fine:group-hover/habit:opacity-100 pointer-fine:focus-visible:opacity-100"
+          onClick={() => deleteHabit(h.id)}
+        >
           <Trash2 />
         </Button>
       </div>

@@ -57,6 +57,7 @@ export function TaskSheet() {
               <SheetTitle className="sr-only">{it.title || "Tarefa sem título"}</SheetTitle>
               <Input
                 ref={titleRef}
+                data-title-field
                 autoComplete="off"
                 aria-label="Nome da tarefa"
                 placeholder="Nome da tarefa"

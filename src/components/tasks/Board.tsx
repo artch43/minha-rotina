@@ -88,7 +88,8 @@ export function Board({ page, db, view, list }: { page: Page; db: Database; view
             key={o.id}
             aria-label={o.name}
             className={cn(
-              "flex w-72 shrink-0 flex-col gap-2 rounded-2xl border border-border/60 bg-column p-2 transition-colors",
+              // Columns share the width on big screens (so four fit side by side), but stay readable: 16–22rem.
+              "flex w-72 shrink-0 flex-col gap-2 rounded-2xl border border-border/60 bg-column p-2 transition-colors xl:w-auto xl:max-w-88 xl:min-w-64 xl:flex-1",
               drop?.col === o.id && "bg-primary/8 ring-2 ring-primary/30",
             )}
             onDragOver={(e) => {
@@ -176,16 +177,18 @@ export function Board({ page, db, view, list }: { page: Page; db: Database; view
           </section>
         );
       })}
+      {/* A slim dashed column at the end: clearly "add another column", without taking a column's width. */}
       <Button
         variant="ghost"
-        className="mt-1 shrink-0 text-muted-foreground"
+        aria-label="Nova coluna"
+        title="Nova coluna"
+        className="h-24 w-12 shrink-0 rounded-2xl border-2 border-dashed border-border text-muted-foreground hover:border-primary/50 hover:bg-primary/5 hover:text-primary-strong"
         onClick={() => {
           const id = addStatus(page.id);
           setEditing(id);
         }}
       >
-        <Plus data-icon="inline-start" />
-        Nova coluna
+        <Plus />
       </Button>
     </div>
   );
@@ -195,6 +198,13 @@ const DropLine = () => <div aria-hidden="true" className="-my-1 h-0.5 rounded-fu
 
 function ColumnName({ name, onDone }: { name: string; onDone: (name: string | null) => void }) {
   const [v, setV] = useState(name);
+  // Enter or Esc already decided; the blur that follows when the field goes away must not decide again.
+  const done = useRef(false);
+  const finish = (value: string | null) => {
+    if (done.current) return;
+    done.current = true;
+    onDone(value);
+  };
   return (
     <Input
       autoFocus
@@ -203,10 +213,10 @@ function ColumnName({ name, onDone }: { name: string; onDone: (name: string | nu
       value={v}
       onFocus={(e) => e.target.select()}
       onChange={(e) => setV(e.target.value)}
-      onBlur={() => onDone(v)}
+      onBlur={() => finish(v)}
       onKeyDown={(e) => {
-        if (e.key === "Enter") onDone(v);
-        if (e.key === "Escape") onDone(null);
+        if (e.key === "Enter") finish(v);
+        if (e.key === "Escape") finish(null);
       }}
     />
   );
@@ -344,7 +354,11 @@ function Card({
       )}
       onClick={() => openPeek(it.id)}
       onKeyDown={(e) => {
-        if (e.key === "Enter") openPeek(it.id);
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openPeek(it.id);
+        }
       }}
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = "move";

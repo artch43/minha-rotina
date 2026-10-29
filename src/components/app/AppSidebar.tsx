@@ -234,7 +234,9 @@ export function AppSidebar() {
                   <ChevronRight
                     className={cn("-mx-1 size-4! shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-90")}
                   />
-                  <FolderGlyph icon={icons[f]} open={isOpen} />
+                  <IconSpot label="Trocar ícone da pasta" folder value={icons[f] ?? ""} onPick={(v) => setBoardFolderIcon(f, v)}>
+                    <FolderGlyph icon={icons[f]} open={isOpen} />
+                  </IconSpot>
                   <span>{nameOf(f)}</span>
                   {!isOpen && count > 0 && (
                     <span className="ml-auto pr-6 text-xs text-muted-foreground tabular-nums">{count}</span>
@@ -534,7 +536,9 @@ function BoardItem({
           onClick={(e) => e.detail < 2 && onOpen()}
           onDoubleClick={onStartRename}
         >
-          <span className="w-5 text-center text-base leading-none">{p.icon}</span>
+          <IconSpot label="Trocar ícone da lista" value={p.icon} onPick={(v) => renamePage(p.id, p.title, v)}>
+            <span className="w-5 text-center text-base leading-none">{p.icon}</span>
+          </IconSpot>
           <span>{p.title || "Sem título"}</span>
         </SidebarMenuButton>
       )}
@@ -589,6 +593,13 @@ function InlineName({
   onDone: (v: string) => void;
 }) {
   const [v, setV] = useState(value);
+  // Esc or Enter decide once; the blur that may follow when the field goes away doesn't count.
+  const decided = useRef(false);
+  const finish = (next: string) => {
+    if (decided.current) return;
+    decided.current = true;
+    onDone(next);
+  };
   return (
     <div className="flex h-10 items-center gap-2 px-1.5">
       {icon && <span className="w-5 text-center text-base leading-none">{icon}</span>}
@@ -599,13 +610,55 @@ function InlineName({
         className="h-8 px-2"
         onFocus={(e) => e.currentTarget.select()}
         onChange={(e) => setV(e.target.value)}
-        onBlur={() => onDone(v)}
+        onBlur={() => finish(v)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-          if (e.key === "Escape") onDone(value);
+          if (e.key === "Enter") finish(v);
+          if (e.key === "Escape") finish(value);
         }}
       />
     </div>
+  );
+}
+
+/** The "Ícones" tab of the folder icon picker: the default folder plus the drawn icons. */
+const FOLDER_CHOICES = {
+  name: "Ícones",
+  items: [
+    { value: "", label: "Pasta (padrão)", node: <FolderGlyph /> },
+    ...Object.entries(FOLDER_ICONS).map(([k, { label }]) => ({
+      value: LUCIDE + k,
+      label,
+      node: <FolderGlyph icon={LUCIDE + k} />,
+    })),
+  ],
+};
+
+/** The icon in a sidebar row: one click opens the icon picker (the row's menu also has it, for the keyboard). */
+function IconSpot({
+  label,
+  onPick,
+  value,
+  folder,
+  children,
+}: {
+  label: string;
+  value: string;
+  onPick: (v: string) => void;
+  folder?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <EmojiPicker value={value} onChange={onPick} label={label} extra={folder ? FOLDER_CHOICES : undefined}>
+      <span
+        aria-hidden="true"
+        title={label}
+        className="-m-1 flex shrink-0 cursor-pointer items-center justify-center rounded-md p-1 transition-colors hover:bg-sidebar-border/70 data-[state=open]:bg-sidebar-border"
+        onClick={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </span>
+    </EmojiPicker>
   );
 }
 
@@ -663,17 +716,7 @@ function FolderDialog({
               label="Ícone da pasta"
               className="shrink-0 border"
               renderValue={(v) => <FolderGlyph icon={v} className="size-6! text-2xl" />}
-              extra={{
-                name: "Ícones",
-                items: [
-                  { value: "", label: "Pasta (padrão)", node: <FolderGlyph /> },
-                  ...Object.entries(FOLDER_ICONS).map(([k, { label }]) => ({
-                    value: LUCIDE + k,
-                    label,
-                    node: <FolderGlyph icon={LUCIDE + k} />,
-                  })),
-                ],
-              }}
+              extra={FOLDER_CHOICES}
             />
             <Input
               ref={nameRef}

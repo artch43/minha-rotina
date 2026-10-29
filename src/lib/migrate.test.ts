@@ -185,3 +185,25 @@ describe("dados salvos pela versão atual", () => {
     expect(Object.values(normalizeWorkspace(outB).notes).filter((n) => n.title === "Guia rápido (novo)")).toHaveLength(1);
   });
 });
+
+describe("atualização ao abrir", () => {
+  it("é estável: rodar de novo não muda nada (não reenvia tudo à nuvem a cada início)", async () => {
+    const { template } = await import("./template");
+    const { toEntities } = await import("./records");
+    const once = normalizeWorkspace(template());
+    const twice = normalizeWorkspace(once);
+    const a = toEntities(once),
+      b = toEntities(twice);
+    const diff = [...a.keys()].filter((k) => JSON.stringify(a.get(k)!.data) !== JSON.stringify(b.get(k)?.data));
+    expect(diff).toEqual([]);
+  });
+  it("um espaço novo já sai atualizado (nada a enviar no primeiro início)", async () => {
+    const { template } = await import("./template");
+    const { toEntities } = await import("./records");
+    const w = template();
+    const a = toEntities(w),
+      b = toEntities(normalizeWorkspace(w));
+    const diff = [...a.keys()].filter((k) => JSON.stringify(a.get(k)!.data) !== JSON.stringify(b.get(k)?.data));
+    expect(diff).toEqual([]);
+  });
+});

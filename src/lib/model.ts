@@ -74,27 +74,33 @@ export function applyFilters(ws: Workspace, dbId: string, view: View, search: st
   const q = search.trim().toLowerCase();
   if (q) list = list.filter((i) => (i.title || "").toLowerCase().includes(q));
   const T = today();
-  for (const f of view.filters || []) {
-    const prop = db.props.find((x) => x.id === f.prop);
+  // Filters on the same field add up ("Doing" or "Done"); filters on different fields narrow down.
+  const byProp = new Map<string, Filter[]>();
+  for (const f of view.filters || []) byProp.set(f.prop, [...(byProp.get(f.prop) ?? []), f]);
+  for (const [pid, fs] of byProp) {
+    const prop = db.props.find((x) => x.id === pid);
     if (!prop) continue;
-    list = list.filter((i) => {
-      const v = i.props[prop.id];
-      if (prop.type === "status" || prop.type === "select") return f.op === "isnot" ? v !== f.val : v === f.val;
-      if (prop.type === "multi") return Array.isArray(v) && v.includes(f.val);
-      if (prop.type === "checkbox") return !!v === (f.val === "true");
-      if (prop.type === "date") {
-        const d = typeof v === "string" ? v.slice(0, 10) : null;
-        if (f.val === "empty") return !d;
-        if (!d) return false;
-        if (f.val === "today") return d === T;
-        if (f.val === "week") return d >= T && d <= addDays(T, 7);
-        if (f.val === "overdue") return d < T && groupOf(db, i) !== "done";
-        if (f.val === "future") return d >= T;
-      }
-      return String(v ?? "")
-        .toLowerCase()
-        .includes(f.val.toLowerCase());
-    });
+    const either = fs.every((f) => f.op !== "isnot");
+    list = list.filter((i) => (either ? fs.some((f) => matches(i, f)) : fs.every((f) => matches(i, f))));
+  }
+  function matches(i: Item, f: Filter) {
+    const prop = db.props.find((x) => x.id === f.prop)!;
+    const v = i.props[prop.id];
+    if (prop.type === "status" || prop.type === "select") return f.op === "isnot" ? v !== f.val : v === f.val;
+    if (prop.type === "multi") return Array.isArray(v) && v.includes(f.val);
+    if (prop.type === "checkbox") return !!v === (f.val === "true");
+    if (prop.type === "date") {
+      const d = typeof v === "string" ? v.slice(0, 10) : null;
+      if (f.val === "empty") return !d;
+      if (!d) return false;
+      if (f.val === "today") return d === T;
+      if (f.val === "week") return d >= T && d <= addDays(T, 7);
+      if (f.val === "overdue") return d < T && groupOf(db, i) !== "done";
+      if (f.val === "future") return d >= T;
+    }
+    return String(v ?? "")
+      .toLowerCase()
+      .includes(f.val.toLowerCase());
   }
   const s = view.sort;
   if (s?.prop) {

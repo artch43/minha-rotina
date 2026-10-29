@@ -1,4 +1,4 @@
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, CircleCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Area } from "@/lib/types";
 import { inArea } from "@/lib/events";
@@ -7,6 +7,7 @@ import { parseD } from "@/lib/util";
 import { go, useStore } from "@/store";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { areaVar, greeting, useAreas, useToday } from "./common";
+import { Progress } from "@/components/ui/progress";
 
 interface Entry {
   key: string;
@@ -77,6 +78,14 @@ export function Home() {
         <p className="text-lg text-muted-foreground">{greeting(ws.settings.name)}</p>
         <h1 className="text-4xl leading-tight font-extrabold tracking-tight md:text-5xl">{date}</h1>
         <p className="text-lg text-muted-foreground">{summary}</p>
+        {/* How much of today is already done, at a glance. */}
+        {entries.length > 0 && (
+          <Progress
+            value={(done.length / entries.length) * 100}
+            aria-label={`${done.length} de ${entries.length} feitas hoje`}
+            className="mt-2 h-2 max-w-sm [&>[data-slot=progress-indicator]]:bg-success"
+          />
+        )}
       </header>
 
       {entries.length ? (
@@ -100,20 +109,26 @@ export function Home() {
 function Row({ e, i }: { e: Entry; i: number }) {
   const body = (
     <>
+      {/* The whole page is "today", so the left column says when in the day (or that it has no set time). */}
       <span
         className={cn(
-          "w-14 shrink-0 text-base tabular-nums",
-          e.time ? "font-semibold" : "text-muted-foreground",
+          "flex w-16 shrink-0 flex-col text-base leading-tight tabular-nums",
+          e.time ? "font-semibold" : "text-sm text-muted-foreground",
           e.done && "text-muted-foreground",
         )}
       >
-        {e.time || "Hoje"}
+        {e.time || "Dia todo"}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className={cn("truncate text-base font-medium", e.done && "text-muted-foreground line-through")}>{e.title}</span>
         {e.sub && <span className="truncate text-sm text-muted-foreground">{e.sub}</span>}
       </span>
-      {e.done && <span className="shrink-0 text-sm text-muted-foreground">Feita</span>}
+      {e.done && (
+        <span className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
+          <CircleCheck className="size-4 text-success" aria-hidden="true" />
+          Feita
+        </span>
+      )}
       {e.onOpen && <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
     </>
   );

@@ -91,7 +91,10 @@ function moveEntry(e: Dropped, date: string, minutes?: number) {
       });
   } else if (e.kind === "task") {
     const cur = ws.items[e.id]?.props.date;
-    setProp(e.id, "date", date + (typeof cur === "string" ? cur.slice(10) : ""));
+    // Dropped on an hour of the week view: that hour too. On a day (or the all-day row): keeps its time.
+    const time =
+      minutes !== undefined ? "T" + pad(Math.floor(minutes / 60) % 24) + ":" + pad(minutes % 60) : typeof cur === "string" ? cur.slice(10) : "";
+    setProp(e.id, "date", date + time);
   } else updateTodo(e.id, { date });
 }
 const parseDrop = (dt: DataTransfer): Dropped | null => {

@@ -66,6 +66,17 @@ describe("filtros e ordenação", () => {
     expect(applyFilters(ws, "estudos", v, "").map((i) => i.title)).toEqual(["Funções do 2º grau"]);
   });
 
+  it("dois status no filtro mostram os dois (não se anulam)", () => {
+    const v = {
+      ...view(),
+      filters: [
+        { prop: "status", op: "is" as const, val: optId("estudos", "doing") },
+        { prop: "status", op: "is" as const, val: optId("estudos", "review") },
+      ],
+    };
+    expect(applyFilters(ws, "estudos", v, "").map((i) => i.title).sort()).toEqual(["Funções do 2º grau", "Logaritmos"]);
+  });
+
   it("filtra datas atrasadas ignorando concluídos", () => {
     find("Revolução Francesa").props.date = "2026-10-20";
     const v = { ...view(), filters: [{ prop: "date", op: "is" as const, val: "overdue" }] };
