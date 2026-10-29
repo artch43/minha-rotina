@@ -1,5 +1,5 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
-import { EditorSelection, EditorState, type Range } from "@codemirror/state";
+import { EditorSelection, EditorState, StateField, type Range } from "@codemirror/state";
 import {
   Decoration,
   EditorView,
@@ -16,6 +16,8 @@ import { HighlightStyle, syntaxHighlighting, syntaxTree } from "@codemirror/lang
 import { tags as t } from "@lezer/highlight";
 import { TAG_RE } from "../../lib/notes";
 import { ATTACH_PREFIX, attachmentUrl } from "../../lib/attachments";
+import { findMath, renderMath } from "../../lib/math";
+import "katex/dist/katex.min.css";
 
 export interface EditorApi {
   gotoLine: (line: number) => void;
@@ -185,6 +187,51 @@ class FileWidget extends WidgetType {
     return true;
   }
 }
+/** A LaTeX formula drawn by KaTeX, in place of $…$ or $$…$$ while the cursor is elsewhere. */
+class MathWidget extends WidgetType {
+  constructor(
+    readonly tex: string,
+    readonly display: boolean,
+  ) {
+    super();
+  }
+  eq(other: MathWidget) {
+    return other.tex === this.tex && other.display === this.display;
+  }
+  toDOM() {
+    const el = document.createElement(this.display ? "div" : "span");
+    el.className = this.display ? "cm-math cm-math-block" : "cm-math";
+    el.title = "Clique para editar a fórmula";
+    el.innerHTML = renderMath(this.tex, this.display);
+    return el;
+  }
+}
+const inCodeAt = (state: EditorState, pos: number) => {
+  for (let n: ReturnType<ReturnType<typeof syntaxTree>["resolveInner"]> | null = syntaxTree(state).resolveInner(pos, 1); n; n = n.parent)
+    if (n.name === "FencedCode" || n.name === "InlineCode" || n.name === "CodeBlock") return true;
+  return false;
+};
+/** $$ blocks that span several lines need a block widget, which only a state field may provide. */
+const mathBlocks = StateField.define<DecorationSet>({
+  create: (state) => blockMath(state),
+  update: (deco, tr) => (tr.docChanged || tr.selection ? blockMath(tr.state) : deco),
+  provide: (f) => EditorView.decorations.from(f),
+});
+function blockMath(state: EditorState): DecorationSet {
+  const out: Range<Decoration>[] = [];
+  const doc = state.doc;
+  for (const m of findMath(doc.toString())) {
+    if (!m.display) continue;
+    const a = doc.lineAt(m.from),
+      b = doc.lineAt(m.to);
+    // Only $$ on lines of their own, and not while the cursor is inside.
+    if (a.number === b.number || doc.sliceString(a.from, m.from).trim() || doc.sliceString(m.to, b.to).trim()) continue;
+    if (state.selection.ranges.some((r) => r.to >= a.from && r.from <= b.to) || inCodeAt(state, m.from)) continue;
+    out.push(Decoration.replace({ widget: new MathWidget(m.tex, true), block: true }).range(a.from, b.to));
+  }
+  return Decoration.set(out, true);
+}
+
 const IMG = /!\[([^\]\n]*)\]\(((?:anexo:|https?:\/\/)[^)\s]+)\)/g;
 const FILE = /(?<!!)\[([^\]\n]+)\]\(anexo:([^)\s]+)\)/g;
 const lineDeco = (cls: string) => Decoration.line({ class: cls });
@@ -272,6 +319,14 @@ function buildDecorations(view: EditorView): DecorationSet {
       if (inCode(s, e) || active.has(state.doc.lineAt(s).number)) continue;
       out.push(Decoration.replace({ widget: new FileWidget(m[2], m[1]) }).range(s, e));
     }
+    // Formulas within one line (the ones over several lines are in mathBlocks).
+    for (const m of findMath(text)) {
+      const s = from + m.from,
+        e = from + m.to;
+      if (state.doc.lineAt(s).number !== state.doc.lineAt(e).number) continue;
+      if (inCode(s, e) || active.has(state.doc.lineAt(s).number)) continue;
+      out.push(Decoration.replace({ widget: new MathWidget(m.tex, m.display) }).range(s, e));
+    }
     for (const m of text.matchAll(TAG_RE)) {
       const s = from + m.index! + m[1].length;
       if (inCode(s, s + 1)) continue;
@@ -354,8 +409,9 @@ export function NoteEditor(props: {
           markdown({ base: markdownLanguage }),
           syntaxHighlighting(highlight),
           livePreview,
+          mathBlocks,
           EditorView.lineWrapping,
-          placeholder("Comece a escrever… Use # para tags."),
+          placeholder("Comece a escrever… Use # para tags e $x^2$ para fórmulas."),
           theme,
           EditorView.contentAttributes.of({ "aria-label": "Texto da anotação", spellcheck: "true" }),
           EditorView.updateListener.of((u) => {

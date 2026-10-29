@@ -156,6 +156,14 @@ describe("dados salvos pela versão atual", () => {
     expect(normalizeWorkspace(w).dbs.estudos.views[0].filters).toEqual([f, { ...f, val: "y" }]);
   });
 
+  it("deixa só um filtro de data", async () => {
+    const { template } = await import("./template");
+    const w = template();
+    const d = (val: string) => ({ prop: "date", op: "is" as const, val });
+    w.dbs.estudos.views[0].filters = [d("today"), d("week")];
+    expect(normalizeWorkspace(w).dbs.estudos.views[0].filters).toEqual([d("today")]);
+  });
+
   it("troca o guia rápido antigo sem edição e preserva o editado", async () => {
     const { template, OLD_GUIDE_BODIES, GUIDE_BODY } = await import("./template");
     const a = template();

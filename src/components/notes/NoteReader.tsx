@@ -3,6 +3,8 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { TAG_RE, parseWiki } from "../../lib/notes";
 import { ATTACH_PREFIX, resolveIn } from "../../lib/attachments";
+import { findMath, renderMath } from "../../lib/math";
+import "katex/dist/katex.min.css";
 
 DOMPurify.addHook("afterSanitizeAttributes", (node) => {
   // Attached files: keep the id aside so the browser doesn't try to load "anexo:..." itself.
@@ -27,11 +29,23 @@ const WIKI = /\[\[([^\]\n]+?)\]\]/g;
 export function renderNote(body: string) {
   // Leave code untouched; old [[links]] become plain text and #tags become clickable everywhere else.
   const parts = body.split(/(```[\s\S]*?(?:```|$)|`[^`\n]*`)/g);
+  // Formulas are set aside first (Markdown would mangle _ and *), then put back already rendered.
+  const formulas: { tex: string; display: boolean }[] = [];
+  const holdMath = (text: string) => {
+    let out = "",
+      at = 0;
+    for (const m of findMath(text)) {
+      const k = formulas.push(m) - 1;
+      out += text.slice(at, m.from) + (m.display ? `\n\n<div data-math="${k}"></div>\n\n` : `<span data-math="${k}"></span>`);
+      at = m.to;
+    }
+    return out + text.slice(at);
+  };
   const md = parts
     .map((p, i) =>
       i % 2
         ? p
-        : p
+        : holdMath(p)
             .replace(WIKI, (_, inner: string) => {
               const { target, alias } = parseWiki(inner);
               return esc(alias || target);
@@ -43,7 +57,15 @@ export function renderNote(body: string) {
     )
     .join("");
   const html = marked.parse(md, { gfm: true, breaks: true, async: false }) as string;
-  return DOMPurify.sanitize(html, { ADD_ATTR: ["data-tag", "data-anexo", "target"], ALLOWED_URI_REGEXP: URI_OK });
+  const clean = DOMPurify.sanitize(html, {
+    ADD_ATTR: ["data-tag", "data-anexo", "data-math", "target"],
+    ALLOWED_URI_REGEXP: URI_OK,
+  });
+  // KaTeX's own output (trust off: no links, classes or styles taken from the formula).
+  return clean.replace(/<(div|span) data-math="(\d+)"><\/\1>/g, (whole, _tag: string, k: string) => {
+    const f = formulas[Number(k)];
+    return f ? `<${_tag} class="math${f.display ? " math-block" : ""}">${renderMath(f.tex, f.display)}</${_tag}>` : whole;
+  });
 }
 
 export function NoteReader({ body, onTag }: { body: string; onTag: (tag: string) => void }) {

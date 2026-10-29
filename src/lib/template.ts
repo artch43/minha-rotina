@@ -60,10 +60,10 @@ export function mkDb(
 }
 
 /** Bump when the guide text changes, so saved copies that were never edited get the new one. */
-export const GUIDE_VERSION = 2;
+export const GUIDE_VERSION = 3;
 
 /** Earlier guide texts, to tell an untouched copy (safe to replace) from one the person edited. */
-export const OLD_GUIDE_BODIES = [
+export const OLD_GUIDE_BODIES: string[] = [
   [
     "Bem-vindo! Este espaço é só seu.",
     "",
@@ -87,7 +87,8 @@ export const OLD_GUIDE_BODIES = [
   ].join("\n"),
 ];
 
-export const GUIDE_BODY = [
+/** The guide as shipped in version 2 (kept to recognise untouched copies). */
+const GUIDE_BODY_V2 = [
   "Bem-vindo ao Minha Rotina! Este guia mostra, passo a passo, tudo o que o site faz. Leva uns 5 minutos. Marque cada passo do **Experimente** quando conseguir.",
   "",
   "## 1. Início: o seu dia",
@@ -182,6 +183,36 @@ export const GUIDE_BODY = [
   "- [ ] Apagar os itens de exemplo quando terminar de explorar",
   "",
 ].join("\n");
+
+export const GUIDE_BODY = GUIDE_BODY_V2.replace(
+  "- Para **copiar** uma tarefa para outra lista, arraste o cartão até o nome da lista na barra lateral. A original fica onde está.",
+  "- Para **mudar uma tarefa de lista**, arraste o cartão até o nome da outra lista na barra lateral. Se mudou de ideia, clique em **Desfazer** no aviso.",
+)
+  .replace(
+    "- **Filtrar** mostra só um status, prioridade, etiqueta ou data (hoje, esta semana, atrasadas…). Cada filtro só pode ser aplicado uma vez; os já ativos aparecem marcados com ✓.",
+    "- **Filtrar** mostra só um status, prioridade, etiqueta ou data (hoje, esta semana, atrasadas…). Cada filtro só pode ser aplicado uma vez; os já ativos aparecem marcados com ✓. De **data** vale um por vez: escolher outro troca o anterior.",
+  )
+  .replace(
+    "> Experimente\n- [ ] Criar uma nota com uma #tag",
+    [
+      "**Fórmulas (LaTeX)**, como no Obsidian",
+      "- Entre cifrões, a fórmula fica no meio do texto: `$E = mc^2$` vira $E = mc^2$.",
+      "- Com dois cifrões, ela ganha uma linha só para ela:",
+      "",
+      "$$",
+      "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}",
+      "$$",
+      "",
+      "- O botão **Σ** da barra põe os cifrões para você. Clique numa fórmula para editar; ao sair, ela aparece desenhada.",
+      "- Valores como R$ 10 continuam texto normal.",
+      "",
+      "> Experimente",
+      "- [ ] Criar uma nota com uma #tag",
+      "- [ ] Escrever a fórmula $a^2 + b^2 = c^2$",
+    ].join("\n"),
+  );
+// Version 2 joins the old texts here, once it's defined.
+OLD_GUIDE_BODIES.push(GUIDE_BODY_V2);
 
 export const GUIDE_NOTE = (id = uid()): Note => ({
   id,

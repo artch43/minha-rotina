@@ -7,7 +7,7 @@ Um espaço pessoal e simples para organizar a rotina:
 - **Calendário** com eventos (inclusive repetidos) e **alertas por e-mail** no horário que você escolher. Tarefas com data também aparecem lá e podem ter alertas.
 - **Início** só para consulta: as tarefas com prazo para hoje; clicar numa leva ao quadro dela.
 - **Listas de tarefas em pastas** (e pastas dentro de pastas) na barra lateral.
-- **Anotações** em Markdown, com barra de formatação, imagens e PDF anexados, pastas, tags e modo foco.
+- **Anotações** em Markdown, com barra de formatação, fórmulas LaTeX ($…$ e $$…$$, como no Obsidian), imagens e PDF anexados, pastas, tags e modo foco.
 - **Instalável como app** (PWA) no celular e no computador.
 - **Hábitos**: marque o de hoje e acompanhe a sequência de dias seguidos; o histórico fica recolhido para consulta.
 

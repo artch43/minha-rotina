@@ -23,7 +23,7 @@ import { boardFolderList } from "@/lib/notes";
 import { cloudEnabled } from "@/lib/supabase";
 import {
   addBoardFolder,
-  copyItemTo,
+  moveItemTo,
   celebrate,
   deleteBoardFolder,
   deletePage,
@@ -492,9 +492,9 @@ function BoardItem({
   onRemove: () => void;
 }) {
   const [taskOver, setTaskOver] = useState(false);
-  // A task card from a board can be dropped here: it is copied into this list (not moved).
+  // A task card from a board can be dropped here: it moves to this list.
   const isTask = (e: React.DragEvent) => e.dataTransfer.types.includes(TASK_MIME);
-  const canCopy = () => {
+  const canMove = () => {
     const id = draggedTask();
     return !!id && useStore.getState().ws.items[id]?.db !== p.id;
   };
@@ -504,9 +504,9 @@ function BoardItem({
       onDragOver={(e) => {
         if (!isTask(e)) return dropProps.onDragOver?.(e);
         e.stopPropagation();
-        if (!canCopy()) return;
+        if (!canMove()) return;
         e.preventDefault();
-        e.dataTransfer.dropEffect = "copy";
+        e.dataTransfer.dropEffect = "move";
         setTaskOver(true);
       }}
       onDragLeave={(e) => {
@@ -519,9 +519,9 @@ function BoardItem({
         e.stopPropagation();
         setTaskOver(false);
         const id = draggedTask();
-        if (id && canCopy()) copyItemTo(id, p.id);
+        if (id && canMove()) moveItemTo(id, p.id);
       }}
-      title={taskOver ? `Soltar para copiar para ${p.title}` : undefined}
+      title={taskOver ? `Soltar para mover para ${p.title}` : undefined}
       className={cn("rounded-lg transition-colors", dragging && "opacity-50", taskOver && "bg-primary/10 ring-2 ring-primary/50")}
     >
       {renaming ? (

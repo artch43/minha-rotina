@@ -80,9 +80,13 @@ function migrateDb(id: string, db: Database, items: Item[]) {
     ...v,
     type: v.type === ("list" as never) ? "table" : v.type,
     hidden: (v.hidden ?? []).filter((h) => FIXED.has(h)),
-    // The same filter twice used to be possible; keep only the first.
+    // The same filter twice (or two date filters) used to be possible; keep only the first.
     filters: (v.filters ?? []).filter(
-      (f, k, all) => FIXED.has(f.prop) && all.findIndex((g) => g.prop === f.prop && g.op === f.op && g.val === f.val) === k,
+      (f, k, all) =>
+        FIXED.has(f.prop) &&
+        all.findIndex((g) => g.prop === f.prop && g.op === f.op && g.val === f.val) === k &&
+        // One date filter at most.
+        (f.prop !== "date" || all.findIndex((g) => g.prop === "date") === k),
     ),
   }));
   if (!db.views.some((v) => v.type === "calendar"))

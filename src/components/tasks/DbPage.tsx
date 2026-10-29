@@ -104,7 +104,10 @@ export function DbPage({ page }: { page: Page }) {
             view={view}
             onAdd={(f) =>
               mutView((v) => {
-                if (!v.filters.some((g) => sameFilter(g, f))) v.filters.push(f);
+                if (v.filters.some((g) => sameFilter(g, f))) return;
+                // Only one date filter at a time: a new one replaces the old.
+                if (f.prop === "date") v.filters = v.filters.filter((g) => g.prop !== "date");
+                v.filters.push(f);
               })
             }
           />
@@ -218,7 +221,7 @@ function FilterButton({ dbId, view, onAdd }: { dbId: string; view: View; onAdd: 
           : null}
         <Separator />
         {section(
-          "Data",
+          "Data (uma por vez)",
           DATE_FILTERS.map(([k, n]) => (
             <Button
               key={k}

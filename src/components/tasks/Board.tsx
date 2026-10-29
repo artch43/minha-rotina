@@ -347,8 +347,7 @@ function Card({
         if (e.key === "Enter") openPeek(it.id);
       }}
       onDragStart={(e) => {
-        // "copy" too: dropping on another list in the sidebar makes a copy there.
-        e.dataTransfer.effectAllowed = "copyMove";
+        e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", it.id);
         e.dataTransfer.setData(TASK_MIME, it.id);
         setDraggedTask(it.id);

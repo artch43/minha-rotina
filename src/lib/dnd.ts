@@ -1,4 +1,4 @@
-/** The task card being dragged right now (so the sidebar lists can accept it as a copy). */
+/** The task card being dragged right now (so a list in the sidebar can take it). */
 export const TASK_MIME = "application/x-minha-rotina-task";
 let dragged: string | null = null;
 export const draggedTask = () => dragged;

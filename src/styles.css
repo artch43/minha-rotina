@@ -214,3 +214,29 @@
   color: var(--primary);
   font-weight: 700;
 }
+
+/* LaTeX formulas (KaTeX), in the reader and in the editor's live preview. */
+.math-block,
+.cm-math-block {
+  display: block;
+  margin: 0.75em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+}
+.cm-math {
+  cursor: text;
+  border-radius: 6px;
+}
+.cm-math:hover {
+  background: color-mix(in oklab, var(--primary) 8%, transparent);
+}
+.cm-math-block {
+  padding: 0.25em 0;
+}
+.katex {
+  font-size: 1.1em;
+}
+.katex-error {
+  color: var(--destructive) !important;
+}
