@@ -1,5 +1,9 @@
 // Supabase Edge Function: sends the reminders that are due, by e-mail or WhatsApp. Runs every minute (see supabase/cron.sql).
-// Secrets: RESEND_API_KEY, REMINDER_FROM (e.g. "Minha Rotina <alertas@seudominio.com>"), CRON_SECRET, APP_URL.
+// Secrets: CRON_SECRET, APP_URL, and one way to send e-mail:
+//   Gmail (or any SMTP, free, no domain needed): SMTP_USER (the address), SMTP_PASS (an app password),
+//     optional SMTP_HOST (default smtp.gmail.com), SMTP_PORT (default 465), SMTP_FROM_NAME (default "Minha Rotina").
+//   Resend (needs a verified domain to reach other people): RESEND_API_KEY, REMINDER_FROM
+//     (e.g. "Minha Rotina <alertas@seudominio.com>"). When both are set, SMTP is used.
 // WhatsApp (optional; until it is set up, WhatsApp reminders arrive by e-mail):
 //   WHATSAPP_PROVIDER = "twilio" | "meta"
 //   twilio: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM (e.g. "+14155238886"),
@@ -10,6 +14,7 @@
 // Daily limits per person (last 24 h), so one account can't run up the bill or message strangers:
 //   DAILY_EMAIL_LIMIT (default 50), DAILY_WHATSAPP_LIMIT (default 20), DAILY_WHATSAPP_NUMBERS (default 2).
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import nodemailer from "npm:nodemailer@6.9.16";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -40,7 +45,50 @@ function sameSecret(a: string, b: string) {
 const oneLine = (t: string) => t.replace(/[\r\n\t]+/g, " ").replace(/ {2,}/g, " ").trim().slice(0, 200);
 const num = (name: string, fallback: number) => Number(Deno.env.get(name)) || fallback;
 
+const smtpReady = () => !!(Deno.env.get("SMTP_USER") && Deno.env.get("SMTP_PASS"));
+let smtp: ReturnType<typeof nodemailer.createTransport> | null = null;
+function smtpTransport() {
+  const port = num("SMTP_PORT", 465);
+  smtp ??= nodemailer.createTransport({
+    host: Deno.env.get("SMTP_HOST") ?? "smtp.gmail.com",
+    port,
+    secure: port === 465,
+    auth: { user: Deno.env.get("SMTP_USER"), pass: Deno.env.get("SMTP_PASS") },
+    pool: true,
+    maxConnections: 1,
+  });
+  return smtp;
+}
+
+/** SMTP replies mapped to the same statuses the rest of the run understands. */
+function smtpStatus(e: { code?: string; responseCode?: number }) {
+  const c = e.responseCode ?? 0;
+  if (e.code === "EAUTH" || c === 535 || c === 534) return 401; // wrong address or app password: keep and retry later
+  if (c === 421 || c === 450 || c === 451 || c === 452 || c === 454) return 429; // busy or daily limit: try again
+  if (c >= 500) return 400; // e.g. the address doesn't exist: give up on this one
+  return 503; // couldn't connect: try again next minute
+}
+
+async function sendSmtp(to: string, title: string, when: string, appUrl: string): Promise<Sent> {
+  const user = Deno.env.get("SMTP_USER")!;
+  const name = (Deno.env.get("SMTP_FROM_NAME") ?? "Minha Rotina").replace(/["<>\r\n]/g, "");
+  try {
+    await smtpTransport().sendMail({
+      from: `"${name}" <${user}>`,
+      to,
+      subject: `Lembrete: ${oneLine(title)}`,
+      html: emailHtml(title, when, appUrl),
+      text: `${title}\n${when}\n\n${appUrl}`,
+    });
+    return { ok: true };
+  } catch (err) {
+    const e = err as { code?: string; responseCode?: number; message?: string };
+    return { ok: false, status: smtpStatus(e), reason: `SMTP ${e.responseCode ?? e.code ?? ""} ${e.message ?? ""}`.slice(0, 500) };
+  }
+}
+
 async function sendEmail(to: string, title: string, when: string, appUrl: string): Promise<Sent> {
+  if (smtpReady()) return sendSmtp(to, title, when, appUrl);
   const from = Deno.env.get("REMINDER_FROM") ?? "Minha Rotina <onboarding@resend.dev>";
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -95,8 +143,9 @@ Deno.serve(async (req) => {
   const secret = Deno.env.get("CRON_SECRET");
   if (!secret || !sameSecret(req.headers.get("authorization") ?? "", `Bearer ${secret}`))
     return new Response("unauthorized", { status: 401 });
-  // Without the e-mail key every send would fail and the reminders would be given up on: stop here instead.
-  if (!Deno.env.get("RESEND_API_KEY")) return new Response("RESEND_API_KEY is not set", { status: 500 });
+  // Without a way to send e-mail every send would fail and the reminders would be given up on: stop here instead.
+  if (!smtpReady() && !Deno.env.get("RESEND_API_KEY"))
+    return new Response("Set SMTP_USER and SMTP_PASS (Gmail) or RESEND_API_KEY", { status: 500 });
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const appUrl = (Deno.env.get("APP_URL") ?? "") + "/#/calendario";
@@ -160,5 +209,7 @@ Deno.serve(async (req) => {
     if (res.status === 401 || res.status === 403) break;
     if (res.status >= 400 && res.status < 500 && res.status !== 429) await giveUp(r.id, res.reason.slice(0, 500));
   }
-  return Response.json({ due: due?.length ?? 0, sent, failed });
+  smtp?.close();
+  smtp = null;
+  return Response.json({ due: due?.length ?? 0, sent, failed, via: smtpReady() ? "smtp" : "resend" });
 });

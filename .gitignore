@@ -5,3 +5,6 @@ dist
 .env
 .vercel
 .env*
+
+# Supabase CLI (link local)
+supabase/.temp/

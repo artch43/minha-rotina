@@ -105,21 +105,24 @@ O app funciona de dois jeitos:
 
 ### Alertas por e-mail (opcional, depois do passo anterior)
 
-Os alertas são enviados por uma função do Supabase usando o [Resend](https://resend.com).
+Os alertas são enviados por uma função do Supabase, por **Gmail** (grátis, sem domínio) ou pelo
+[Resend](https://resend.com) (precisa de um domínio verificado para chegar a outras pessoas).
 
-1. Crie uma conta gratuita no Resend e gere uma **API key**. Para mandar e-mails
-   para outras pessoas, verifique um domínio seu no Resend; para testar, dá para
-   enviar só para o e-mail da própria conta do Resend.
+1. **Gmail (recomendado para poucos usuários, até ~500 e-mails por dia):** crie um Gmail só para o app,
+   ative a verificação em duas etapas e gere uma **senha de app** em myaccount.google.com/apppasswords.
 2. Publique a função (o token sai de supabase.com → Account → Access Tokens):
    ```bash
    npx supabase login
    npx supabase link --project-ref <PROJECT_REF>
-   npx supabase secrets set RESEND_API_KEY=re_xxx CRON_SECRET=<uma-senha-longa> \
-     REMINDER_FROM="Minha Rotina <alertas@seudominio.com>" APP_URL=https://seu-site.vercel.app
+   npx supabase secrets set SMTP_USER=seu.app@gmail.com SMTP_PASS=<senha de app> CRON_SECRET=<uma-senha-longa> APP_URL=https://seu-site.vercel.app
    npx supabase functions deploy send-reminders --no-verify-jwt
    ```
+   Com Resend, troque `SMTP_USER`/`SMTP_PASS` por `RESEND_API_KEY=re_xxx REMINDER_FROM="Minha Rotina <alertas@seudominio.com>"`.
+   Se os dois estiverem configurados, vale o Gmail.
 3. No **SQL Editor**, rode `supabase/cron.sql` trocando `<PROJECT_REF>` e
    `<CRON_SECRET>`. A função passa a rodar a cada minuto.
+4. Para outras pessoas conseguirem criar conta, use o mesmo Gmail nos e-mails de login:
+   **Authentication → Emails → SMTP Settings** (host `smtp.gmail.com`, porta `465`, usuário e senha de app).
 
 Quando alguém salva um evento com alertas, o app grava os lembretes na tabela
 `reminders`; a função envia os que venceram e marca como enviados.
