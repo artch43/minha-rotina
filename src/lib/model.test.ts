@@ -120,3 +120,14 @@ describe("áreas", () => {
     expect(applyFilters(w, "trabalho", v, "", "all").length).toBe(2);
   });
 });
+
+describe("telefone do WhatsApp", () => {
+  it("aceita número brasileiro com ou sem DDI e com máscara", async () => {
+    const { normalizePhone, formatPhone } = await import("./util");
+    expect(normalizePhone("(11) 98765-4321")).toBe("+5511987654321");
+    expect(normalizePhone("+55 11 98765 4321")).toBe("+5511987654321");
+    expect(normalizePhone("+1 415 523 8886")).toBe("+14155238886");
+    expect(normalizePhone("1234")).toBe("");
+    expect(formatPhone("+5511987654321")).toBe("+55 11 98765-4321");
+  });
+});

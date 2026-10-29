@@ -136,3 +136,17 @@ export function plainPaste(e: React.ClipboardEvent) {
   e.preventDefault();
   document.execCommand("insertText", false, e.clipboardData.getData("text/plain"));
 }
+
+/** A phone number in international format (+5511987654321), or "" when it can't be one. Numbers without a country code are taken as Brazilian. */
+export function normalizePhone(input: string) {
+  const plus = input.trim().startsWith("+");
+  let d = input.replace(/\D/g, "");
+  if (!plus && d.startsWith("00")) d = d.slice(2);
+  else if (!plus && (d.length === 10 || d.length === 11)) d = "55" + d;
+  return d.length >= 10 && d.length <= 15 ? "+" + d : "";
+}
+/** +5511987654321 → +55 11 98765-4321 (other countries: just grouped). */
+export function formatPhone(p: string) {
+  const m = /^\+55(\d{2})(\d{4,5})(\d{4})$/.exec(p);
+  return m ? `+55 ${m[1]} ${m[2]}-${m[3]}` : p;
+}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Download, LogOut, Plus, Trash2, Upload } from "lucide-react";
 import type { AreaColor, Settings as S, Workspace } from "@/lib/types";
+import { WhatsAppNumber } from "./calendar/AlertPicker";
 import { ALERT_PRESETS } from "@/lib/events";
 import { downloadBackup, parseBackup } from "@/lib/backup";
 import { cloudEnabled } from "@/lib/supabase";
@@ -104,14 +105,20 @@ export function Settings() {
             <FieldGroup>
               <Field orientation="horizontal">
                 <FieldContent>
-                  <FieldLabel htmlFor="set-email">Alertas de eventos por e-mail</FieldLabel>
+                  <FieldLabel htmlFor="set-email">Avisos de eventos e tarefas</FieldLabel>
                   <FieldDescription>
                     {cloudEnabled
-                      ? "Enviados para o e-mail da sua conta."
-                      : "Precisa de uma conta. Com o site salvando só neste navegador, nenhum e-mail é enviado."}
+                      ? "Chegam no e-mail da sua conta ou no WhatsApp, conforme você escolher em cada evento ou tarefa."
+                      : "Precisa de uma conta. Com o site salvando só neste navegador, nenhum aviso é enviado."}
                   </FieldDescription>
                 </FieldContent>
                 <Switch id="set-email" checked={st.emailAlerts} onCheckedChange={(v) => set("emailAlerts", v)} />
+              </Field>
+              <FieldSeparator />
+              <Field>
+                <FieldLabel>Número do WhatsApp</FieldLabel>
+                <FieldDescription>Usado nos avisos marcados como WhatsApp.</FieldDescription>
+                <WhatsAppNumber phone={st.whatsapp} />
               </Field>
               <FieldSeparator />
               <FieldSet>

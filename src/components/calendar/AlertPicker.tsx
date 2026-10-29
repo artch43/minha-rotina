@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { BellRing, Plus, X } from "lucide-react";
+import { BellRing, Mail, MessageCircle, Plus, X } from "lucide-react";
+import type { AlertChannel } from "@/lib/types";
+import { formatPhone, normalizePhone } from "@/lib/util";
 import { ALERT_PRESETS, alertLabel } from "@/lib/events";
 import { cloudEnabled } from "@/lib/supabase";
-import { useStore } from "@/store";
+import { celebrate, useStore } from "@/store";
 import { FieldDescription, FieldLegend, FieldSet } from "@/components/ui/field";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
@@ -11,68 +13,159 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-/** "Avisar por e-mail": preset reminders plus custom ones, in minutes before the start. Used by events and tasks. */
+/** "Alarme": when to warn (presets plus custom, in minutes before the start) and where (e-mail or WhatsApp). Used by events and tasks. */
 export function AlertPicker({
   value,
   onChange,
+  channel = "email",
+  onChannelChange,
   allDay,
   what = "evento",
 }: {
   value: number[];
   onChange: (v: number[]) => void;
+  channel?: AlertChannel;
+  onChannelChange?: (c: AlertChannel) => void;
   allDay: boolean;
   what?: string;
 }) {
   const emailAlerts = useStore((s) => s.ws.settings.emailAlerts);
+  const phone = useStore((s) => s.ws.settings.whatsapp);
   const presets = ALERT_PRESETS.map((p) => String(p.minutes));
   const custom = value.filter((m) => !ALERT_PRESETS.some((p) => p.minutes === m));
   const hint = !cloudEnabled
-    ? "Alertas por e-mail precisam de uma conta. Você pode escolher agora; eles começam a valer quando você entrar."
+    ? "Os avisos precisam de uma conta. Você pode escolher agora; eles começam a valer quando você entrar."
     : !emailAlerts
-      ? "Os alertas por e-mail estão desligados nas Configurações."
+      ? "Os avisos estão desligados nas Configurações."
       : allDay
         ? `Sem horário definido, o aviso usa 9:00 do dia como referência.`
-        : "Você pode escolher mais de um.";
+        : "Você pode escolher mais de um horário.";
   return (
-    <FieldSet>
-      <FieldLegend variant="label" className="flex items-center gap-1.5">
-        <BellRing className="size-4" aria-hidden="true" />
-        Avisar por e-mail
-      </FieldLegend>
-      <FieldDescription>{hint}</FieldDescription>
-      <ToggleGroup
-        type="multiple"
-        variant="outline"
-        size="sm"
-        spacing={2}
-        className="flex-wrap"
-        aria-label={`Quando avisar sobre este ${what}`}
-        value={value.map(String).filter((v) => presets.includes(v))}
-        onValueChange={(v) => onChange([...v.map(Number), ...custom].sort((a, b) => a - b))}
-      >
-        {ALERT_PRESETS.map((p) => (
-          <ToggleGroupItem key={p.minutes} value={String(p.minutes)} className="px-2.5">
-            {p.label}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-      <div className="flex flex-wrap items-center gap-2">
-        {custom.map((m) => (
-          <Badge key={m} variant="secondary" className="gap-1 pr-1">
-            {alertLabel(m)}
-            <button
-              type="button"
-              aria-label={`Tirar ${alertLabel(m)}`}
-              className="rounded-full p-0.5 hover:bg-background"
-              onClick={() => onChange(value.filter((x) => x !== m))}
+    <div className="rounded-xl border bg-muted/30 p-4">
+      <FieldSet className="gap-3">
+        <FieldLegend variant="label" className="flex items-center gap-1.5">
+          <BellRing className="size-4" aria-hidden="true" />
+          Alarme
+        </FieldLegend>
+        <FieldDescription>{hint}</FieldDescription>
+        {onChannelChange && (
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-medium">Receber em</span>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              spacing={2}
+              aria-label="Onde receber o aviso"
+              value={channel}
+              onValueChange={(v) => v && onChannelChange(v as AlertChannel)}
             >
-              <X className="size-3" />
-            </button>
-          </Badge>
-        ))}
-        <CustomAlert what={what} onAdd={(m) => onChange([...new Set([...value, m])].sort((a, b) => a - b))} />
+              <ToggleGroupItem value="email" className="gap-2 px-3.5">
+                <Mail aria-hidden="true" />
+                E-mail
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="whatsapp"
+                className="gap-2 px-3.5 data-[state=on]:border-[#25D366] data-[state=on]:bg-[#25D366]/12"
+              >
+                <MessageCircle aria-hidden="true" />
+                WhatsApp
+              </ToggleGroupItem>
+            </ToggleGroup>
+            {channel === "whatsapp" && <WhatsAppNumber phone={phone} />}
+          </div>
+        )}
+        <span className="text-sm font-medium">Quando</span>
+        <ToggleGroup
+          type="multiple"
+          variant="outline"
+          size="sm"
+          spacing={2}
+          className="flex-wrap"
+          aria-label={`Quando avisar sobre este ${what}`}
+          value={value.map(String).filter((v) => presets.includes(v))}
+          onValueChange={(v) => onChange([...v.map(Number), ...custom].sort((a, b) => a - b))}
+        >
+          {ALERT_PRESETS.map((p) => (
+            <ToggleGroupItem key={p.minutes} value={String(p.minutes)} className="px-2.5">
+              {p.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        <div className="flex flex-wrap items-center gap-2">
+          {custom.map((m) => (
+            <Badge key={m} variant="secondary" className="gap-1 pr-1">
+              {alertLabel(m)}
+              <button
+                type="button"
+                aria-label={`Tirar ${alertLabel(m)}`}
+                className="rounded-full p-0.5 hover:bg-background"
+                onClick={() => onChange(value.filter((x) => x !== m))}
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          ))}
+          <CustomAlert what={what} onAdd={(m) => onChange([...new Set([...value, m])].sort((a, b) => a - b))} />
+        </div>
+      </FieldSet>
+    </div>
+  );
+}
+
+/** The number WhatsApp alerts go to (one for the whole account), asked for the first time it's needed. */
+export function WhatsAppNumber({ phone }: { phone?: string }) {
+  const [editing, setEditing] = useState(!phone);
+  const [v, setV] = useState(phone ? formatPhone(phone) : "");
+  const [bad, setBad] = useState(false);
+  const save = () => {
+    const n = normalizePhone(v);
+    if (!n) return setBad(true);
+    useStore.getState().mut((w) => {
+      w.settings.whatsapp = n;
+    });
+    setBad(false);
+    setEditing(false);
+    celebrate("WhatsApp salvo", `Os avisos vão para ${formatPhone(n)}`, "💬");
+  };
+  if (!editing && phone)
+    return (
+      <p className="text-sm text-muted-foreground">
+        Vai para <b className="font-medium text-foreground tabular-nums">{formatPhone(phone)}</b>.{" "}
+        <button type="button" className="text-primary underline-offset-4 hover:underline" onClick={() => setEditing(true)}>
+          Trocar número
+        </button>
+      </p>
+    );
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex gap-2">
+        <Input
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          aria-label="Seu número de WhatsApp"
+          aria-invalid={bad || undefined}
+          placeholder="(11) 98765-4321"
+          value={v}
+          onChange={(e) => {
+            setV(e.target.value);
+            setBad(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              save();
+            }
+          }}
+        />
+        <Button type="button" onClick={save}>
+          Salvar
+        </Button>
       </div>
-    </FieldSet>
+      <p className={bad ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>
+        {bad ? "Confira o número: DDD e celular, ou +código do país." : "Com DDD. De outro país, comece com + e o código."}
+      </p>
+    </div>
   );
 }
 

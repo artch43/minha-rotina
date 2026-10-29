@@ -22,6 +22,7 @@ import {
   moveStatus,
   newItem,
   celebrate,
+  isJustCreated,
   openPeek,
   patchItem,
   renameStatus,
@@ -322,6 +323,8 @@ function Card({
     )
     .filter(Boolean);
   const review = db.srs && it.review?.next && groupOf(db, it) === "done";
+  // A card that just appeared pops in, so it's easy to see where the new task went.
+  const [isNew] = useState(() => isJustCreated(it.id));
   return (
     <div
       ref={ref}
@@ -336,6 +339,7 @@ function Card({
       className={cn(
         "area-stripe group flex cursor-pointer select-none flex-col gap-2 rounded-lg border bg-card py-2.5 pr-2.5 pl-4 shadow-xs transition-[opacity,box-shadow] hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         dragging && "opacity-40",
+        isNew && "card-new",
       )}
       onClick={() => openPeek(it.id)}
       onKeyDown={(e) => {

@@ -79,6 +79,8 @@ export interface Item {
   notes: string;
   /** Minutes before the task's date/time when an e-mail alert is sent. */
   alerts?: number[];
+  /** Where those alerts arrive. Default: e-mail. */
+  alertChannel?: AlertChannel;
   area?: string;
   /** Legacy (version 1). Converted into `notes` on load. */
   blocks?: Block[];
@@ -123,6 +125,8 @@ export interface CalendarEvent {
   notes: string;
   /** Minutes before the start when an e-mail alert is sent. */
   alerts: number[];
+  /** Where those alerts arrive. Default: e-mail. */
+  alertChannel?: AlertChannel;
   /** Repeats from `date` on; the series ends after `repeatUntil` (inclusive) when set. */
   repeat?: Repeat;
   repeatUntil?: string;
@@ -142,6 +146,7 @@ export interface Todo {
   created: number;
   doneAt?: number;
 }
+export type AlertChannel = "email" | "whatsapp";
 export interface Settings {
   theme: "system" | "light" | "dark";
   start: string;
@@ -151,6 +156,8 @@ export interface Settings {
   emailAlerts: boolean;
   /** Alerts pre-selected for new events, in minutes before. */
   defaultAlerts: number[];
+  /** WhatsApp number for alerts, in international format (+5511987654321). */
+  whatsapp?: string;
   /** Note folders created by the person, kept even while empty. */
   noteFolders?: string[];
   /** Sidebar folders for task lists, kept even while empty. */

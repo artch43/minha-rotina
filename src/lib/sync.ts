@@ -4,7 +4,7 @@ import { supabase } from "./supabase";
 import { applyRecords, diffEntities, fromRecords, keyOf, toEntities, type Ent, type Kind, type Rec } from "./records";
 import { normalizeWorkspace } from "./backup";
 import { template } from "./template";
-import type { CalendarEvent, Item, Workspace } from "./types";
+import type { AlertChannel, CalendarEvent, Item, Workspace } from "./types";
 import { remindersFor, taskAlertSource, type ReminderRow } from "./events";
 import { groupOf } from "./model";
 import { STORAGE_KEY } from "./storage";
@@ -92,7 +92,8 @@ function onStoreChange(ws: Workspace) {
     pending.set(k, { kind: e.kind, id: e.id, data: e.data, deleted_at: now });
   }
   // Turning e-mail alerts on or off rewrites the reminders of every event and task.
-  const alerts = ws.settings.emailAlerts;
+  // So does changing the WhatsApp number.
+  const alerts = alertsKey(ws);
   if (lastAlerts !== null && alerts !== lastAlerts) setTimeout(refreshAllReminders, 1000);
   lastAlerts = alerts;
   prev = next;
@@ -102,19 +103,31 @@ function onStoreChange(ws: Workspace) {
   flushTimer = window.setTimeout(flush, 800);
 }
 
-let lastAlerts: boolean | null = null;
+let lastAlerts: string | null = null;
+const alertsKey = (ws: Workspace) => `${ws.settings.emailAlerts}|${ws.settings.whatsapp ?? ""}`;
 
-function wantedReminders(r: Rec): ReminderRow[] {
+type OutRow = ReminderRow & { channel?: "whatsapp"; phone?: string };
+
+function wantedReminders(r: Rec): OutRow[] {
   const ws = useStore.getState().ws;
   if (r.deleted_at || !ws.settings.emailAlerts) return [];
-  if (r.kind === "event") return remindersFor(r.data as CalendarEvent);
-  if (r.kind === "item") {
+  let rows: ReminderRow[] = [];
+  let channel: AlertChannel | undefined;
+  if (r.kind === "event") {
+    const ev = r.data as CalendarEvent;
+    rows = remindersFor(ev);
+    channel = ev.alertChannel;
+  } else if (r.kind === "item") {
     const it = r.data as Item;
     const db = ws.dbs[it.db];
     const src = taskAlertSource(it, !!db && groupOf(db, it) === "done");
-    return src ? remindersFor(src) : [];
+    rows = src ? remindersFor(src) : [];
+    channel = it.alertChannel;
   }
-  return [];
+  // WhatsApp only when there is a number to send to; otherwise the alert still arrives by e-mail.
+  // E-mail rows leave both columns out, so they keep working before migration 006 is applied.
+  const phone = ws.settings.whatsapp;
+  return channel === "whatsapp" && phone ? rows.map((x) => ({ ...x, channel: "whatsapp", phone })) : rows;
 }
 
 /** Rewrites the pending e-mail reminders of these events/tasks when they changed (sent ones stay as history). */
@@ -123,7 +136,7 @@ async function syncReminders(rows: Rec[]) {
     if (r.kind !== "event" && r.kind !== "item") continue;
     const list = wantedReminders(r);
     const key = keyOf(r.kind, r.id);
-    const sig = JSON.stringify(list.map((x) => [x.send_at, x.title, x.when_label]));
+    const sig = JSON.stringify(list.map((x) => [x.send_at, x.title, x.when_label, x.channel ?? "", x.phone ?? ""]));
     if ((reminderSigs[key] ?? "[]") === sig) continue;
     const del = await supabase!.from("reminders").delete().eq("event_id", r.id).is("sent_at", null);
     if (del.error) throw del.error;
@@ -306,7 +319,7 @@ function migrateIfNeeded() {
 
 function begin() {
   prev = toEntities(useStore.getState().ws);
-  lastAlerts = useStore.getState().ws.settings.emailAlerts;
+  lastAlerts = alertsKey(useStore.getState().ws);
   unsubscribe?.();
   unsubscribe = useStore.subscribe((s, old) => {
     if (s.ws !== old.ws) onStoreChange(s.ws);

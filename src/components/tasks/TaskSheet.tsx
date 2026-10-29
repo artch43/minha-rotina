@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, RotateCcw, Trash2, X } from "lucide-react";
+import { BellRing, Check, RotateCcw, Trash2, X } from "lucide-react";
 import type { PropValue } from "@/lib/types";
 import { groupOf, optOf, statusProp } from "@/lib/model";
 import { COLORS, INTERVALS, fmtDate, uid } from "@/lib/util";
@@ -101,7 +101,7 @@ export function TaskSheet() {
                         })
                       }
                     >
-                      <SelectTrigger id="task-area" className="w-full">
+                      <SelectTrigger id="task-area" className="w-full min-w-0 flex-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -170,8 +170,8 @@ export function TaskSheet() {
                     </Select>
                   </Field>
                 )}
-                {date && (
-                  <div className="sm:col-span-2">
+                <div className="sm:col-span-2">
+                  {date ? (
                     <AlertPicker
                       what="compromisso"
                       value={it.alerts ?? []}
@@ -181,9 +181,20 @@ export function TaskSheet() {
                           x.alerts = alerts;
                         })
                       }
+                      channel={it.alertChannel ?? "email"}
+                      onChannelChange={(c) =>
+                        patchItem(it.id, (x) => {
+                          x.alertChannel = c;
+                        })
+                      }
                     />
-                  </div>
-                )}
+                  ) : (
+                    <p className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                      <BellRing className="size-4 shrink-0" aria-hidden="true" />
+                      Dê uma data à tarefa para ligar o alarme por e-mail ou WhatsApp.
+                    </p>
+                  )}
+                </div>
                 <Field className="sm:col-span-2">
                   <FieldLabel>Etiquetas</FieldLabel>
                   <TagPicker dbId={it.db} itemId={it.id} value={(it.props.tags as string[]) ?? []} />

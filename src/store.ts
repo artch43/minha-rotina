@@ -6,7 +6,7 @@ import { toast as sonner } from "sonner";
 import type { Area, CalendarEvent, Color, Group, Item, Note, PropValue, Todo, Workspace } from "./lib/types";
 import { template, mkDb, DEFAULT_STATUS } from "./lib/template";
 import { applyStatusChange, childrenOf, runReviews, statusProp, streakOf } from "./lib/model";
-import { addDays, diffDays, parseD, today, uid } from "./lib/util";
+import { addDays, diffDays, fmtDate, parseD, today, uid } from "./lib/util";
 import { dailyBody, uniqueTitle } from "./lib/notes";
 import { STORAGE_KEY, workspaceStorage } from "./lib/storage";
 import { normalizeWorkspace } from "./lib/migrate";
@@ -165,16 +165,34 @@ export function go(id: string) {
   if (location.hash !== "#/" + id) history.pushState(null, "", "#/" + id);
   document.querySelector("[data-scroll]")?.scrollTo(0, 0);
 }
+/** Tasks the person just created (when), so their card can pop in once. */
+const created = new Map<string, number>();
+export const isJustCreated = (id: string) => Date.now() - (created.get(id) ?? 0) < 3000;
+/** Tasks just made with "Nova tarefa" and still being filled in: they're announced once the panel closes with a name. */
+const fresh = new Set<string>();
+function announceFresh() {
+  const id = useStore.getState().ui.peek;
+  if (!id || !fresh.delete(id)) return;
+  const it = ws().items[id];
+  if (!it?.title.trim()) return;
+  const page = ws().pages.find((p) => p.id === it.db);
+  const d = typeof it.props.date === "string" ? it.props.date : "";
+  const when = d ? fmtDate(d.slice(0, 10)).toLowerCase() + (d.slice(11, 16) ? " às " + d.slice(11, 16) : "") : "";
+  celebrate(`Tarefa “${it.title.trim()}” criada`, [page && `${page.icon} ${page.title}`, when && `para ${when}`].filter(Boolean).join(" · "), "✅");
+}
 export function openPeek(id: string, focus = false) {
+  if (useStore.getState().ui.peek !== id) announceFresh();
   setUi((u) => {
     u.peek = id;
     u.peekFocus = focus;
   });
 }
-export const closePeek = () =>
+export const closePeek = () => {
+  announceFresh();
   setUi((u) => {
     u.peek = null;
   });
+};
 export const openModal = (m: Modal) =>
   setUi((u) => {
     u.modal = m;
@@ -237,6 +255,8 @@ export function newItem(dbId: string, props: Record<string, PropValue> = {}, tit
     Object.assign(it.props, props);
     w.items[id] = it;
   });
+  created.set(id, Date.now());
+  if (!title) fresh.add(id);
   if (typeof props.date === "string" && props.date && title) announceDate(id, title, props.date, false);
   return id;
 }

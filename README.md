@@ -72,7 +72,7 @@ src/
     notes/              Anotações: NotesView, NoteEditor (CodeMirror), NoteReader
     Home.tsx, Habits.tsx, Search.tsx, Settings.tsx, Trash.tsx, Auth.tsx
 supabase/
-  migrations/           SQL do banco (rode na ordem: 001 a 005, ou tudo de uma vez com setup.sql)
+  migrations/           SQL do banco (rode na ordem: 001 a 006, ou tudo de uma vez com setup.sql)
   functions/            send-reminders: envia os alertas por e-mail
   cron.sql              agenda a função para rodar a cada minuto
 ```
@@ -123,6 +123,21 @@ Os alertas são enviados por uma função do Supabase usando o [Resend](https://
 
 Quando alguém salva um evento com alertas, o app grava os lembretes na tabela
 `reminders`; a função envia os que venceram e marca como enviados.
+
+### Avisos no WhatsApp (opcional)
+
+Em cada evento ou tarefa, o **Alarme** deixa escolher e-mail ou WhatsApp. O número
+fica em Configurações → Alertas. Enquanto o WhatsApp não estiver ligado no servidor,
+os avisos marcados como WhatsApp chegam por e-mail. Para ligar, rode a migração
+`006_whatsapp.sql` e configure um dos dois serviços:
+
+- **Twilio:** `npx supabase secrets set WHATSAPP_PROVIDER=twilio TWILIO_ACCOUNT_SID=AC... TWILIO_AUTH_TOKEN=... TWILIO_WHATSAPP_FROM=+14155238886`
+  (no sandbox, quem recebe manda antes a mensagem de ativação para o número do Twilio;
+  em produção, use um modelo aprovado com `TWILIO_CONTENT_SID`, variáveis {{1}} título e {{2}} quando).
+- **WhatsApp Cloud API (Meta):** `npx supabase secrets set WHATSAPP_PROVIDER=meta WHATSAPP_TOKEN=... WHATSAPP_PHONE_ID=... WHATSAPP_TEMPLATE=lembrete`
+  (modelo aprovado com duas variáveis no corpo: título e quando).
+
+Depois, publique a função de novo: `npx supabase functions deploy send-reminders --no-verify-jwt`.
 
 ### Como os dados são guardados
 

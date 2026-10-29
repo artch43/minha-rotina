@@ -135,7 +135,7 @@ export function EventDialog() {
                 <FieldLabel htmlFor="ev-area">Área</FieldLabel>
                 <div className="flex gap-2">
                   <Select value={d.area ?? NONE} onValueChange={(v) => set({ area: v === NONE ? undefined : v })}>
-                    <SelectTrigger id="ev-area" className="w-full">
+                    <SelectTrigger id="ev-area" className="w-full min-w-0 flex-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -202,7 +202,13 @@ export function EventDialog() {
               <FieldDescription>As mudanças valem para todas as datas deste evento.</FieldDescription>
             )}
 
-            <AlertPicker value={d.alerts} onChange={(alerts) => set({ alerts })} allDay={d.allDay} />
+            <AlertPicker
+              value={d.alerts}
+              onChange={(alerts) => set({ alerts })}
+              channel={d.alertChannel ?? "email"}
+              onChannelChange={(alertChannel) => set({ alertChannel })}
+              allDay={d.allDay}
+            />
 
             <Field>
               <FieldLabel htmlFor="ev-notes">Descrição</FieldLabel>
