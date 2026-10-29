@@ -27,7 +27,7 @@ export function TaskTable({ db, list, hasAny, onCreate }: { db: Database; list: 
       </Empty>
     );
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card">
+    <div className="overflow-x-auto rounded-2xl border bg-card shadow-card">
       <table className="w-full min-w-[640px] text-sm">
         <thead>
           <tr className="border-b text-left text-xs text-muted-foreground">

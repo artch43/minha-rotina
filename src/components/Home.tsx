@@ -72,7 +72,7 @@ export function Home() {
     .replace(/^./, (c) => c.toUpperCase());
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-8 md:px-8 md:py-12">
+    <div className="flex w-full max-w-3xl flex-col gap-8 px-4 py-6 md:px-8 md:py-8">
       <header className="flex flex-col gap-2">
         <p className="text-lg text-muted-foreground">{greeting(ws.settings.name)}</p>
         <h1 className="text-4xl leading-tight font-extrabold tracking-tight md:text-5xl">{date}</h1>
@@ -80,9 +80,9 @@ export function Home() {
       </header>
 
       {entries.length ? (
-        <ol className="flex flex-col gap-2" aria-label="Tarefas com prazo hoje">
-          {[...open, ...done].map((e) => (
-            <Row key={e.key} e={e} />
+        <ol className="stagger flex flex-col gap-2.5" aria-label="Tarefas com prazo hoje">
+          {[...open, ...done].map((e, i) => (
+            <Row key={e.key} e={e} i={i} />
           ))}
         </ol>
       ) : (
@@ -97,7 +97,7 @@ export function Home() {
   );
 }
 
-function Row({ e }: { e: Entry }) {
+function Row({ e, i }: { e: Entry; i: number }) {
   const body = (
     <>
       <span
@@ -110,30 +110,28 @@ function Row({ e }: { e: Entry }) {
         {e.time || "Hoje"}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className={cn("truncate text-base font-medium", e.done && "text-muted-foreground line-through")}>
-          {e.title}
-        </span>
+        <span className={cn("truncate text-base font-medium", e.done && "text-muted-foreground line-through")}>{e.title}</span>
         {e.sub && <span className="truncate text-sm text-muted-foreground">{e.sub}</span>}
       </span>
       {e.done && <span className="shrink-0 text-sm text-muted-foreground">Feita</span>}
       {e.onOpen && <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
     </>
   );
-  const cls = "area-stripe flex w-full items-center gap-3 rounded-xl border bg-card py-3.5 pr-3 pl-5 text-left";
+  const cls = "area-stripe flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-card py-4 pr-4 pl-5 text-left";
   return (
-    <li style={areaVar(e.area)} className={cn(e.done && "opacity-70")}>
+    <li style={{ ...areaVar(e.area), "--i": Math.min(i, 12) } as React.CSSProperties} className={cn(e.done && "opacity-70")}>
       {e.onOpen ? (
         <button
           onClick={e.onOpen}
           className={cn(
             cls,
-            "transition-colors hover:border-primary/40 hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            "lift hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           )}
         >
           {body}
         </button>
       ) : (
-        <div className={cls}>{body}</div>
+        <div className={cn(cls, "shadow-card")}>{body}</div>
       )}
     </li>
   );

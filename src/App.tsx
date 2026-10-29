@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { AppSidebar } from "./components/app/AppSidebar";
 import { Topbar } from "./components/app/Topbar";
+import { MobileNav } from "./components/app/MobileNav";
 import { BoardDialog } from "./components/app/BoardDialog";
 import { Search } from "./components/Search";
 import { Settings } from "./components/Settings";
@@ -143,7 +144,7 @@ function Workspace() {
   const current = page ?? (route === "notes" ? null : useStore.getState().ws.pages.find((p) => p.type === "home"));
 
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={wideScreen}>
       <ThemeSync />
       <AppSidebar />
       <a
@@ -153,19 +154,23 @@ function Workspace() {
         Pular para o conteúdo
       </a>
       <SidebarInset className="min-w-0" id="conteudo">
-        <Topbar title={title} showAreas={route !== "notes" && current?.type !== "habits"} />
+        {/* Pages show their own big title; only Notes keeps the path in the top bar. */}
+        <Topbar title={route === "notes" ? title : null} showAreas={route !== "notes" && current?.type !== "habits"} />
         {route === "notes" ? (
           <Suspense fallback={<Loading text="Abrindo anotações…" />}>
             <NotesView />
           </Suspense>
         ) : (
           <div data-scroll className="min-h-0 flex-1 overflow-y-auto">
-            {current?.type === "home" && <Home />}
-            {current?.type === "calendar" && <CalendarPage />}
-            {current?.type === "habits" && <Habits />}
-            {current?.type === "db" && <DbPage key={current.id} page={current} />}
+            <div key={current?.id} className="page-enter">
+              {current?.type === "home" && <Home />}
+              {current?.type === "calendar" && <CalendarPage />}
+              {current?.type === "habits" && <Habits />}
+              {current?.type === "db" && <DbPage key={current.id} page={current} />}
+            </div>
           </div>
         )}
+        <MobileNav />
       </SidebarInset>
       <TaskSheet />
       <EventDialog />
@@ -193,3 +198,6 @@ function EscToClose() {
   }, []);
   return null;
 }
+
+// Tablets start with the menu closed so the page gets the room; it opens from the button in the top bar.
+const wideScreen = typeof matchMedia === "undefined" || matchMedia("(min-width: 1024px)").matches;

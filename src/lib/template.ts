@@ -230,9 +230,9 @@ export function template(): Workspace {
     todos: Object.fromEntries(todos.map((t) => [t.id, t])),
     notes: { [guide.id]: guide, [ideas.id]: ideas },
     habits: [
-      { id: uid(), name: "Ler 20 minutos", icon: "📖" },
-      { id: uid(), name: "Exercício", icon: "🏃" },
-      { id: uid(), name: "Beber 2 L de água", icon: "💧" },
+      { id: uid(), name: "Ler 20 minutos", icon: "📖", created: today() },
+      { id: uid(), name: "Exercício", icon: "🏃", created: today() },
+      { id: uid(), name: "Beber 2 L de água", icon: "💧", created: today() },
     ],
     habitLog: {},
     settings: { ...DEFAULT_SETTINGS, areas: DEFAULT_AREAS.map((a) => ({ ...a })) },

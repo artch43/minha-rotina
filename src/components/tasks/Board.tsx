@@ -87,7 +87,7 @@ export function Board({ page, db, view, list }: { page: Page; db: Database; view
             key={o.id}
             aria-label={o.name}
             className={cn(
-              "flex w-72 shrink-0 flex-col gap-2 rounded-xl bg-muted/60 p-2 transition-colors",
+              "flex w-72 shrink-0 flex-col gap-2 rounded-2xl border border-border/60 bg-column p-2 transition-colors",
               drop?.col === o.id && "bg-primary/8 ring-2 ring-primary/30",
             )}
             onDragOver={(e) => {
@@ -337,7 +337,7 @@ function Card({
       style={areaVar(area)}
       aria-label={it.title || "Sem título"}
       className={cn(
-        "area-stripe group flex cursor-pointer select-none flex-col gap-2 rounded-lg border bg-card py-2.5 pr-2.5 pl-4 shadow-xs transition-[opacity,box-shadow] hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        "area-stripe lift group flex cursor-pointer select-none flex-col gap-2 rounded-xl border border-border/70 bg-card py-3 pr-3 pl-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         dragging && "opacity-40",
         isNew && "card-new",
       )}

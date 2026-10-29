@@ -42,7 +42,7 @@ export function EntryChip({ e, onOpen, compact }: { e: Entry; onOpen: (e: Entry)
       title={(e.time ? e.time + " · " : "") + e.title}
       style={areaVar(e.area)}
       className={cn(
-        "flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        "flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-[13px] transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         e.kind === "event" ? "area-soft font-medium text-foreground hover:brightness-95" : "text-muted-foreground hover:bg-muted",
         e.done && "line-through opacity-60",
         compact && "py-0",
@@ -80,10 +80,10 @@ export function MonthView({
   const T = today();
   const [over, setOver] = useState<string | null>(null);
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
+    <div className="overflow-hidden rounded-2xl border bg-card shadow-card">
       <div className="grid grid-cols-7 border-b">
         {DOW.map((d) => (
-          <div key={d} className="px-2 py-2 text-center text-xs font-medium text-muted-foreground capitalize sm:text-right">
+          <div key={d} className="px-2 py-2.5 text-center text-sm font-semibold text-muted-foreground capitalize sm:text-right">
             {d}
           </div>
         ))}
@@ -136,11 +136,11 @@ export function MonthView({
                 )}
                 <span
                   className={cn(
-                    "flex size-6 items-center justify-center rounded-full text-xs tabular-nums",
+                    "flex size-7 items-center justify-center rounded-full text-sm tabular-nums transition-colors",
                     d === T
                       ? "bg-primary font-semibold text-primary-foreground"
                       : out
-                        ? "text-muted-foreground/60"
+                        ? "text-muted-foreground"
                         : "text-muted-foreground",
                   )}
                 >
@@ -153,7 +153,7 @@ export function MonthView({
               {list.length > max && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="px-1.5 text-left text-xs font-medium text-muted-foreground hover:text-foreground">
+                    <button className="px-1.5 text-left text-[13px] font-medium text-muted-foreground hover:text-foreground">
                       +{list.length - max} mais
                     </button>
                   </PopoverTrigger>

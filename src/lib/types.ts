@@ -104,6 +104,8 @@ export interface Habit {
   name: string;
   icon: string;
   order?: number;
+  /** Day it was created ("YYYY-MM-DD"); days before it are not shown as missed. */
+  created?: string;
 }
 export type AreaColor = "coral" | "petrol" | "violet" | "amber" | "green" | "pink" | "sky" | "slate";
 export interface Area {

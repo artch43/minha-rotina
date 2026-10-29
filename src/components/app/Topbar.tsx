@@ -75,12 +75,22 @@ function SaveState() {
 
 export function Topbar({ title, showAreas = true }: { title: React.ReactNode; showAreas?: boolean }) {
   return (
-    <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 border-b bg-background/90 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/75">
-      <SidebarTrigger className="-ml-1 size-10 [&_svg]:size-5" />
-      <Separator orientation="vertical" className="h-5" />
-      <div className="min-w-0 flex-1 truncate text-base font-semibold">{title}</div>
+    <header
+      className={cn(
+        "sticky top-0 z-10 flex min-h-16 items-center gap-3 border-b bg-background/90 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/75",
+        // On phones the bottom bar has the menu; with nothing else to show, the top bar steps aside.
+        !title && !showAreas && "max-md:hidden",
+      )}
+    >
+      <SidebarTrigger className="-ml-1 size-10 max-md:hidden [&_svg]:size-5" />
+      {title && (
+        <>
+          <Separator orientation="vertical" className="h-5 max-md:hidden" />
+          <div className="min-w-0 flex-1 truncate text-base font-semibold">{title}</div>
+        </>
+      )}
+      {showAreas && <AreaSwitcher className={cn("min-w-0", !title && "flex-1")} />}
       <SaveState />
-      {showAreas && <AreaSwitcher className="order-last w-full sm:order-none sm:w-auto" />}
     </header>
   );
 }

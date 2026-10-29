@@ -25,6 +25,10 @@
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-success: var(--success);
+  --color-column: var(--column);
+  --color-primary-strong: var(--primary-strong);
+  --shadow-card: var(--shadow-card);
+  --shadow-lift: var(--shadow-lift);
   --color-warning: var(--warning);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -77,7 +81,7 @@
   --accent-foreground: #1e2330;
   --destructive: #c93b3b;
   --border: #e3e7ec;
-  --input: #d9dee6;
+  --input: #828a99;
   --ring: #1f7a8c;
   --chart-1: #1f7a8c;
   --chart-2: #e0604f;
@@ -85,6 +89,12 @@
   --chart-4: #b97a0c;
   --chart-5: #2f8f5b;
   --radius: 0.875rem;
+  /* Soft relief for cards: a hairline plus a short, low blur. */
+  --shadow-card: 0 1px 2px rgb(30 35 48 / 0.06), 0 2px 8px -2px rgb(30 35 48 / 0.08);
+  --shadow-lift: 0 2px 4px rgb(30 35 48 / 0.06), 0 10px 24px -8px rgb(30 35 48 / 0.18);
+  --column: #e9edf2;
+  /* The brand color dark enough for text on its own light tints (AA). */
+  --primary-strong: #155f6d;
   --sidebar: #fbfcfd;
   --sidebar-foreground: #1e2330;
   --sidebar-primary: #1f7a8c;
@@ -93,8 +103,8 @@
   --sidebar-accent-foreground: #155f6d;
   --sidebar-border: #e6e9ee;
   --sidebar-ring: #1f7a8c;
-  --success: #2f8f5b;
-  --warning: #b26a00;
+  --success: #267a4c;
+  --warning: #985a00;
   --area-coral: #e0604f;
   --area-petrol: #1f7a8c;
   --area-violet: #7b5cd6;
@@ -125,6 +135,10 @@
 
 .dark {
   color-scheme: dark;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 8px -2px rgb(0 0 0 / 0.35);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.4), 0 12px 28px -8px rgb(0 0 0 / 0.55);
+  --column: #181c23;
+  --primary-strong: #8fd9e5;
   --background: #12151a;
   --foreground: #e8eaee;
   --card: #1b1f27;
@@ -141,7 +155,7 @@
   --accent-foreground: #e8eaee;
   --destructive: #f0776f;
   --border: #2a303b;
-  --input: #343b49;
+  --input: #6b7385;
   --ring: #5cc2d3;
   --chart-1: #5cc2d3;
   --chart-2: #f08a7b;
@@ -222,6 +236,7 @@
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
       transition-duration: 0.01ms !important;
     }
   }
@@ -431,4 +446,47 @@
 }
 .auth-card {
   transform: rotate(-1.5deg);
+}
+
+/* ---------- Motion: short, purposeful, and off for people who ask for less motion ---------- */
+/* A page fades and rises in when you switch to it. */
+.page-enter {
+  animation: page-enter 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+/* Rows of a list come in one after another (set --i on each row). */
+.stagger > * {
+  animation: page-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+/* Cards rise a little under the pointer. */
+.lift {
+  box-shadow: var(--shadow-card);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+@media (hover: hover) {
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
+}
+/* A short "pop" for something that was just switched on (habit done, item checked). */
+.pop {
+  animation: pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes pop {
+  0% {
+    transform: scale(0.9);
+  }
+  60% {
+    transform: scale(1.06);
+  }
 }

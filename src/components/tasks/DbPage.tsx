@@ -37,23 +37,26 @@ export function DbPage({ page }: { page: Page }) {
   const create = (props = {}) => openPeek(newItem(page.id, { ...defaultsFromFilters(db, view), ...props }), true);
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-6 md:px-8">
-      <div className="flex flex-wrap items-center gap-3">
-<PageTitle page={page} />
+    <div className="flex flex-col gap-5 px-4 py-6 md:px-8 md:py-8">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <PageTitle page={page} />
         <Button
           variant="outline"
+          aria-label="Editar status"
+          title="Editar status"
+          className="max-sm:size-10 max-sm:px-0"
           onClick={() =>
             setUi((u) => {
               u.statusDialog = page.id;
             })
           }
         >
-          <Settings2 data-icon="inline-start" />
-          Editar status
+          <Settings2 data-icon="inline-start" className="max-sm:m-0" />
+          <span className="max-sm:hidden">Editar status</span>
         </Button>
-        <Button onClick={() => create()}>
-          <Plus data-icon="inline-start" />
-          Nova tarefa
+        <Button onClick={() => create()} aria-label="Nova tarefa" className="max-sm:size-10 max-sm:px-0">
+          <Plus data-icon="inline-start" className="max-sm:m-0" />
+          <span className="max-sm:hidden">Nova tarefa</span>
         </Button>
       </div>
 
@@ -78,8 +81,8 @@ export function DbPage({ page }: { page: Page }) {
             })}
           </TabsList>
         </Tabs>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <InputGroup className="w-48">
+        <div className="flex items-center gap-2 max-sm:w-full sm:ml-auto">
+          <InputGroup className="w-48 max-sm:flex-1">
             <InputGroupAddon>
               <Search />
             </InputGroupAddon>

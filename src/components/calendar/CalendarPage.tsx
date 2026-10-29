@@ -130,7 +130,7 @@ export function CalendarPage() {
   const newEventDay = cal.view === "month" && anchor.slice(0, 7) !== today().slice(0, 7) ? anchor : today();
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-6 md:px-8">
+    <div className="flex flex-col gap-5 px-4 py-6 md:px-8 md:py-8">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="mr-auto text-3xl font-extrabold tracking-tight capitalize md:text-4xl">{label}</h1>
         <Button onClick={() => openEvent(null, newEventDay)}>
@@ -178,7 +178,7 @@ export function CalendarPage() {
       ) : (
         <WeekView days={week} byDay={byDay} />
       )}
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Arraste para remarcar. Eventos aparecem com fundo colorido; tarefas, só com o ponto da área. Na semana, clique
         duas vezes num horário para criar um evento.
       </p>
@@ -205,13 +205,13 @@ function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry
   };
   const accepts = (e: React.DragEvent) => e.dataTransfer.types.includes(DRAG_TYPE);
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card">
+    <div className="overflow-x-auto rounded-2xl border bg-card shadow-card">
       <div className="min-w-[720px]">
         <div className="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] border-b">
           <div />
           {days.map((d) => (
             <div key={d} className="flex flex-col items-center gap-0.5 border-l py-2">
-              <span className="text-xs text-muted-foreground capitalize">
+              <span className="text-sm text-muted-foreground capitalize">
                 {parseD(d).toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "")}
               </span>
               <span
@@ -226,7 +226,7 @@ function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry
           ))}
         </div>
         <div className="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] border-b">
-          <div className="px-1 py-1.5 text-right text-[11px] text-muted-foreground">dia todo</div>
+          <div className="px-1 py-1.5 text-right text-xs text-muted-foreground">dia todo</div>
           {days.map((d) => (
             <div
               key={d}
@@ -257,7 +257,7 @@ function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry
               <div
                 key={h}
                 style={{ height: HOUR }}
-                className="-translate-y-2 pr-2 text-right text-[11px] text-muted-foreground tabular-nums"
+                className="-translate-y-2 pr-2 text-right text-xs text-muted-foreground tabular-nums"
               >
                 {h > START_H ? `${pad(h)}:00` : ""}
               </div>
