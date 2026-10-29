@@ -77,10 +77,17 @@ export const PICONS: Record<PropType, string> = {
   url: "↗",
 };
 export const INTERVALS = [1, 7, 30];
-export const EMOJIS =
-  "📚 📖 ✏️ 🧠 🧪 🧮 🌍 🗣️ 💼 📊 🗂️ ✅ 📅 ⏰ 🏥 🦷 🏃 🧘 🌱 💧 🍎 🎯 💡 🚀 🎵 🎨 🏠 🛒 💰 ✈️ ❤️ ⭐ 🔥 📝 📌 🧩 💻 📈 🎓 ☕".split(
-    " ",
-  );
+/** Icons to choose from for lists, folders and habits, grouped so the picker is easy to scan. */
+export const EMOJI_GROUPS: { name: string; list: string[] }[] = [
+  { name: "Pastas", list: "📁 📂 🗂️ 🗃️ 🗄️ 📦 🧰 📋 📌 📍 🏷️ 🔖 📎 🗒️ 📝 ✅ ☑️ ⭐ 🌟 ✨ 💫 🔥 ⚡ 💎".split(" ") },
+  { name: "Estudos", list: "📚 📖 📕 📗 📘 📙 ✏️ 🖊️ 🖍️ 📐 📏 🧮 🧪 🔬 🔭 🧬 🌍 🗺️ 🗣️ 🎓 🏫 🧠 💡 🧩".split(" ") },
+  { name: "Trabalho", list: "💼 💻 🖥️ ⌨️ 🖨️ 📱 ☎️ 📧 📨 📊 📈 📉 🗓️ 📅 ⏰ ⏳ 🧾 💰 💳 🏦 🤝 🚀 🎯 🏆".split(" ") },
+  { name: "Casa", list: "🏠 🏡 🛋️ 🛏️ 🧹 🧺 🧼 🪴 🌱 🌻 🐶 🐱 🍳 🛒 🧑‍🍳 🔧 🔨 🪛 💡 🚗 🚲 ✈️ 🧳 🎁".split(" ") },
+  { name: "Saúde", list: "❤️ 🫀 🏥 💊 🩺 🦷 🏃 🚴 🏊 🧘 🏋️ ⚽ 🏀 🎾 🥗 🍎 🥑 🥦 💧 🍵 ☕ 😴 🌙 ☀️".split(" ") },
+  { name: "Lazer", list: "🎵 🎸 🎹 🎧 🎬 📺 🎮 🎲 ♟️ 🎨 🖌️ 📷 🎭 🎤 📚 🧶 🌊 ⛰️ 🏖️ 🏕️ 🎉 🎂 🍕 🍿".split(" ") },
+  { name: "Cores", list: "🔴 🟠 🟡 🟢 🔵 🟣 🟤 ⚫ ⚪ 🟥 🟧 🟨 🟩 🟦 🟪 🟫 ⬛ ⬜ 💜 💙 💚 💛 🧡 🤍".split(" ") },
+];
+export const EMOJIS = [...new Set(EMOJI_GROUPS.flatMap((g) => g.list))];
 export const COVERS = ["grid", "dots", "lake", "dusk", "moss", "ink"];
 export const ACCENTS: Record<string, [string, string]> = {
   ink: ["#3352c9", "Tinta"],

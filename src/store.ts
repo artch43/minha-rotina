@@ -1,10 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
+import { createElement } from "react";
 import { toast as sonner } from "sonner";
 import type { Area, CalendarEvent, Color, Group, Item, Note, PropValue, Todo, Workspace } from "./lib/types";
 import { template, mkDb, DEFAULT_STATUS } from "./lib/template";
-import { applyStatusChange, childrenOf, runReviews, statusProp } from "./lib/model";
+import { applyStatusChange, childrenOf, runReviews, statusProp, streakOf } from "./lib/model";
 import { addDays, diffDays, parseD, today, uid } from "./lib/util";
 import { dailyBody, uniqueTitle } from "./lib/notes";
 import { STORAGE_KEY, workspaceStorage } from "./lib/storage";
@@ -111,6 +112,10 @@ const ws = () => useStore.getState().ws;
 export function toast(msg: string, undo?: () => void) {
   if (undo) sonner(msg, { action: { label: "Desfazer", onClick: undo }, duration: 6000 });
   else sonner(msg);
+}
+/** A friendly confirmation after creating something: emoji badge, title and an optional detail line. */
+export function celebrate(title: string, description?: string, emoji = "✨") {
+  sonner.success(title, { description, icon: createElement("span", { className: "toast-emoji", "aria-hidden": true }, emoji), duration: 3500 });
 }
 /** Confirmation with a custom action button (e.g. "Ver no calendário"). */
 export function notify(msg: string, action?: { label: string; onClick: () => void }, description?: string, id?: string) {
@@ -334,6 +339,8 @@ export function addBoard(title: string, icon: string, defaultArea?: string, fold
     w.dbs[id] = mkDb(DEFAULT_STATUS, defaultArea);
   });
   go(id);
+  const name = title.trim() || "Nova lista";
+  celebrate(`Lista “${name}” criada`, folder ? `Na pasta ${folder.split("/").join(" › ")}` : "Adicione a primeira tarefa no quadro.", icon || "🗂️");
   return id;
 }
 export function renamePage(id: string, title: string, icon?: string) {
@@ -357,13 +364,17 @@ export function movePage(id: string, dir: -1 | 1) {
     if (list[i].order === list[j].order) list[j].order += dir;
   });
 }
-export function setPageFolder(id: string, folder: string) {
+export function setPageFolder(id: string, folder: string, announce = false) {
+  const before = ws().pages.find((x) => x.id === id);
+  if (!before || (before.folder ?? "") === folder) return;
   mut((w) => {
     const p = w.pages.find((x) => x.id === id);
     if (!p) return;
     if (folder) p.folder = folder;
     else delete p.folder;
   });
+  if (announce)
+    celebrate(`“${before.title}” movida`, folder ? `Para ${folder.split("/").join(" › ")}` : "Para fora das pastas", before.icon || "🗂️");
 }
 
 /* ---------- task-list folders (sidebar) ---------- */
@@ -374,6 +385,8 @@ export function addBoardFolder(path: string) {
     const list = w.settings.boardFolders ?? [];
     if (!list.includes(clean)) w.settings.boardFolders = [...list, clean];
   });
+  const at = clean.includes("/") ? clean.slice(0, clean.lastIndexOf("/")) : "";
+  celebrate(`Pasta “${clean.split("/").pop()}” criada`, at ? `Dentro de ${at.split("/").join(" › ")}` : "Arraste listas para dentro dela.", "📁");
   return clean;
 }
 export function renameBoardFolder(from: string, to: string) {
@@ -382,8 +395,24 @@ export function renameBoardFolder(from: string, to: string) {
   const swap = (f: string) => (f === from ? dest : f.startsWith(from + "/") ? dest + f.slice(from.length) : f);
   mut((w) => {
     for (const p of w.pages) if (p.folder) p.folder = swap(p.folder);
-    w.settings.boardFolders = (w.settings.boardFolders ?? []).map(swap);
+    w.settings.boardFolders = [...new Set((w.settings.boardFolders ?? []).map(swap))];
+    const icons = w.settings.boardFolderIcons;
+    if (icons) w.settings.boardFolderIcons = Object.fromEntries(Object.entries(icons).map(([k, v]) => [swap(k), v]));
   });
+}
+export function setBoardFolderIcon(path: string, icon: string) {
+  mut((w) => {
+    w.settings.boardFolderIcons = { ...(w.settings.boardFolderIcons ?? {}), [path]: icon };
+  });
+}
+/** Moves a folder (with everything inside) into another folder, or to the top level when `into` is "". */
+export function moveBoardFolder(path: string, into: string) {
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  const dest = (into ? into + "/" : "") + name;
+  if (dest === path || into === path || into.startsWith(path + "/")) return false;
+  renameBoardFolder(path, dest);
+  celebrate(`Pasta “${name}” movida`, into ? `Agora dentro de ${into.split("/").join(" › ")}` : "Agora no topo das listas", "📂");
+  return true;
 }
 /** Removes a folder and its subfolders. The lists inside are kept and move up to the parent folder. */
 export function deleteBoardFolder(path: string) {
@@ -392,7 +421,10 @@ export function deleteBoardFolder(path: string) {
   const before = ws();
   const moved = before.pages.filter((p) => inside(p.folder)).map((p) => ({ id: p.id, folder: p.folder }));
   const folders = before.settings.boardFolders ?? [];
+  const icons = before.settings.boardFolderIcons;
   mut((w) => {
+    if (w.settings.boardFolderIcons)
+      w.settings.boardFolderIcons = Object.fromEntries(Object.entries(w.settings.boardFolderIcons).filter(([k]) => !inside(k)));
     for (const p of w.pages)
       if (inside(p.folder)) {
         if (parent) p.folder = parent;
@@ -407,6 +439,7 @@ export function deleteBoardFolder(path: string) {
         if (p) p.folder = m.folder;
       }
       w.settings.boardFolders = folders;
+      w.settings.boardFolderIcons = icons;
     }),
   );
 }
@@ -438,6 +471,7 @@ export function addArea(name: string, color: Area["color"]) {
   mut((w) => {
     w.settings.areas.push({ id, name: name.trim() || "Nova área", color });
   });
+  celebrate(`Área “${name.trim() || "Nova área"}” criada`, "Use-a para separar tarefas e eventos.", "🎨");
   return id;
 }
 export function updateArea(id: string, patch: Partial<Omit<Area, "id">>) {
@@ -462,6 +496,12 @@ export function deleteArea(id: string) {
 /* ---------- events ---------- */
 export function saveEvent(data: Omit<CalendarEvent, "id" | "created" | "updated">, id?: string | null) {
   const eid = id || uid();
+  const day = parseD(data.date).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+  celebrate(
+    id ? "Evento atualizado" : `Evento “${data.title || "Sem título"}” criado`,
+    day + (data.allDay ? ", dia inteiro" : `, às ${data.start}`),
+    "📅",
+  );
   mut((w) => {
     const prev = w.events[eid];
     w.events[eid] = { ...data, id: eid, created: prev?.created ?? Date.now(), updated: Date.now() };
@@ -574,12 +614,18 @@ export function deleteHabit(id: string) {
   );
 }
 export function toggleHabit(hid: string, day: string) {
+  const wasOn = (ws().habitLog[day] || []).includes(hid);
   mut((w) => {
     const cur = w.habitLog[day] || [];
     const next = cur.includes(hid) ? cur.filter((x) => x !== hid) : [...cur, hid];
     if (next.length) w.habitLog[day] = next;
     else delete w.habitLog[day];
   });
+  const h = ws().habits.find((x) => x.id === hid);
+  if (!wasOn && h && day === today()) {
+    const n = streakOf(ws().habitLog, hid);
+    celebrate(`${h.name}: feito hoje!`, n > 1 ? `${n} dias seguidos. Continue assim!` : "Primeiro dia da sequência.", n > 1 ? "🔥" : h.icon);
+  }
 }
 export const checkReviews = () => mut(runReviews);
 
@@ -610,6 +656,7 @@ export function createNote(init: Partial<Note> = {}) {
     };
   });
   openNotes(id);
+  if (!init.body) celebrate("Nota criada", init.folder ? `Em ${init.folder}` : "Comece pelo título.", "📝");
   return id;
 }
 

@@ -3,23 +3,25 @@ import { Check, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Habit } from "@/lib/types";
 import { streakOf } from "@/lib/model";
-import { addDays, fmtDate, parseD, today, uid } from "@/lib/util";
-import { deleteHabit, toggleHabit, useStore } from "@/store";
+import { addDays, fmtDate, parseD, uid } from "@/lib/util";
+import { celebrate, deleteHabit, toggleHabit, useStore } from "@/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { EmojiPicker } from "./common";
+import { EmojiPicker, useToday } from "./common";
 
 const WEEKS = 5;
 
 export function Habits() {
   const habits = useStore((s) => s.ws.habits);
-  const doneToday = useStore((s) => (s.ws.habitLog[today()] || []).filter((id) => s.ws.habits.some((h) => h.id === id)).length);
+  const T = useToday();
+  const doneToday = useStore((s) => (s.ws.habitLog[T] || []).filter((id) => s.ws.habits.some((h) => h.id === id)).length);
   const mut = useStore((s) => s.mut);
   const add = () => {
     mut((w) => {
       w.habits.push({ id: uid(), name: "Novo hábito", icon: "⭐" });
     });
+    celebrate("Hábito criado", "Dê um nome e marque quando fizer.", "🌱");
     setTimeout(() => {
       const ins = document.querySelectorAll<HTMLInputElement>("[data-habit-name]");
       const last = ins[ins.length - 1];
@@ -47,7 +49,7 @@ export function Habits() {
         <Card className="py-2">
           <CardContent className="flex flex-col divide-y px-4">
             {habits.map((h) => (
-              <HabitRow key={h.id} h={h} />
+              <HabitRow key={h.id} h={h} T={T} />
             ))}
           </CardContent>
         </Card>
@@ -66,12 +68,11 @@ export function Habits() {
   );
 }
 
-function HabitRow({ h }: { h: Habit }) {
+function HabitRow({ h, T }: { h: Habit; T: string }) {
   const log = useStore((s) => s.ws.habitLog);
   const mut = useStore((s) => s.mut);
   const [name, setName] = useState(h.name);
   const [history, setHistory] = useState(() => readOpen(h.id));
-  const T = today();
   const isOn = (d: string) => (log[d] || []).includes(h.id);
   // Oldest on the left, today last.
   const week = Array.from({ length: 7 }, (_, k) => addDays(T, k - 6));
@@ -153,7 +154,7 @@ function HabitRow({ h }: { h: Habit }) {
           <Trash2 />
         </Button>
       </div>
-      {history && <History isOn={isOn} onToggle={(d) => toggleHabit(h.id, d)} />}
+      {history && <History T={T} isOn={isOn} onToggle={(d) => toggleHabit(h.id, d)} />}
     </div>
   );
 }
@@ -177,8 +178,7 @@ function DayDot({ day, on, today: isToday, onClick }: { day: string; on: boolean
 }
 
 /** The last few weeks, Monday first, for looking back and fixing a missed mark. */
-function History({ isOn, onToggle }: { isOn: (d: string) => boolean; onToggle: (d: string) => void }) {
-  const T = today();
+function History({ T, isOn, onToggle }: { T: string; isOn: (d: string) => boolean; onToggle: (d: string) => void }) {
   const dow = (parseD(T).getDay() + 6) % 7;
   const start = addDays(T, -dow - 7 * (WEEKS - 1));
   const days = Array.from({ length: WEEKS * 7 }, (_, k) => addDays(start, k));

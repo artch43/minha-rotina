@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { EMOJIS } from "@/lib/util";
-import { useState } from "react";
+import { EMOJI_GROUPS, today } from "@/lib/util";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 
 export const AREA_COLORS: { id: AreaColor; name: string }[] = [
@@ -113,12 +113,15 @@ export function EmojiPicker({
   value,
   onChange,
   label = "Trocar ícone",
+  className,
 }: {
   value: string;
   onChange: (e: string) => void;
   label?: string;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [group, setGroup] = useState(0);
   const [custom, setCustom] = useState("");
   const pick = (e: string) => {
     onChange(e);
@@ -127,30 +130,76 @@ export function EmojiPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={label} className="text-2xl">
+        <Button variant="ghost" size="icon" aria-label={label} className={cn("text-2xl", className)}>
           {value}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72" align="start">
-        <div className="grid grid-cols-8 gap-0.5">
-          {EMOJIS.map((e) => (
-            <Button key={e} variant="ghost" size="icon-sm" className="text-lg" onClick={() => pick(e)}>
+      <PopoverContent className="w-80 p-3" align="start">
+        <div className="mb-2 flex flex-wrap gap-1" role="tablist" aria-label="Categorias de ícones">
+          {EMOJI_GROUPS.map((g, i) => (
+            <button
+              key={g.name}
+              type="button"
+              role="tab"
+              aria-selected={group === i}
+              onClick={() => setGroup(i)}
+              className={cn(
+                "rounded-full px-2.5 py-1 text-[13px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                group === i ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {g.name}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-8 gap-0.5" role="tabpanel">
+          {EMOJI_GROUPS[group].list.map((e) => (
+            <Button
+              key={e}
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={e}
+              className={cn("text-xl transition-transform hover:scale-110", e === value && "bg-accent ring-2 ring-primary")}
+              onClick={() => pick(e)}
+            >
               {e}
             </Button>
           ))}
         </div>
         <Input
-          className="mt-2"
+          className="mt-3"
+          aria-label="Outro emoji"
           placeholder="Ou cole um emoji e tecle Enter…"
           value={custom}
           onChange={(e) => setCustom(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && custom.trim()) pick([...custom.trim()].slice(0, 2).join(""));
+            if (e.key === "Enter" && custom.trim()) {
+              e.preventDefault();
+              pick([...custom.trim()].slice(0, 2).join(""));
+            }
           }}
         />
       </PopoverContent>
     </Popover>
   );
+}
+
+/** Today's date ("YYYY-MM-DD"), updated when the day changes while the page stays open. */
+export function useToday() {
+  const [day, setDay] = useState(today);
+  useEffect(() => {
+    const check = () => setDay((d) => (d === today() ? d : today()));
+    const t = setInterval(check, 30_000);
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+    };
+  }, []);
+  return day;
 }
 
 export function greeting(name?: string) {

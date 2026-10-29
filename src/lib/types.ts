@@ -155,6 +155,8 @@ export interface Settings {
   noteFolders?: string[];
   /** Sidebar folders for task lists, kept even while empty. */
   boardFolders?: string[];
+  /** Emoji chosen for each of those folders, by path. */
+  boardFolderIcons?: Record<string, string>;
 }
 export interface Workspace {
   version: 2;

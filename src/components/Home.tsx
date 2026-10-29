@@ -3,10 +3,10 @@ import { cn } from "@/lib/utils";
 import type { Area } from "@/lib/types";
 import { inArea } from "@/lib/events";
 import { dateOf, groupOf } from "@/lib/model";
-import { today } from "@/lib/util";
+import { parseD } from "@/lib/util";
 import { go, useStore } from "@/store";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { areaVar, greeting, useAreas } from "./common";
+import { areaVar, greeting, useAreas, useToday } from "./common";
 
 interface Entry {
   key: string;
@@ -26,7 +26,7 @@ export function Home() {
   const ws = useStore((s) => s.ws);
   const area = useStore((s) => s.ui.area);
   const areas = useAreas();
-  const T = today();
+  const T = useToday();
   const areaOf = (id?: string) => areas.find((a) => a.id === id);
 
   const entries: Entry[] = [];
@@ -67,7 +67,7 @@ export function Home() {
         ? "Tudo feito por hoje."
         : "Nenhuma tarefa com prazo para hoje."
       : `${open.length} ${open.length === 1 ? "tarefa" : "tarefas"} com prazo hoje${done.length ? `, ${done.length} já ${done.length === 1 ? "feita" : "feitas"}` : ""}.`;
-  const date = new Date()
+  const date = parseD(T)
     .toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })
     .replace(/^./, (c) => c.toUpperCase());
 

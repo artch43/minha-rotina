@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   Folder,
   FolderInput,
@@ -18,18 +19,24 @@ import {
   Trash2,
 } from "lucide-react";
 import type { Page } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { childrenOf } from "@/lib/model";
 import { boardFolderList } from "@/lib/notes";
 import { cloudEnabled } from "@/lib/supabase";
 import {
   addBoardFolder,
+  celebrate,
   deleteBoardFolder,
   deletePage,
   go,
+  moveBoardFolder,
   movePage,
   openModal,
   openNotes,
   renameBoardFolder,
+  renamePage,
+  setBoardFolderIcon,
+  setPageFolder,
   useStore,
 } from "@/store";
 import {
@@ -71,6 +78,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { BoardDialog } from "./BoardDialog";
+import { EmojiPicker } from "../common";
 
 type SideDialog =
   | { kind: "edit"; pageId: string }
@@ -109,6 +117,11 @@ export function AppSidebar() {
   const [dialog, setDialog] = useState<SideDialog | null>(null);
   const [remove, setRemove] = useState<string | null>(null);
   const [openFolders, setOpenFolders] = useState(readOpenFolders);
+  /** What is being dragged, the folder it would land in ("" = top level) and which row is being renamed. */
+  const [drag, setDrag] = useState<{ kind: "folder" | "board"; id: string } | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const icons = ws.settings.boardFolderIcons ?? {};
   const boards = childrenOf(ws, null).filter((p) => p.type === "db");
   const folders = boardFolderList(ws);
   // Opening a list (or creating one inside a folder) unfolds the folders around it.
@@ -138,6 +151,48 @@ export function AppSidebar() {
     // Only when another list is opened; the person can still close the folder afterwards.
   }, [route, activeFolder]);
 
+  const canDrop = (into: string) => {
+    if (!drag) return false;
+    if (drag.kind === "board") return (boards.find((p) => p.id === drag.id)?.folder ?? "") !== into;
+    return drag.id !== into && !into.startsWith(drag.id + "/") && parentOf(drag.id) !== into;
+  };
+  const dropProps = (into: string) => ({
+    onDragOver: (e: React.DragEvent) => {
+      // Stop here even when the drop isn't allowed, so the folder around it doesn't light up instead.
+      e.stopPropagation();
+      if (!canDrop(into)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (over !== into) setOver(into);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver((o) => (o === into ? null : o));
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (drag && canDrop(into)) {
+        if (drag.kind === "board") setPageFolder(drag.id, into, true);
+        else moveBoardFolder(drag.id, into);
+        if (into) showFolder(into);
+      }
+      setDrag(null);
+      setOver(null);
+    },
+  });
+  const dragProps = (kind: "folder" | "board", id: string) => ({
+    draggable: renaming === null,
+    onDragStart: (e: React.DragEvent) => {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", id);
+      setDrag({ kind, id });
+    },
+    onDragEnd: () => {
+      setDrag(null);
+      setOver(null);
+    },
+  });
+
   /** The lists and subfolders directly inside `parent` ("" is the top level). */
   const tree = (parent: string) => {
     const subs = folders.filter((f) => parentOf(f) === parent);
@@ -148,14 +203,49 @@ export function AppSidebar() {
           const isOpen = openFolders.includes(f);
           const count = boards.filter((p) => p.folder === f || p.folder?.startsWith(f + "/")).length;
           return (
-            <SidebarMenuItem key={"f:" + f}>
-              <SidebarMenuButton aria-expanded={isOpen} onClick={() => toggleFolder(f)}>
-                {isOpen ? <FolderOpen /> : <Folder />}
-                <span>{nameOf(f)}</span>
-                {!isOpen && count > 0 && (
-                  <span className="ml-auto pr-6 text-xs text-muted-foreground tabular-nums">{count}</span>
-                )}
-              </SidebarMenuButton>
+            <SidebarMenuItem
+              key={"f:" + f}
+              {...dropProps(f)}
+              className={cn(
+                "rounded-lg transition-colors",
+                over === f && "bg-primary/10 ring-2 ring-primary/50",
+                drag?.id === f && "opacity-50",
+              )}
+            >
+              {renaming === "f:" + f ? (
+                <InlineName
+                  value={nameOf(f)}
+                  label="Nome da pasta"
+                  onDone={(v) => {
+                    setRenaming(null);
+                    const clean = v.replace(/\//g, "-").trim();
+                    if (clean && clean !== nameOf(f)) renameBoardFolder(f, (parentOf(f) ? parentOf(f) + "/" : "") + clean);
+                  }}
+                />
+              ) : (
+                <SidebarMenuButton
+                  {...dragProps("folder", f)}
+                  aria-expanded={isOpen}
+                  title="Clique para abrir. Clique duas vezes para renomear. Arraste para mover."
+                  onClick={(e) => e.detail < 2 && toggleFolder(f)}
+                  onDoubleClick={() => setRenaming("f:" + f)}
+                >
+                  <ChevronRight
+                    className={cn("-mx-1 size-4! shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-90")}
+                  />
+                  {icons[f] ? (
+                    <span className="w-5 text-center text-base leading-none">{icons[f]}</span>
+                  ) : isOpen ? (
+                    <FolderOpen />
+                  ) : (
+                    <Folder />
+                  )}
+                  <span>{nameOf(f)}</span>
+                  {!isOpen && count > 0 && (
+                    <span className="ml-auto pr-6 text-xs text-muted-foreground tabular-nums">{count}</span>
+                  )}
+                </SidebarMenuButton>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuAction showOnHover aria-label={`Opções da pasta ${nameOf(f)}`}>
@@ -174,8 +264,14 @@ export function AppSidebar() {
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setDialog({ kind: "renameFolder", path: f })}>
                       <Pencil />
-                      Renomear pasta
+                      Renomear e trocar ícone
                     </DropdownMenuItem>
+                    {parentOf(f) && (
+                      <DropdownMenuItem onSelect={() => moveBoardFolder(f, "")}>
+                        <FolderInput />
+                        Tirar da pasta {nameOf(parentOf(f))}
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
@@ -189,9 +285,7 @@ export function AppSidebar() {
               {isOpen && (
                 <SidebarMenuSub className="mr-0 pr-0">
                   {tree(f)}
-                  {subs.length === 0 && count === 0 && (
-                    <li className="px-2 py-1.5 text-sm text-muted-foreground">Pasta vazia</li>
-                  )}
+                  {subs.length === 0 && count === 0 && <li className="px-2 py-1.5 text-sm text-muted-foreground">Pasta vazia</li>}
                 </SidebarMenuSub>
               )}
             </SidebarMenuItem>
@@ -204,7 +298,19 @@ export function AppSidebar() {
             active={route === p.id}
             first={i === 0}
             last={i === here.length - 1}
+            dragging={drag?.id === p.id}
+            renaming={renaming === "b:" + p.id}
+            dragProps={dragProps("board", p.id)}
+            dropProps={dropProps(p.folder ?? "")}
             onOpen={nav(() => go(p.id))}
+            onStartRename={() => setRenaming("b:" + p.id)}
+            onRenamed={(title) => {
+              setRenaming(null);
+              if (title.trim() && title.trim() !== p.title) {
+                renamePage(p.id, title);
+                celebrate("Lista renomeada", `Agora se chama “${title.trim()}”`, p.icon || "✏️");
+              }
+            }}
             onEdit={() => setDialog({ kind: "edit", pageId: p.id })}
             onRemove={() => setRemove(p.id)}
           />
@@ -275,7 +381,7 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup>
+        <SidebarGroup {...dropProps("")}>
           <SidebarGroupLabel>Listas de tarefas</SidebarGroupLabel>
           <SidebarGroupAction
             title="Nova pasta"
@@ -291,6 +397,16 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {tree("")}
+              {drag && canDrop("") && (
+                <li
+                  className={cn(
+                    "rounded-lg border-2 border-dashed px-3 py-2 text-sm text-muted-foreground transition-colors",
+                    over === "" ? "border-primary bg-primary/10 text-foreground" : "border-border",
+                  )}
+                >
+                  Solte aqui para tirar da pasta
+                </li>
+              )}
               <SidebarMenuItem>
                 <SidebarMenuButton className="text-muted-foreground" onClick={nav(() => openModal("newBoard"))}>
                   <Plus />
@@ -322,9 +438,7 @@ export function AppSidebar() {
       <SidebarRail />
 
       {dialog?.kind === "edit" && <BoardDialog pageId={dialog.pageId} open onOpenChange={(o) => !o && setDialog(null)} />}
-      {dialog?.kind === "newBoard" && (
-        <BoardDialog folder={dialog.folder} open onOpenChange={(o) => !o && setDialog(null)} />
-      )}
+      {dialog?.kind === "newBoard" && <BoardDialog folder={dialog.folder} open onOpenChange={(o) => !o && setDialog(null)} />}
       {(dialog?.kind === "newFolder" || dialog?.kind === "renameFolder") && (
         <FolderDialog
           parent={dialog.kind === "newFolder" ? dialog.parent : parentOf(dialog.path)}
@@ -358,7 +472,13 @@ function BoardItem({
   active,
   first,
   last,
+  dragging,
+  renaming,
+  dragProps,
+  dropProps,
   onOpen,
+  onStartRename,
+  onRenamed,
   onEdit,
   onRemove,
 }: {
@@ -366,16 +486,32 @@ function BoardItem({
   active: boolean;
   first: boolean;
   last: boolean;
+  dragging: boolean;
+  renaming: boolean;
+  dragProps: React.HTMLAttributes<HTMLElement> & { draggable: boolean };
+  dropProps: React.HTMLAttributes<HTMLElement>;
   onOpen: () => void;
+  onStartRename: () => void;
+  onRenamed: (title: string) => void;
   onEdit: () => void;
   onRemove: () => void;
 }) {
   return (
-    <SidebarMenuItem>
-      <SidebarMenuButton isActive={active} onClick={onOpen}>
-        <span className="w-5 text-center text-base leading-none">{p.icon}</span>
-        <span>{p.title || "Sem título"}</span>
-      </SidebarMenuButton>
+    <SidebarMenuItem {...dropProps} className={cn("rounded-lg", dragging && "opacity-50")}>
+      {renaming ? (
+        <InlineName value={p.title} label="Nome da lista" icon={p.icon} onDone={onRenamed} />
+      ) : (
+        <SidebarMenuButton
+          {...dragProps}
+          isActive={active}
+          title="Clique duas vezes para renomear. Arraste para uma pasta."
+          onClick={(e) => e.detail < 2 && onOpen()}
+          onDoubleClick={onStartRename}
+        >
+          <span className="w-5 text-center text-base leading-none">{p.icon}</span>
+          <span>{p.title || "Sem título"}</span>
+        </SidebarMenuButton>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <SidebarMenuAction showOnHover aria-label={`Opções de ${p.title}`}>
@@ -384,13 +520,13 @@ function BoardItem({
         </DropdownMenuTrigger>
         <DropdownMenuContent side="right" align="start">
           <DropdownMenuGroup>
-            <DropdownMenuItem onSelect={onEdit}>
+            <DropdownMenuItem onSelect={onStartRename}>
               <Pencil />
               Renomear
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={onEdit}>
               <FolderInput />
-              Mover para pasta
+              Mover para pasta e ícone
             </DropdownMenuItem>
             <DropdownMenuItem disabled={first} onSelect={() => movePage(p.id, -1)}>
               <ChevronUp />
@@ -414,6 +550,39 @@ function BoardItem({
   );
 }
 
+/** Renaming in place: Enter or leaving the field saves, Esc cancels. */
+function InlineName({
+  value,
+  label,
+  icon,
+  onDone,
+}: {
+  value: string;
+  label: string;
+  icon?: string;
+  onDone: (v: string) => void;
+}) {
+  const [v, setV] = useState(value);
+  return (
+    <div className="flex h-10 items-center gap-2 px-1.5">
+      {icon && <span className="w-5 text-center text-base leading-none">{icon}</span>}
+      <Input
+        autoFocus
+        aria-label={label}
+        value={v}
+        className="h-8 px-2"
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => onDone(v)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") onDone(value);
+        }}
+      />
+    </div>
+  );
+}
+
 /** Name a new folder (inside `parent`) or rename `current`. */
 function FolderDialog({
   parent,
@@ -427,18 +596,28 @@ function FolderDialog({
   onSaved: (path: string) => void;
 }) {
   const [name, setName] = useState(current ? nameOf(current) : "");
+  const [icon, setIcon] = useState(() => (current && useStore.getState().ws.settings.boardFolderIcons?.[current]) || "📁");
+  const nameRef = useRef<HTMLInputElement>(null);
   const save = () => {
     const clean = name.replace(/\//g, "-").trim();
     if (!clean) return;
     const full = (parent ? parent + "/" : "") + clean;
     if (current) renameBoardFolder(current, full);
     else addBoardFolder(full);
+    setBoardFolderIcon(full, icon);
     onSaved(full);
     onClose();
   };
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent
+        className="sm:max-w-sm"
+        onOpenAutoFocus={(e) => {
+          // Start in the name field (not the icon button), also when opened from a menu.
+          e.preventDefault();
+          nameRef.current?.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
             {current ? "Renomear pasta" : parent ? `Nova pasta em ${parent.split("/").join(" › ")}` : "Nova pasta"}
@@ -451,14 +630,17 @@ function FolderDialog({
           }}
           className="flex flex-col gap-4"
         >
-          <Input
-            autoFocus
-            autoComplete="off"
-            aria-label="Nome da pasta"
-            placeholder="Ex.: Faculdade, Casa, Trabalho…"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+          <div className="flex gap-2">
+            <EmojiPicker value={icon} onChange={setIcon} label="Ícone da pasta" className="shrink-0 border" />
+            <Input
+              ref={nameRef}
+              autoComplete="off"
+              aria-label="Nome da pasta"
+              placeholder="Ex.: Faculdade, Casa, Trabalho…"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar

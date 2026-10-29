@@ -2,7 +2,7 @@ import { useState } from "react";
 import { CalendarDays, Columns3, Filter, Plus, Search, Settings2, Table2, X } from "lucide-react";
 import type { Filter as F, Page, View } from "@/lib/types";
 import { applyFilters, defaultsFromFilters, filterLabel } from "@/lib/model";
-import { newItem, openPeek, useStore } from "@/store";
+import { celebrate, newItem, openPeek, renamePage, useStore } from "@/store";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -39,10 +39,7 @@ export function DbPage({ page }: { page: Page }) {
   return (
     <div className="flex flex-col gap-4 px-4 py-6 md:px-8">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto flex items-center gap-2 text-3xl font-extrabold tracking-tight md:text-4xl">
-          <span aria-hidden="true">{page.icon}</span>
-          {page.title || "Sem título"}
-        </h1>
+<PageTitle page={page} />
         <Button
           variant="outline"
           onClick={() =>
@@ -214,5 +211,52 @@ function FilterButton({ dbId, view, onAdd }: { dbId: string; view: View; onAdd: 
         )}
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** The list's name; double-click to rename it in place. */
+function PageTitle({ page }: { page: Page }) {
+  const [editing, setEditing] = useState(false);
+  const [v, setV] = useState(page.title);
+  const done = (save: boolean) => {
+    setEditing(false);
+    if (save && v.trim() && v.trim() !== page.title) {
+      renamePage(page.id, v);
+      celebrate("Lista renomeada", `Agora se chama “${v.trim()}”`, page.icon || "✏️");
+    }
+  };
+  return (
+    <h1 className="mr-auto flex min-w-0 items-center gap-2 text-3xl font-extrabold tracking-tight md:text-4xl">
+      <span aria-hidden="true">{page.icon}</span>
+      {editing ? (
+        <input
+          autoFocus
+          aria-label="Nome da lista"
+          value={v}
+          onFocus={(e) => e.currentTarget.select()}
+          onChange={(e) => setV(e.target.value)}
+          onBlur={() => done(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              setV(page.title);
+              done(false);
+            }
+          }}
+          className="min-w-0 flex-1 rounded-lg bg-transparent px-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      ) : (
+        <span
+          className="cursor-text truncate rounded-lg px-1 hover:bg-muted/60"
+          title="Clique duas vezes para renomear"
+          onDoubleClick={() => {
+            setV(page.title);
+            setEditing(true);
+          }}
+        >
+          {page.title || "Sem título"}
+        </span>
+      )}
+    </h1>
   );
 }

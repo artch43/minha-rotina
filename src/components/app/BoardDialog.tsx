@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { addBoard, renamePage, setPageFolder, useStore } from "@/store";
 import { boardFolderList } from "@/lib/notes";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -23,6 +23,7 @@ export function BoardDialog({
   onOpenChange: (o: boolean) => void;
 }) {
   const folders = boardFolderList(useStore((s) => s.ws));
+  const nameRef = useRef<HTMLInputElement>(null);
   const page = useStore((s) => (pageId ? s.ws.pages.find((p) => p.id === pageId) : undefined));
   const db = useStore((s) => (pageId ? s.ws.dbs[pageId] : undefined));
   const areas = useAreas();
@@ -44,7 +45,14 @@ export function BoardDialog({
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        onOpenAutoFocus={(e) => {
+          // Start in the name field (not the icon button), also when opened from a menu.
+          e.preventDefault();
+          nameRef.current?.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{pageId ? "Editar lista" : "Nova lista de tarefas"}</DialogTitle>
           <DialogDescription>Cada lista tem seu próprio quadro com colunas de status.</DialogDescription>
@@ -62,7 +70,7 @@ export function BoardDialog({
                 <EmojiPicker value={icon} onChange={setIcon} />
                 <Input
                   id="board-title"
-                  autoFocus
+                  ref={nameRef}
                   autoComplete="off"
                   placeholder="Ex.: Casa, Faculdade, Projetos…"
                   value={title}

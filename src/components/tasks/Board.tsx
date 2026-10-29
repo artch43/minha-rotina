@@ -21,6 +21,7 @@ import {
   deleteStatus,
   moveStatus,
   newItem,
+  celebrate,
   openPeek,
   patchItem,
   renameStatus,
@@ -164,7 +165,12 @@ export function Board({ page, db, view, list }: { page: Page; db: Database; view
                 return nodes;
               })()}
             </div>
-            <QuickAdd onAdd={(title) => newItem(page.id, { [sp.id]: o.id }, title)} />
+            <QuickAdd
+              onAdd={(title) => {
+                newItem(page.id, { [sp.id]: o.id }, title);
+                celebrate("Tarefa adicionada", `“${title}” em ${o.name}`, "✅");
+              }}
+            />
           </section>
         );
       })}
