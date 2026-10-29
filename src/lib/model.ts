@@ -144,6 +144,13 @@ export function defaultsFromFilters(db: Database, view: View) {
 }
 export const visibleProps = (db: Database, view: View) => db.props.filter((pr) => !(view.hidden || []).includes(pr.id));
 
+/** The first day the habit was ever marked, or null if never. Days before it don't count as missed. */
+export function firstDoneOf(log: Record<string, string[]>, hid: string) {
+  let first: string | null = null;
+  for (const [d, ids] of Object.entries(log)) if (ids.includes(hid) && (!first || d < first)) first = d;
+  return first;
+}
+
 export function streakOf(log: Record<string, string[]>, hid: string) {
   let d = today(),
     n = 0;

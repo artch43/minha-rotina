@@ -260,6 +260,48 @@ export function newItem(dbId: string, props: Record<string, PropValue> = {}, tit
   if (typeof props.date === "string" && props.date && title) announceDate(id, title, props.date, false);
   return id;
 }
+/** Copies a task into another list (the original stays). Starts in that list's first status. */
+export function copyItemTo(id: string, dbId: string) {
+  const src = ws().items[id];
+  const target = ws().dbs[dbId];
+  if (!src || !target) return null;
+  const copy = uid();
+  mut((w) => {
+    const db = w.dbs[dbId];
+    const sp = statusProp(db);
+    // Priority and tags only carry over when the other list has the same option.
+    const has = (prop: string, v: PropValue) => {
+      const opts = db.props.find((p) => p.id === prop)?.options ?? [];
+      return Array.isArray(v) ? v.filter((x) => opts.some((o) => o.id === x)) : opts.some((o) => o.id === v) ? v : undefined;
+    };
+    const props: Record<string, PropValue> = {};
+    if (src.props.date) props.date = src.props.date;
+    if (src.props.prio != null) {
+      const v = has("prio", src.props.prio);
+      if (v != null) props.prio = v;
+    }
+    if (Array.isArray(src.props.tags)) props.tags = has("tags", src.props.tags) as PropValue;
+    if (sp?.options?.[0]) props[sp.id] = sp.options[0].id;
+    w.items[copy] = {
+      id: copy,
+      db: dbId,
+      title: src.title,
+      props,
+      notes: src.notes,
+      alerts: src.alerts ? [...src.alerts] : undefined,
+      alertChannel: src.alertChannel,
+      area: src.area ?? db.defaultArea,
+      created: Date.now(),
+      updated: Date.now(),
+      order: Date.now(),
+      log: [],
+    };
+  });
+  created.set(copy, Date.now());
+  const page = ws().pages.find((p) => p.id === dbId);
+  celebrate("Tarefa copiada", `“${src.title || "Sem título"}” agora também está em ${page?.title ?? "outra lista"}`, page?.icon || "📋");
+  return copy;
+}
 export function deleteItem(id: string) {
   const snap = ws().items[id];
   mut((w) => {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarDays, Columns3, Filter, Plus, Search, Settings2, Table2, X } from "lucide-react";
+import { CalendarDays, Check, Columns3, Filter, Plus, Search, Settings2, Table2, X } from "lucide-react";
 import type { Filter as F, Page, View } from "@/lib/types";
 import { applyFilters, defaultsFromFilters, filterLabel } from "@/lib/model";
 import { celebrate, newItem, openPeek, renamePage, useStore } from "@/store";
@@ -104,7 +104,7 @@ export function DbPage({ page }: { page: Page }) {
             view={view}
             onAdd={(f) =>
               mutView((v) => {
-                v.filters.push(f);
+                if (!v.filters.some((g) => sameFilter(g, f))) v.filters.push(f);
               })
             }
           />
@@ -150,6 +150,8 @@ export function DbPage({ page }: { page: Page }) {
   );
 }
 
+const sameFilter = (a: F, b: F) => a.prop === b.prop && a.op === b.op && a.val === b.val;
+
 function FilterButton({ dbId, view, onAdd }: { dbId: string; view: View; onAdd: (f: F) => void }) {
   const db = useStore((s) => s.ws.dbs[dbId]);
   const [open, setOpen] = useState(false);
@@ -157,6 +159,23 @@ function FilterButton({ dbId, view, onAdd }: { dbId: string; view: View; onAdd: 
     onAdd(f);
     setOpen(false);
   };
+  // A filter already in use is shown checked and can't be added again.
+  const used = (f: F) => view.filters.some((g) => sameFilter(g, f));
+  const pick = (f: F, children: React.ReactNode) => (
+    <button
+      key={f.val}
+      disabled={used(f)}
+      aria-pressed={used(f)}
+      title={used(f) ? "Filtro já aplicado" : undefined}
+      onClick={() => add(f)}
+      className="relative rounded-full disabled:cursor-default disabled:opacity-60"
+    >
+      {children}
+      {used(f) && (
+        <Check className="absolute -top-1 -right-1 size-3.5 rounded-full bg-primary p-0.5 text-primary-foreground" aria-hidden="true" />
+      )}
+    </button>
+  );
   const status = db.props.find((p) => p.id === "status")!;
   const prio = db.props.find((p) => p.id === "prio");
   const tags = db.props.find((p) => p.id === "tags");
@@ -178,18 +197,14 @@ function FilterButton({ dbId, view, onAdd }: { dbId: string; view: View; onAdd: 
         {section(
           "Status",
           status.options!.map((o) => (
-            <button key={o.id} onClick={() => add({ prop: "status", op: "is", val: o.id })}>
-              <OptionBadge opt={o} dot />
-            </button>
+            pick({ prop: "status", op: "is", val: o.id }, <OptionBadge opt={o} dot />)
           )),
         )}
         {prio?.options?.length
           ? section(
               "Prioridade",
               prio.options.map((o) => (
-                <button key={o.id} onClick={() => add({ prop: "prio", op: "is", val: o.id })}>
-                  <OptionBadge opt={o} />
-                </button>
+                pick({ prop: "prio", op: "is", val: o.id }, <OptionBadge opt={o} />)
               )),
             )
           : null}
@@ -197,9 +212,7 @@ function FilterButton({ dbId, view, onAdd }: { dbId: string; view: View; onAdd: 
           ? section(
               "Etiqueta",
               tags.options.map((o) => (
-                <button key={o.id} onClick={() => add({ prop: "tags", op: "is", val: o.id })}>
-                  <OptionBadge opt={o} />
-                </button>
+                pick({ prop: "tags", op: "is", val: o.id }, <OptionBadge opt={o} />)
               )),
             )
           : null}
@@ -207,7 +220,15 @@ function FilterButton({ dbId, view, onAdd }: { dbId: string; view: View; onAdd: 
         {section(
           "Data",
           DATE_FILTERS.map(([k, n]) => (
-            <Button key={k} variant="outline" size="sm" onClick={() => add({ prop: "date", op: "is", val: k })}>
+            <Button
+              key={k}
+              variant={used({ prop: "date", op: "is", val: k }) ? "secondary" : "outline"}
+              size="sm"
+              disabled={used({ prop: "date", op: "is", val: k })}
+              aria-pressed={used({ prop: "date", op: "is", val: k })}
+              onClick={() => add({ prop: "date", op: "is", val: k })}
+            >
+              {used({ prop: "date", op: "is", val: k }) && <Check data-icon="inline-start" />}
               {n}
             </Button>
           )),

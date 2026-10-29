@@ -4,9 +4,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
-  Folder,
   FolderInput,
-  FolderOpen,
   FolderPlus,
   Home,
   MoreHorizontal,
@@ -25,6 +23,7 @@ import { boardFolderList } from "@/lib/notes";
 import { cloudEnabled } from "@/lib/supabase";
 import {
   addBoardFolder,
+  copyItemTo,
   celebrate,
   deleteBoardFolder,
   deletePage,
@@ -79,6 +78,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { BoardDialog } from "./BoardDialog";
 import { EmojiPicker } from "../common";
+import { FOLDER_ICONS, FolderGlyph, LUCIDE } from "./folderIcons";
+import { TASK_MIME, draggedTask } from "@/lib/dnd";
 
 type SideDialog =
   | { kind: "edit"; pageId: string }
@@ -233,13 +234,7 @@ export function AppSidebar() {
                   <ChevronRight
                     className={cn("-mx-1 size-4! shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-90")}
                   />
-                  {icons[f] ? (
-                    <span className="w-5 text-center text-base leading-none">{icons[f]}</span>
-                  ) : isOpen ? (
-                    <FolderOpen />
-                  ) : (
-                    <Folder />
-                  )}
+                  <FolderGlyph icon={icons[f]} open={isOpen} />
                   <span>{nameOf(f)}</span>
                   {!isOpen && count > 0 && (
                     <span className="ml-auto pr-6 text-xs text-muted-foreground tabular-nums">{count}</span>
@@ -496,8 +491,39 @@ function BoardItem({
   onEdit: () => void;
   onRemove: () => void;
 }) {
+  const [taskOver, setTaskOver] = useState(false);
+  // A task card from a board can be dropped here: it is copied into this list (not moved).
+  const isTask = (e: React.DragEvent) => e.dataTransfer.types.includes(TASK_MIME);
+  const canCopy = () => {
+    const id = draggedTask();
+    return !!id && useStore.getState().ws.items[id]?.db !== p.id;
+  };
   return (
-    <SidebarMenuItem {...dropProps} className={cn("rounded-lg", dragging && "opacity-50")}>
+    <SidebarMenuItem
+      {...dropProps}
+      onDragOver={(e) => {
+        if (!isTask(e)) return dropProps.onDragOver?.(e);
+        e.stopPropagation();
+        if (!canCopy()) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        setTaskOver(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setTaskOver(false);
+        dropProps.onDragLeave?.(e);
+      }}
+      onDrop={(e) => {
+        if (!isTask(e)) return dropProps.onDrop?.(e);
+        e.preventDefault();
+        e.stopPropagation();
+        setTaskOver(false);
+        const id = draggedTask();
+        if (id && canCopy()) copyItemTo(id, p.id);
+      }}
+      title={taskOver ? `Soltar para copiar para ${p.title}` : undefined}
+      className={cn("rounded-lg transition-colors", dragging && "opacity-50", taskOver && "bg-primary/10 ring-2 ring-primary/50")}
+    >
       {renaming ? (
         <InlineName value={p.title} label="Nome da lista" icon={p.icon} onDone={onRenamed} />
       ) : (
@@ -596,7 +622,7 @@ function FolderDialog({
   onSaved: (path: string) => void;
 }) {
   const [name, setName] = useState(current ? nameOf(current) : "");
-  const [icon, setIcon] = useState(() => (current && useStore.getState().ws.settings.boardFolderIcons?.[current]) || "📁");
+  const [icon, setIcon] = useState(() => (current && useStore.getState().ws.settings.boardFolderIcons?.[current]) || "");
   const nameRef = useRef<HTMLInputElement>(null);
   const save = () => {
     const clean = name.replace(/\//g, "-").trim();
@@ -631,7 +657,24 @@ function FolderDialog({
           className="flex flex-col gap-4"
         >
           <div className="flex gap-2">
-            <EmojiPicker value={icon} onChange={setIcon} label="Ícone da pasta" className="shrink-0 border" />
+            <EmojiPicker
+              value={icon}
+              onChange={setIcon}
+              label="Ícone da pasta"
+              className="shrink-0 border"
+              renderValue={(v) => <FolderGlyph icon={v} className="size-6! text-2xl" />}
+              extra={{
+                name: "Ícones",
+                items: [
+                  { value: "", label: "Pasta (padrão)", node: <FolderGlyph /> },
+                  ...Object.entries(FOLDER_ICONS).map(([k, { label }]) => ({
+                    value: LUCIDE + k,
+                    label,
+                    node: <FolderGlyph icon={LUCIDE + k} />,
+                  })),
+                ],
+              }}
+            />
             <Input
               ref={nameRef}
               autoComplete="off"

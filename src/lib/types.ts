@@ -166,6 +166,8 @@ export interface Settings {
   boardFolders?: string[];
   /** Emoji chosen for each of those folders, by path. */
   boardFolderIcons?: Record<string, string>;
+  /** Which version of the quick guide note this workspace has. */
+  guideVersion?: number;
 }
 export interface Workspace {
   version: 2;

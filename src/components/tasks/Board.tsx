@@ -48,6 +48,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { OptionBadge, TagSwatches, areaVar, useAreas } from "../common";
+import { TASK_MIME, setDraggedTask } from "@/lib/dnd";
 
 /**
  * Kanban board. Columns are the status options and can be renamed by clicking their name.
@@ -346,12 +347,18 @@ function Card({
         if (e.key === "Enter") openPeek(it.id);
       }}
       onDragStart={(e) => {
-        e.dataTransfer.effectAllowed = "move";
+        // "copy" too: dropping on another list in the sidebar makes a copy there.
+        e.dataTransfer.effectAllowed = "copyMove";
         e.dataTransfer.setData("text/plain", it.id);
+        e.dataTransfer.setData(TASK_MIME, it.id);
+        setDraggedTask(it.id);
         // Defer the state change so the browser has already taken its drag snapshot.
         requestAnimationFrame(onDragStart);
       }}
-      onDragEnd={onDragEnd}
+      onDragEnd={() => {
+        setDraggedTask(null);
+        onDragEnd();
+      }}
     >
       <div className="flex items-start gap-2">
         <span className="min-w-0 flex-1 text-[15px] font-medium break-words">

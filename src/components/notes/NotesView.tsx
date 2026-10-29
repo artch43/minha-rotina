@@ -619,21 +619,24 @@ function useTagFilter() {
 }
 
 /** Saves pasted, dropped or chosen files and puts a reference to each one at the cursor. */
-function useAttach(editorApi: React.MutableRefObject<EditorApi | null>) {
+function useAttach(editorApi: React.MutableRefObject<EditorApi | null>, noteId: string) {
   return useCallback(
     async (files: File[]) => {
       for (const f of files) {
         const id = sonner.loading(`Enviando ${f.name}…`);
         try {
           const a = await saveAttachment(f);
-          editorApi.current?.insert("\n" + attachmentMarkdown(a) + "\n");
+          const md = "\n" + attachmentMarkdown(a) + "\n";
+          // Without the editor on screen, add it at the end of the note instead of losing it.
+          if (editorApi.current) editorApi.current.insert(md);
+          else updateNote(noteId, { body: (useStore.getState().ws.notes[noteId]?.body ?? "") + md });
           sonner.success(a.kind === "image" ? "Imagem anexada" : "PDF anexado", { id });
         } catch (e) {
-          sonner.error(e instanceof Error ? e.message : "Não foi possível anexar.", { id });
+          sonner.error(e instanceof Error ? e.message : "Não foi possível anexar.", { id, duration: 10000 });
         }
       }
     },
-    [editorApi],
+    [editorApi, noteId],
   );
 }
 
@@ -663,7 +666,7 @@ function NotePane({ note, editorApi }: { note: Note; editorApi: React.MutableRef
   const [title, setTitle] = useState(note.title);
   const onTag = useTagFilter();
   const fileInput = useRef<HTMLInputElement>(null);
-  const attach = useAttach(editorApi);
+  const attach = useAttach(editorApi, note.id);
   const dup =
     title.trim() &&
     Object.values(notes).some((n) => n.id !== note.id && n.title.trim().toLowerCase() === title.trim().toLowerCase());
@@ -816,7 +819,7 @@ function NotePane({ note, editorApi }: { note: Note; editorApi: React.MutableRef
             <input
               ref={fileInput}
               type="file"
-              accept={[...IMAGE_TYPES, "application/pdf"].join(",")}
+              accept={[...IMAGE_TYPES, "application/pdf", ".pdf", ".heic", ".heif"].join(",")}
               multiple
               hidden
               onChange={(e) => {

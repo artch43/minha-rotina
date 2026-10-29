@@ -11,6 +11,24 @@ export type AttachmentKind = "image" | "pdf";
 /** Pictures only (no SVG: it can carry scripts, which would run if the file were opened in a tab). */
 export const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif", "image/heic", "image/heif"];
 
+const BY_EXT: Record<string, string> = {
+  pdf: "application/pdf",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+  avif: "image/avif",
+  heic: "image/heic",
+  heif: "image/heif",
+};
+
+/** The file's type; some browsers and phones leave it blank (or generic), so fall back to the extension. */
+export function typeOf(file: { name: string; type: string }) {
+  if (file.type && file.type !== "application/octet-stream") return file.type;
+  return BY_EXT[file.name.split(".").pop()?.toLowerCase() ?? ""] ?? file.type;
+}
+
 export function kindOf(type: string): AttachmentKind | null {
   if (IMAGE_TYPES.includes(type)) return "image";
   if (type === "application/pdf") return "pdf";
@@ -51,15 +69,24 @@ async function userId() {
 
 /** Stores the file and returns what the note needs to point at it. Throws with a readable message. */
 export async function saveAttachment(file: File) {
-  const kind = kindOf(file.type);
+  const type = typeOf(file);
+  const kind = kindOf(type);
   if (!kind) throw new Error("Só dá para anexar fotos (PNG, JPG, WebP, GIF, HEIC) e PDF.");
   if (file.size > MAX_BYTES) throw new Error("O arquivo passa de 10 MB.");
   const id = uid();
   if (supabase) {
     const { error } = await supabase.storage
       .from(BUCKET)
-      .upload(`${await userId()}/${id}`, file, { contentType: file.type, upsert: false });
-    if (error) throw new Error("Não foi possível enviar o arquivo. Tente de novo.");
+      .upload(`${await userId()}/${id}`, file, { contentType: type, upsert: false });
+    if (error) {
+      // The storage space is created by supabase/migrations/005_attachments.sql (or setup.sql).
+      if (/bucket not found/i.test(error.message))
+        throw new Error("Os anexos ainda não foram ativados no servidor. Rode o arquivo supabase/setup.sql no Supabase.");
+      if (/mime|content type|not supported/i.test(error.message))
+        throw new Error("O servidor recusou esse tipo de arquivo. Rode o supabase/setup.sql atualizado no Supabase.");
+      if (/size|too large|exceed/i.test(error.message)) throw new Error("O arquivo passa do limite de tamanho do servidor.");
+      throw new Error("Não foi possível enviar o arquivo. Tente de novo.");
+    }
   } else {
     await idb("readwrite", (s) => s.put(file, id));
   }

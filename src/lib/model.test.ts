@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { template } from "./template";
-import { applyFilters, applyStatusChange, groupOf, runReviews, statusProp, streakOf } from "./model";
+import { applyFilters, applyStatusChange, firstDoneOf, groupOf, runReviews, statusProp, streakOf } from "./model";
 import { addDays, today } from "./util";
 import type { Item, Workspace } from "./types";
 
@@ -105,6 +105,10 @@ describe("sequência de hábitos", () => {
   it("conta só a partir do último buraco", () => {
     const log = { "2026-10-22": ["h"], "2026-10-23": ["h"], "2026-10-25": ["h"], "2026-10-26": ["h"], "2026-10-27": ["h"] };
     expect(streakOf(log, "h")).toBe(3);
+  });
+  it("acha o primeiro dia marcado (antes dele os dias ficam cinza)", () => {
+    expect(firstDoneOf({ "2026-10-26": ["h"], "2026-10-20": ["outro", "h"], "2026-10-22": ["outro"] }, "h")).toBe("2026-10-20");
+    expect(firstDoneOf({ "2026-10-26": ["outro"] }, "h")).toBeNull();
   });
   it("ignora os outros hábitos do mesmo dia", () => {
     expect(streakOf({ "2026-10-26": ["outro"], "2026-10-27": ["h", "outro"] }, "h")).toBe(1);

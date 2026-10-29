@@ -43,11 +43,24 @@ export function deleteTarget(): Target | null {
   if (fromFocus) return fromFocus;
   const fromHover = parse(hovered?.closest("[data-del]")?.getAttribute("data-del"));
   if (fromHover) return fromHover;
+  return openTarget() ?? openNote();
+}
+
+/** The task or event whose panel/window is open. */
+function openTarget(): Target | null {
   const { ui } = useStore.getState();
   if (ui.eventDialog?.id) return { kind: "event", id: ui.eventDialog.id };
   if (ui.peek) return { kind: "task", id: ui.peek };
-  if (ui.route === "notes" && ui.noteId) return { kind: "note", id: ui.noteId };
   return null;
+}
+function openNote(): Target | null {
+  const { ui } = useStore.getState();
+  return ui.route === "notes" && ui.noteId ? { kind: "note", id: ui.noteId } : null;
+}
+
+/** A one-line field (title, date, time…), not a text area or the note editor. */
+function isShortField(el: Element | null) {
+  return !!el && el.tagName === "INPUT" && !el.closest(".cm-editor");
 }
 
 export function deleteByShortcut(t: Target) {
@@ -80,8 +93,14 @@ export function deleteByShortcut(t: Target) {
 /** Global key handler: call once from the app shell. Returns the cleanup function. */
 export function installDeleteShortcut() {
   const onKey = (e: KeyboardEvent) => {
-    if (!isDeleteShortcut(e) || isEditable(document.activeElement)) return;
-    const t = deleteTarget();
+    if (!isDeleteShortcut(e)) return;
+    let t: Target | null;
+    if (isEditable(document.activeElement)) {
+      // The task panel and the event window open with the cursor in the title: there the shortcut
+      // still deletes what is open. Only long text (notes, descriptions) keeps "delete the line".
+      t = openTarget();
+      if (!t || !isShortField(document.activeElement)) return;
+    } else t = deleteTarget();
     if (!t) return;
     e.preventDefault();
     deleteByShortcut(t);

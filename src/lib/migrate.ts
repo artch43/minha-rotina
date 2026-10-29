@@ -1,6 +1,6 @@
 import type { Block, Color, Database, Item, Note, Page, Prop, Workspace } from "./types";
 import { FIXED_PROPS } from "./types";
-import { DEFAULT_SETTINGS } from "./template";
+import { DEFAULT_SETTINGS, GUIDE_BODY, GUIDE_NOTE, GUIDE_VERSION, OLD_GUIDE_BODIES } from "./template";
 import { today, uid } from "./util";
 
 const FIXED = new Set<string>(FIXED_PROPS);
@@ -80,7 +80,10 @@ function migrateDb(id: string, db: Database, items: Item[]) {
     ...v,
     type: v.type === ("list" as never) ? "table" : v.type,
     hidden: (v.hidden ?? []).filter((h) => FIXED.has(h)),
-    filters: (v.filters ?? []).filter((f) => FIXED.has(f.prop)),
+    // The same filter twice used to be possible; keep only the first.
+    filters: (v.filters ?? []).filter(
+      (f, k, all) => FIXED.has(f.prop) && all.findIndex((g) => g.prop === f.prop && g.op === f.op && g.val === f.val) === k,
+    ),
   }));
   if (!db.views.some((v) => v.type === "calendar"))
     db.views.push({ id: uid(), name: "Calendário", type: "calendar", filters: [], hidden: [] });
@@ -102,6 +105,8 @@ export function normalizeWorkspace(input: Workspace): Workspace {
   w.habitLog ??= {};
   const s = (w.settings ?? {}) as Partial<typeof DEFAULT_SETTINGS> & Record<string, unknown>;
   w.settings = {
+    // Keep every saved setting (list folders, their icons, WhatsApp…), then fill in the required ones.
+    ...(s as Partial<Workspace["settings"]>),
     theme: s.theme ?? DEFAULT_SETTINGS.theme,
     start: s.start ?? DEFAULT_SETTINGS.start,
     name: s.name ?? "",
@@ -159,6 +164,21 @@ export function normalizeWorkspace(input: Workspace): Workspace {
       const def = w.dbs[it.db]?.defaultArea;
       it.area = def && areaIds.has(def) ? def : undefined;
     }
+  }
+
+  // The quick guide: an untouched old copy gets the new text; an edited one stays and the new one comes alongside.
+  if ((w.settings.guideVersion ?? 1) < GUIDE_VERSION) {
+    const old = Object.values(w.notes).find((n) => n.title === "Guia rápido");
+    const untouched = old && OLD_GUIDE_BODIES.some((b) => b.trim() === old.body.trim());
+    if (old && untouched) {
+      old.body = GUIDE_BODY;
+      old.updated = Date.now();
+    } else if (old && old.body.trim() !== GUIDE_BODY.trim()) {
+      const n = GUIDE_NOTE();
+      n.title = "Guia rápido (novo)";
+      w.notes[n.id] = n;
+    }
+    w.settings.guideVersion = GUIDE_VERSION;
   }
 
   w.version = 2;

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Habit } from "@/lib/types";
-import { streakOf } from "@/lib/model";
+import { firstDoneOf, streakOf } from "@/lib/model";
 import { addDays, fmtDate, parseD, uid } from "@/lib/util";
 import { celebrate, deleteHabit, toggleHabit, useStore } from "@/store";
 import { Button } from "@/components/ui/button";
@@ -74,8 +74,9 @@ function HabitRow({ h, T, i }: { h: Habit; T: string; i: number }) {
   const [name, setName] = useState(h.name);
   const [history, setHistory] = useState(() => readOpen(h.id));
   const isOn = (d: string) => (log[d] || []).includes(h.id);
-  // A past day without the mark (and after the habit was created) shows in red; today still has time.
-  const missed = (d: string) => d < T && (!h.created || d >= h.created) && !isOn(d);
+  // Red only for past days after the first mark: before it the habit hadn't started (gray); today still has time.
+  const first = firstDoneOf(log, h.id);
+  const missed = (d: string) => !!first && d > first && d < T && !isOn(d);
   // Oldest on the left, today last.
   const week = Array.from({ length: 7 }, (_, k) => addDays(T, k - 6));
   const streak = streakOf(log, h.id);

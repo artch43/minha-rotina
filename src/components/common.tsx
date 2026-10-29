@@ -114,14 +114,21 @@ export function EmojiPicker({
   onChange,
   label = "Trocar ícone",
   className,
+  extra,
+  renderValue,
 }: {
   value: string;
   onChange: (e: string) => void;
   label?: string;
   className?: string;
+  /** An extra first tab of non-emoji choices (e.g. drawn icons). */
+  extra?: { name: string; items: { value: string; label: string; node: React.ReactNode }[] };
+  /** How to show the current value on the button, when it isn't a plain emoji. */
+  renderValue?: (v: string) => React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [group, setGroup] = useState(0);
+  // With an extra tab, -1 is that tab (shown first); 0… are the emoji groups.
+  const [group, setGroup] = useState(extra ? -1 : 0);
   const [custom, setCustom] = useState("");
   const pick = (e: string) => {
     onChange(e);
@@ -131,14 +138,14 @@ export function EmojiPicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" aria-label={label} className={cn("text-2xl", className)}>
-          {value}
+          {renderValue ? renderValue(value) : value}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-3" align="start">
         <div className="mb-2 flex flex-wrap gap-1" role="tablist" aria-label="Categorias de ícones">
-          {EMOJI_GROUPS.map((g, i) => (
+          {[...(extra ? [{ name: extra.name, i: -1 }] : []), ...EMOJI_GROUPS.map((g, i) => ({ name: g.name, i }))].map(({ name, i }) => (
             <button
-              key={g.name}
+              key={name}
               type="button"
               role="tab"
               aria-selected={group === i}
@@ -148,10 +155,28 @@ export function EmojiPicker({
                 group === i ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground",
               )}
             >
-              {g.name}
+              {name}
             </button>
           ))}
         </div>
+        {group === -1 && extra ? (
+          <div className="grid grid-cols-8 gap-0.5" role="tabpanel">
+            {extra.items.map((it) => (
+              <Button
+                key={it.value}
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={it.label}
+                title={it.label}
+                className={cn("transition-transform hover:scale-110", it.value === value && "bg-accent ring-2 ring-primary")}
+                onClick={() => pick(it.value)}
+              >
+                {it.node}
+              </Button>
+            ))}
+          </div>
+        ) : (
         <div className="grid grid-cols-8 gap-0.5" role="tabpanel">
           {EMOJI_GROUPS[group].list.map((e) => (
             <Button
@@ -167,6 +192,7 @@ export function EmojiPicker({
             </Button>
           ))}
         </div>
+        )}
         <Input
           className="mt-3"
           aria-label="Outro emoji"

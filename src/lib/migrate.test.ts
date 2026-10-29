@@ -134,3 +134,46 @@ describe("migração para a versão 2", () => {
     expect(out.todos.c.date).toBe("2099-01-01");
   });
 });
+
+describe("dados salvos pela versão atual", () => {
+  it("mantém pastas das listas, ícones e WhatsApp ao recarregar", async () => {
+    const { template } = await import("./template");
+    const w = template();
+    w.settings.boardFolders = ["Casa", "Casa/Obras"];
+    w.settings.boardFolderIcons = { Casa: "lucide:house" };
+    w.settings.whatsapp = "+5511987654321";
+    const out = normalizeWorkspace(w);
+    expect(out.settings.boardFolders).toEqual(["Casa", "Casa/Obras"]);
+    expect(out.settings.boardFolderIcons).toEqual({ Casa: "lucide:house" });
+    expect(out.settings.whatsapp).toBe("+5511987654321");
+  });
+
+  it("tira filtros repetidos", async () => {
+    const { template } = await import("./template");
+    const w = template();
+    const f = { prop: "status", op: "is" as const, val: "x" };
+    w.dbs.estudos.views[0].filters = [f, { ...f }, { ...f, val: "y" }];
+    expect(normalizeWorkspace(w).dbs.estudos.views[0].filters).toEqual([f, { ...f, val: "y" }]);
+  });
+
+  it("troca o guia rápido antigo sem edição e preserva o editado", async () => {
+    const { template, OLD_GUIDE_BODIES, GUIDE_BODY } = await import("./template");
+    const a = template();
+    const guide = Object.values(a.notes).find((n) => n.title === "Guia rápido")!;
+    guide.body = OLD_GUIDE_BODIES[0];
+    delete a.settings.guideVersion;
+    const outA = normalizeWorkspace(a);
+    expect(outA.notes[guide.id].body).toBe(GUIDE_BODY);
+    expect(Object.values(outA.notes).filter((n) => n.title.startsWith("Guia rápido"))).toHaveLength(1);
+
+    const b = template();
+    const g2 = Object.values(b.notes).find((n) => n.title === "Guia rápido")!;
+    g2.body = "Minhas anotações sobre o site";
+    delete b.settings.guideVersion;
+    const outB = normalizeWorkspace(b);
+    expect(outB.notes[g2.id].body).toBe("Minhas anotações sobre o site");
+    expect(Object.values(outB.notes).some((n) => n.title === "Guia rápido (novo)" && n.body === GUIDE_BODY)).toBe(true);
+    // Only once.
+    expect(Object.values(normalizeWorkspace(outB).notes).filter((n) => n.title === "Guia rápido (novo)")).toHaveLength(1);
+  });
+});
