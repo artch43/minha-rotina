@@ -21,6 +21,7 @@ import {
   Maximize2,
   Minimize2,
   MoreHorizontal,
+  Paperclip,
   PanelLeft,
   PanelRight,
   Pencil,
@@ -34,7 +35,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Note } from "@/lib/types";
-import { ago, backlinks, extractLinks, extractTags, findByTitle, folderList, headings, plainSnippet } from "@/lib/notes";
+import { ago, extractTags, folderList, headings, plainSnippet } from "@/lib/notes";
+import { toast as sonner } from "sonner";
+import { attachmentMarkdown, saveAttachment } from "@/lib/attachments";
 import { exportNoteMd, exportNotesZip, readMarkdownFiles } from "@/lib/notesIO";
 import {
   addFolder,
@@ -42,7 +45,6 @@ import {
   deleteFolder,
   deleteNote,
   openDailyNote,
-  openNoteByTitle,
   openNotes,
   renameFolder,
   renameNote,
@@ -82,7 +84,7 @@ const ui = () => useStore.getState().setUi;
 
 /**
  * Notes: a home with recent and pinned notes, and a roomy editor. The note list and the
- * side panel (outline and links) can be hidden; "Foco" hides everything but the note.
+ * side panel (outline) can be hidden; "Foco" hides everything but the note.
  */
 export default function NotesView() {
   const tab = useStore((s) => s.ui.notesTab);
@@ -106,7 +108,7 @@ export default function NotesView() {
         {note ? <NotePane key={note.id} note={note} editorApi={editorApi} /> : <NotesHome />}
       </section>
       {note && sideOpen && (
-        <aside className="hidden min-h-0 w-72 shrink-0 overflow-y-auto border-l xl:block" aria-label="Sumário e links">
+        <aside className="hidden min-h-0 w-72 shrink-0 overflow-y-auto border-l xl:block" aria-label="Sumário">
           <NoteSide note={note} editorApi={editorApi} />
         </aside>
       )}
@@ -231,7 +233,7 @@ function CardGrid({ title, notes }: { title: string; notes: Note[] }) {
               </span>
               <span
                 className={cn(
-                  "line-clamp-3 flex-1 text-sm break-words",
+                  "line-clamp-3 flex-1 text-[15px] break-words",
                   snippet ? "text-muted-foreground" : "text-muted-foreground/60 italic",
                 )}
               >
@@ -326,14 +328,14 @@ function NotesPanel() {
         setOver(null);
       }}
       className={cn(
-        "flex w-full items-center gap-2 rounded-md py-1.5 pr-2 text-left text-sm hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        "flex w-full items-center gap-2 rounded-lg py-2 pr-2 text-left text-[15px] hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         n.id === current && "bg-sidebar-accent font-medium",
       )}
     >
       {n.pinned ? (
-        <Pin className="size-3.5 shrink-0 text-primary" />
+        <Pin className="size-4 shrink-0 text-primary" />
       ) : (
-        <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+        <FileText className="size-4 shrink-0 text-muted-foreground" />
       )}
       <span className="truncate">{n.title || "Sem título"}</span>
     </button>
@@ -356,7 +358,7 @@ function NotesPanel() {
               {...dropProps(f)}
             >
               <button
-                className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 text-left text-sm font-medium"
+                className="flex min-w-0 flex-1 items-center gap-1.5 py-2 text-left text-[15px] font-medium"
                 onClick={() => setClosed((c) => ({ ...c, [f]: open }))}
                 aria-expanded={open}
               >
@@ -411,7 +413,7 @@ function NotesPanel() {
         className={cn("flex items-center gap-1 px-3 pt-3 pb-2", over === "" && "rounded-md ring-2 ring-primary")}
         {...dropProps("")}
       >
-        <button className="mr-auto rounded-md px-1 text-sm font-semibold hover:text-primary" onClick={() => openNotes(null)}>
+        <button className="mr-auto min-w-0 truncate rounded-md px-1 text-[15px] font-semibold hover:text-primary" onClick={() => openNotes(null)}>
           Todas as notas
         </button>
         <IconTip label="Nova nota">
@@ -604,18 +606,8 @@ function FolderDialog({ mode, path, onClose }: { mode: "new" | "rename"; path: s
 }
 
 /* ---------- the note ---------- */
-function useLinkHelpers(note: Note) {
-  const titles = useCallback(
-    () =>
-      Object.values(useStore.getState().ws.notes)
-        .filter((n) => n.id !== note.id)
-        .map((n) => n.title)
-        .sort(),
-    [note.id],
-  );
-  const exists = useCallback((t: string) => !!findByTitle(useStore.getState().ws.notes, t), []);
-  const open = useCallback((t: string) => openNoteByTitle(t, note.folder), [note.folder]);
-  const onTag = useCallback(
+function useTagFilter() {
+  return useCallback(
     (t: string) =>
       ui()((u) => {
         u.noteTag = t;
@@ -624,7 +616,25 @@ function useLinkHelpers(note: Note) {
       }),
     [],
   );
-  return { titles, exists, open, onTag };
+}
+
+/** Saves pasted, dropped or chosen files and puts a reference to each one at the cursor. */
+function useAttach(editorApi: React.MutableRefObject<EditorApi | null>) {
+  return useCallback(
+    async (files: File[]) => {
+      for (const f of files) {
+        const id = sonner.loading(`Enviando ${f.name}…`);
+        try {
+          const a = await saveAttachment(f);
+          editorApi.current?.insert("\n" + attachmentMarkdown(a) + "\n");
+          sonner.success(a.kind === "image" ? "Imagem anexada" : "PDF anexado", { id });
+        } catch (e) {
+          sonner.error(e instanceof Error ? e.message : "Não foi possível anexar.", { id });
+        }
+      }
+    },
+    [editorApi],
+  );
 }
 
 const TOOLS: { label: string; icon: typeof Bold; run: (api: EditorApi) => void; kbd?: string }[] = [
@@ -651,13 +661,14 @@ function NotePane({ note, editorApi }: { note: Note; editorApi: React.MutableRef
   const setUi = useStore((s) => s.setUi);
   const sidebar = useSidebar();
   const [title, setTitle] = useState(note.title);
-  const { titles, exists, open, onTag } = useLinkHelpers(note);
+  const onTag = useTagFilter();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const attach = useAttach(editorApi);
   const dup =
     title.trim() &&
     Object.values(notes).some((n) => n.id !== note.id && n.title.trim().toLowerCase() === title.trim().toLowerCase());
   const words = note.body.trim() ? note.body.trim().split(/\s+/).length : 0;
   const tags = extractTags(note.body);
-  const back = useMemo(() => backlinks(notes, note), [notes, note]);
   const commit = () => {
     if (title.trim() !== note.title) renameNote(note.id, title);
   };
@@ -743,12 +754,12 @@ function NotePane({ note, editorApi }: { note: Note; editorApi: React.MutableRef
               Ler
             </ToggleGroupItem>
           </ToggleGroup>
-          <IconTip label={sideOpen ? "Esconder sumário e links" : "Mostrar sumário e links"}>
+          <IconTip label={sideOpen ? "Esconder sumário" : "Mostrar sumário"}>
             <Button
               variant={sideOpen ? "secondary" : "ghost"}
               size="icon-sm"
               aria-pressed={sideOpen}
-              aria-label="Sumário e links"
+              aria-label="Sumário"
               className="max-xl:hidden"
               onClick={() =>
                 setUi((u) => {
@@ -791,16 +802,29 @@ function NotePane({ note, editorApi }: { note: Note; editorApi: React.MutableRef
               </span>
             ))}
             <Separator orientation="vertical" className="mx-1 h-5" />
-            <IconTip label="Ligar a outra nota: digite [[ e escolha">
+<IconTip label="Anexar imagem ou PDF (ou cole e arraste no texto)">
               <Button
                 variant="ghost"
                 size="sm"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => editorApi.current?.insert("[[")}
+                onClick={() => fileInput.current?.click()}
               >
-                [[ ]] Ligar nota
+                <Paperclip data-icon="inline-start" />
+                Imagem ou PDF
               </Button>
             </IconTip>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              hidden
+              onChange={(e) => {
+                const files = [...(e.target.files ?? [])];
+                e.target.value = "";
+                if (files.length) void attach(files);
+              }}
+            />
           </div>
         )}
       </div>
@@ -845,7 +869,7 @@ function NotePane({ note, editorApi }: { note: Note; editorApi: React.MutableRef
         </div>
         {dup && (
           <p className="-mt-3 mb-4 text-sm text-warning">
-            Já existe outra nota com esse nome. Links [[{title.trim()}]] vão abrir só uma delas.
+            Já existe outra nota com esse nome.
           </p>
         )}
         <div className="flex-1">
@@ -853,39 +877,16 @@ function NotePane({ note, editorApi }: { note: Note; editorApi: React.MutableRef
             <NoteEditor
               noteId={note.id}
               body={note.body}
-              titles={titles}
               onChange={(body) => updateNote(note.id, { body })}
-              onOpenLink={open}
               onTag={onTag}
+              onFiles={attach}
               apiRef={editorApi}
             />
           ) : (
-            <NoteReader body={note.body} exists={exists} onOpenLink={open} onTag={onTag} />
+            <NoteReader body={note.body} onTag={onTag} />
           )}
         </div>
-        <section className="mt-10 mb-16 flex flex-col gap-3 border-t pt-6" aria-label="Menções">
-          <h2 className="text-sm font-semibold">
-            Menções <span className="font-normal text-muted-foreground tabular-nums">{back.length}</span>
-          </h2>
-          {back.length ? (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {back.map(({ note: n, snippet }) => (
-                <button
-                  key={n.id}
-                  onClick={() => openNotes(n.id)}
-                  className="flex flex-col gap-1 rounded-lg border bg-card p-3 text-left text-sm hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                >
-                  <span className="font-medium">{n.title}</span>
-                  {snippet && <span className="line-clamp-2 text-xs text-muted-foreground">{snippet}</span>}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Nenhuma nota aponta para esta ainda. Para ligar, escreva [[{note.title}]] em outra nota.
-            </p>
-          )}
-        </section>
+        <div className="mb-16" />
       </article>
     </div>
   );
@@ -937,12 +938,10 @@ function NoteMenu({ note, folders }: { note: Note; folders: string[] }) {
   );
 }
 
-/* ---------- right: outline and links (optional) ---------- */
+/* ---------- right: outline (optional) ---------- */
 function NoteSide({ note, editorApi }: { note: Note; editorApi: React.MutableRefObject<EditorApi | null> }) {
-  const notes = useStore((s) => s.ws.notes);
   const mode = useStore((s) => s.ui.noteMode);
   const outline = headings(note.body);
-  const out = extractLinks(note.body);
   const goto = (i: number, line: number) => {
     if (mode === "edit") editorApi.current?.gotoLine(line);
     else
@@ -965,32 +964,6 @@ function NoteSide({ note, editorApi }: { note: Note; editorApi: React.MutableRef
           ))
         ) : (
           <p className="text-sm text-muted-foreground">Use títulos (# ou o botão H1) para montar o sumário.</p>
-        )}
-      </section>
-      <section className="flex flex-col gap-1.5">
-        <h3 className="text-sm font-semibold">
-          Links desta nota <span className="font-normal text-muted-foreground tabular-nums">{out.length}</span>
-        </h3>
-        {out.length ? (
-          out.map((t) => {
-            const target = findByTitle(notes, t);
-            return (
-              <button
-                key={t}
-                onClick={() => openNoteByTitle(t, note.folder)}
-                title={target ? "Abrir" : "Criar esta nota"}
-                className={cn(
-                  "truncate rounded-md px-1.5 py-1 text-left text-sm hover:bg-muted",
-                  target ? "text-foreground" : "text-muted-foreground",
-                )}
-              >
-                {target ? "→ " : "+ "}
-                {t}
-              </button>
-            );
-          })
-        ) : (
-          <p className="text-sm text-muted-foreground">Nenhum link ainda.</p>
         )}
       </section>
     </div>

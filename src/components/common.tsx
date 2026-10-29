@@ -127,14 +127,14 @@ export function EmojiPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={label} className="text-lg">
+        <Button variant="ghost" size="icon" aria-label={label} className="text-2xl">
           {value}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72" align="start">
         <div className="grid grid-cols-8 gap-0.5">
           {EMOJIS.map((e) => (
-            <Button key={e} variant="ghost" size="icon-sm" className="text-base" onClick={() => pick(e)}>
+            <Button key={e} variant="ghost" size="icon-sm" className="text-lg" onClick={() => pick(e)}>
               {e}
             </Button>
           ))}

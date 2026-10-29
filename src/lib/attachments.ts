@@ -1,0 +1,105 @@
+import { supabase } from "./supabase";
+import { uid } from "./util";
+
+/** Images and PDFs added to notes. The note text keeps only a reference: ![name](anexo:ID) or [📄 name](anexo:ID). */
+export const ATTACH_PREFIX = "anexo:";
+export const MAX_BYTES = 10 * 1024 * 1024;
+const BUCKET = "anexos";
+
+export type AttachmentKind = "image" | "pdf";
+
+export function kindOf(type: string): AttachmentKind | null {
+  if (type.startsWith("image/")) return "image";
+  if (type === "application/pdf") return "pdf";
+  return null;
+}
+
+/** The Markdown inserted in the note for a saved file. */
+export function attachmentMarkdown(a: { id: string; name: string; kind: AttachmentKind }) {
+  const name = a.name.replace(/[[\]\n]/g, " ").trim() || (a.kind === "pdf" ? "arquivo.pdf" : "imagem");
+  return a.kind === "image" ? `![${name}](${ATTACH_PREFIX}${a.id})` : `[📄 ${name}](${ATTACH_PREFIX}${a.id})`;
+}
+
+/* ---------- this browser only (no login) ---------- */
+function db(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("minha-rotina-anexos", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("files");
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idb<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest): Promise<T> {
+  const d = await db();
+  return new Promise((resolve, reject) => {
+    const req = run(d.transaction("files", mode).objectStore("files"));
+    req.onsuccess = () => resolve(req.result as T);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/* ---------- cloud ---------- */
+async function userId() {
+  const { data } = await supabase!.auth.getSession();
+  const id = data.session?.user.id;
+  if (!id) throw new Error("Entre na sua conta para anexar arquivos.");
+  return id;
+}
+
+/** Stores the file and returns what the note needs to point at it. Throws with a readable message. */
+export async function saveAttachment(file: File) {
+  const kind = kindOf(file.type);
+  if (!kind) throw new Error("Só dá para anexar imagens e PDF.");
+  if (file.size > MAX_BYTES) throw new Error("O arquivo passa de 10 MB.");
+  const id = uid();
+  if (supabase) {
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(`${await userId()}/${id}`, file, { contentType: file.type, upsert: false });
+    if (error) throw new Error("Não foi possível enviar o arquivo. Tente de novo.");
+  } else {
+    await idb("readwrite", (s) => s.put(file, id));
+  }
+  return { id, name: file.name, kind };
+}
+
+const urls = new Map<string, { url: string; until: number }>();
+
+/** A URL the browser can open for an attachment, or null if it no longer exists. */
+export async function attachmentUrl(id: string): Promise<string | null> {
+  const hit = urls.get(id);
+  if (hit && hit.until > Date.now()) return hit.url;
+  let url: string | null = null;
+  if (supabase) {
+    const { data } = await supabase.storage.from(BUCKET).createSignedUrl(`${await userId()}/${id}`, 3600);
+    url = data?.signedUrl ?? null;
+    if (url) urls.set(id, { url, until: Date.now() + 50 * 60 * 1000 });
+  } else {
+    const blob = await idb<Blob | undefined>("readonly", (s) => s.get(id)).catch(() => undefined);
+    url = blob ? URL.createObjectURL(blob) : null;
+    if (url) urls.set(id, { url, until: Infinity });
+  }
+  return url;
+}
+
+/** Swaps attachment references inside rendered HTML (img[data-anexo], a[href^="anexo:"]) for real URLs. */
+export function resolveIn(root: HTMLElement) {
+  for (const img of root.querySelectorAll<HTMLImageElement>("img[data-anexo]")) {
+    const id = img.dataset.anexo!;
+    img.classList.add("attach-img");
+    void attachmentUrl(id).then((u) => {
+      if (u) img.src = u;
+      else img.alt = `${img.alt} (arquivo não encontrado)`;
+    });
+  }
+  for (const a of root.querySelectorAll<HTMLAnchorElement>(`a[href^="${ATTACH_PREFIX}"]`)) {
+    const id = a.getAttribute("href")!.slice(ATTACH_PREFIX.length);
+    a.removeAttribute("href");
+    a.classList.add("attach-file");
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    void attachmentUrl(id).then((u) => {
+      if (u) a.href = u;
+    });
+  }
+}

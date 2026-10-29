@@ -61,7 +61,7 @@
 }
 
 :root {
-  --background: #f7f8fa;
+  --background: #f3f5f7;
   --foreground: #1e2330;
   --card: #ffffff;
   --card-foreground: #1e2330;
@@ -76,7 +76,7 @@
   --accent: #e8eef2;
   --accent-foreground: #1e2330;
   --destructive: #c93b3b;
-  --border: #e1e5eb;
+  --border: #e3e7ec;
   --input: #d9dee6;
   --ring: #1f7a8c;
   --chart-1: #1f7a8c;
@@ -84,13 +84,13 @@
   --chart-3: #7b5cd6;
   --chart-4: #b97a0c;
   --chart-5: #2f8f5b;
-  --radius: 0.75rem;
-  --sidebar: #ffffff;
+  --radius: 0.875rem;
+  --sidebar: #fbfcfd;
   --sidebar-foreground: #1e2330;
   --sidebar-primary: #1f7a8c;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #edf2f5;
-  --sidebar-accent-foreground: #1e2330;
+  --sidebar-accent: #e3f0f2;
+  --sidebar-accent-foreground: #155f6d;
   --sidebar-border: #e6e9ee;
   --sidebar-ring: #1f7a8c;
   --success: #2f8f5b;
@@ -125,7 +125,7 @@
 
 .dark {
   color-scheme: dark;
-  --background: #14171d;
+  --background: #12151a;
   --foreground: #e8eaee;
   --card: #1b1f27;
   --card-foreground: #e8eaee;
@@ -152,8 +152,8 @@
   --sidebar-foreground: #e8eaee;
   --sidebar-primary: #5cc2d3;
   --sidebar-primary-foreground: #0c1b1f;
-  --sidebar-accent: #242a35;
-  --sidebar-accent-foreground: #e8eaee;
+  --sidebar-accent: #1d3439;
+  --sidebar-accent-foreground: #8fd9e5;
   --sidebar-border: #262b35;
   --sidebar-ring: #5cc2d3;
   --success: #6fd39a;
@@ -206,6 +206,8 @@
     height: 100%;
   }
   body {
+    font-size: 1rem;
+    line-height: 1.55;
     -webkit-font-smoothing: antialiased;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -306,8 +308,8 @@
     left: 0;
     top: 6px;
     bottom: 6px;
-    width: 4px;
-    border-radius: 4px;
+    width: 5px;
+    border-radius: 5px;
     background: var(--area, var(--border));
   }
   .area-soft {

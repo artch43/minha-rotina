@@ -54,6 +54,8 @@ export interface Page {
   order: number;
   cover?: string;
   fav?: boolean;
+  /** Folder path in the sidebar, like "Faculdade/2º semestre" (task lists only). */
+  folder?: string;
 }
 /** Only used to read data saved before version 2 (block pages and block notes). */
 export interface Block {
@@ -151,6 +153,8 @@ export interface Settings {
   defaultAlerts: number[];
   /** Note folders created by the person, kept even while empty. */
   noteFolders?: string[];
+  /** Sidebar folders for task lists, kept even while empty. */
+  boardFolders?: string[];
 }
 export interface Workspace {
   version: 2;

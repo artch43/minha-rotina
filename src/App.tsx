@@ -153,7 +153,7 @@ function Workspace() {
         Pular para o conteúdo
       </a>
       <SidebarInset className="min-w-0" id="conteudo">
-        <Topbar title={title} showAreas={route !== "notes"} />
+        <Topbar title={title} showAreas={route !== "notes" && current?.type !== "habits"} />
         {route === "notes" ? (
           <Suspense fallback={<Loading text="Abrindo anotações…" />}>
             <NotesView />

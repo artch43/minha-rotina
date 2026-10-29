@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { backlinks, extractLinks, extractTags, folderList, headings, renameLinks, uniqueTitle } from "./notes";
+import { boardFolderList, extractTags, folderList, headings, plainSnippet, uniqueTitle } from "./notes";
+import { template } from "./template";
+import { attachmentMarkdown, kindOf } from "./attachments";
 import type { Note } from "./types";
 
 const note = (id: string, title: string, body: string, folder = ""): Note => ({
@@ -12,12 +14,6 @@ const note = (id: string, title: string, body: string, folder = ""): Note => ({
 });
 
 describe("anotações", () => {
-  it("encontra links, inclusive com apelido e seção, ignorando código", () => {
-    expect(extractLinks("Ver [[Iluminismo]] e [[Revolução Francesa#Causas|causas]]. `[[Não]]`")).toEqual([
-      "Iluminismo",
-      "Revolução Francesa",
-    ]);
-  });
   it("encontra tags, mas não títulos nem cores", () => {
     expect(extractTags("# Título\nEstudar #história e #prova-1 hoje. Cor #123 não. (#Revisão)")).toEqual([
       "história",
@@ -27,20 +23,6 @@ describe("anotações", () => {
   });
   it("lista os títulos para o sumário, fora de blocos de código", () => {
     expect(headings("# A\ntexto\n```\n# não\n```\n## B").map((h) => h.text)).toEqual(["A", "B"]);
-  });
-  it("mostra menções (backlinks) com um trecho", () => {
-    const notes = {
-      a: note("a", "Iluminismo", ""),
-      b: note("b", "Revolução", "Influência do [[iluminismo|Iluminismo]] francês"),
-    };
-    const bl = backlinks(notes, notes.a);
-    expect(bl.map((x) => x.note.id)).toEqual(["b"]);
-    expect(bl[0].snippet).toBe("Influência do Iluminismo francês");
-  });
-  it("atualiza links ao renomear, mantendo seção e apelido", () => {
-    expect(renameLinks("[[Velho]] e [[velho#Parte|aqui]] e [[Outro]]", "Velho", "Novo")).toBe(
-      "[[Novo]] e [[Novo#Parte|aqui]] e [[Outro]]",
-    );
   });
   it("cria títulos únicos e lista pastas com os pais", () => {
     const notes = { a: note("a", "Sem título", "", "Faculdade/Cálculo") };
@@ -58,5 +40,29 @@ describe("prévia das notas", () => {
     expect(ago(Date.now() - 30_000)).toBe("agora");
     expect(ago(Date.now() - 3 * 3600_000)).toBe("há 3 h");
     expect(ago(Date.now() - 86400_000 - 1000)).toBe("ontem");
+  });
+  it("prévia sem colchetes de links antigos", () => {
+    expect(plainSnippet("Ver [[Iluminismo|o Iluminismo]] e **isto**")).toBe("Ver o Iluminismo e isto");
+  });
+});
+
+describe("pastas de listas", () => {
+  it("junta as pastas das listas e as vazias, com os pais", () => {
+    const ws = template();
+    ws.pages.push({ id: "b", title: "Cálculo", icon: "📐", type: "db", parent: null, order: 9, folder: "Faculdade/2º semestre" });
+    ws.settings.boardFolders = ["Casa"];
+    expect(boardFolderList(ws)).toEqual(["Casa", "Faculdade", "Faculdade/2º semestre"]);
+  });
+});
+
+describe("anexos", () => {
+  it("aceita só imagens e PDF", () => {
+    expect(kindOf("image/png")).toBe("image");
+    expect(kindOf("application/pdf")).toBe("pdf");
+    expect(kindOf("text/plain")).toBeNull();
+  });
+  it("escreve a referência no texto da nota", () => {
+    expect(attachmentMarkdown({ id: "x1", name: "foto [1].jpg", kind: "image" })).toBe("![foto  1 .jpg](anexo:x1)");
+    expect(attachmentMarkdown({ id: "p2", name: "contrato.pdf", kind: "pdf" })).toBe("[📄 contrato.pdf](anexo:p2)");
   });
 });

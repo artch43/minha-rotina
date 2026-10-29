@@ -6,7 +6,7 @@ import type { Area, CalendarEvent, Color, Group, Item, Note, PropValue, Todo, Wo
 import { template, mkDb, DEFAULT_STATUS } from "./lib/template";
 import { applyStatusChange, childrenOf, runReviews, statusProp } from "./lib/model";
 import { addDays, diffDays, parseD, today, uid } from "./lib/util";
-import { dailyBody, findByTitle, renameLinks, uniqueTitle } from "./lib/notes";
+import { dailyBody, uniqueTitle } from "./lib/notes";
 import { STORAGE_KEY, workspaceStorage } from "./lib/storage";
 import { normalizeWorkspace } from "./lib/migrate";
 
@@ -318,7 +318,7 @@ export function deleteStatus(dbId: string, optId: string) {
 }
 
 /* ---------- boards (databases) ---------- */
-export function addBoard(title: string, icon: string, defaultArea?: string) {
+export function addBoard(title: string, icon: string, defaultArea?: string, folder = "") {
   const id = uid();
   mut((w) => {
     const top = childrenOf(w, null);
@@ -329,6 +329,7 @@ export function addBoard(title: string, icon: string, defaultArea?: string) {
       type: "db",
       parent: null,
       order: (top.at(-1)?.order ?? 0) + 1,
+      ...(folder ? { folder } : {}),
     });
     w.dbs[id] = mkDb(DEFAULT_STATUS, defaultArea);
   });
@@ -343,17 +344,71 @@ export function renamePage(id: string, title: string, icon?: string) {
     if (icon) p.icon = icon;
   });
 }
+/** Moves a task list up or down among the lists in the same folder. */
 export function movePage(id: string, dir: -1 | 1) {
   mut((w) => {
-    const list = childrenOf(w, null);
+    const all = childrenOf(w, null);
+    const folder = all.find((p) => p.id === id)?.folder ?? "";
+    const list = all.filter((p) => p.type === "db" && (p.folder ?? "") === folder);
     const i = list.findIndex((p) => p.id === id),
       j = i + dir;
     if (i < 0 || j < 0 || j >= list.length) return;
-    [list[i], list[j]] = [list[j], list[i]];
-    list.forEach((p, k) => {
-      p.order = k;
-    });
+    [list[i].order, list[j].order] = [list[j].order, list[i].order];
+    if (list[i].order === list[j].order) list[j].order += dir;
   });
+}
+export function setPageFolder(id: string, folder: string) {
+  mut((w) => {
+    const p = w.pages.find((x) => x.id === id);
+    if (!p) return;
+    if (folder) p.folder = folder;
+    else delete p.folder;
+  });
+}
+
+/* ---------- task-list folders (sidebar) ---------- */
+export function addBoardFolder(path: string) {
+  const clean = cleanPath(path);
+  if (!clean) return;
+  mut((w) => {
+    const list = w.settings.boardFolders ?? [];
+    if (!list.includes(clean)) w.settings.boardFolders = [...list, clean];
+  });
+  return clean;
+}
+export function renameBoardFolder(from: string, to: string) {
+  const dest = cleanPath(to);
+  if (!dest || dest === from) return;
+  const swap = (f: string) => (f === from ? dest : f.startsWith(from + "/") ? dest + f.slice(from.length) : f);
+  mut((w) => {
+    for (const p of w.pages) if (p.folder) p.folder = swap(p.folder);
+    w.settings.boardFolders = (w.settings.boardFolders ?? []).map(swap);
+  });
+}
+/** Removes a folder and its subfolders. The lists inside are kept and move up to the parent folder. */
+export function deleteBoardFolder(path: string) {
+  const inside = (f = "") => f === path || f.startsWith(path + "/");
+  const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+  const before = ws();
+  const moved = before.pages.filter((p) => inside(p.folder)).map((p) => ({ id: p.id, folder: p.folder }));
+  const folders = before.settings.boardFolders ?? [];
+  mut((w) => {
+    for (const p of w.pages)
+      if (inside(p.folder)) {
+        if (parent) p.folder = parent;
+        else delete p.folder;
+      }
+    w.settings.boardFolders = folders.filter((f) => !inside(f));
+  });
+  toast(moved.length ? `Pasta excluída. As listas foram para ${parent || "fora das pastas"}.` : "Pasta excluída", () =>
+    mut((w) => {
+      for (const m of moved) {
+        const p = w.pages.find((x) => x.id === m.id);
+        if (p) p.folder = m.folder;
+      }
+      w.settings.boardFolders = folders;
+    }),
+  );
 }
 export function deletePage(id: string) {
   const before = ws();
@@ -558,13 +613,6 @@ export function createNote(init: Partial<Note> = {}) {
   return id;
 }
 
-/** Opens the note with this title, creating it (next to `nearFolder`) when it doesn't exist yet. */
-export function openNoteByTitle(title: string, nearFolder = "") {
-  const found = findByTitle(ws().notes, title);
-  if (found) openNotes(found.id);
-  else createNote({ title, folder: nearFolder });
-}
-
 export function updateNote(id: string, patch: Partial<Note>) {
   mut((w) => {
     const n = w.notes[id];
@@ -572,23 +620,13 @@ export function updateNote(id: string, patch: Partial<Note>) {
   });
 }
 
-/** Renames a note and rewrites every [[link]] that pointed at the old title. */
 export function renameNote(id: string, title: string) {
   const n = ws().notes[id];
   const next = title.trim() || "Sem título";
   if (!n || n.title === next) return;
-  const old = n.title;
   mut((w) => {
     w.notes[id].title = next;
     w.notes[id].updated = Date.now();
-    for (const other of Object.values(w.notes)) {
-      if (other.id === id || !other.body.includes("[[")) continue;
-      const body = renameLinks(other.body, old, next);
-      if (body !== other.body) {
-        other.body = body;
-        other.updated = Date.now();
-      }
-    }
   });
 }
 

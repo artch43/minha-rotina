@@ -132,7 +132,7 @@ export function CalendarPage() {
   return (
     <div className="flex flex-col gap-4 px-4 py-6 md:px-8">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-2xl font-bold tracking-tight capitalize md:text-3xl">{label}</h1>
+        <h1 className="mr-auto text-3xl font-extrabold tracking-tight capitalize md:text-4xl">{label}</h1>
         <Button onClick={() => openEvent(null, newEventDay)}>
           <Plus data-icon="inline-start" />
           Novo evento

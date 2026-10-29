@@ -21,7 +21,6 @@ export function AreaSwitcher({ className }: { className?: string }) {
       <ToggleGroup
         type="single"
         variant="outline"
-        size="sm"
         aria-label="Mostrar a área"
         className="min-w-0 overflow-x-auto"
         value={area}
@@ -49,24 +48,24 @@ export function AreaSwitcher({ className }: { className?: string }) {
 
 function SaveState() {
   const status = useSync((s) => s.status);
-  if (!cloudEnabled) return <span className="hidden text-xs text-muted-foreground lg:inline">Salvo neste navegador</span>;
+  if (!cloudEnabled) return <span className="hidden text-sm text-muted-foreground lg:inline">Salvo neste navegador</span>;
   if (status === "saving")
     return (
-      <span className="flex items-center gap-1 text-xs text-muted-foreground" role="status">
+      <span className="flex items-center gap-1 text-sm text-muted-foreground" role="status">
         <Loader2 className="size-3.5 animate-spin" />
         Salvando…
       </span>
     );
   if (status === "offline" || status === "error")
     return (
-      <span className="flex items-center gap-1 text-xs text-warning" role="status">
+      <span className="flex items-center gap-1 text-sm text-warning" role="status">
         <CloudOff className="size-3.5" />
         {status === "offline" ? "Sem conexão" : "Tentando salvar"}
       </span>
     );
   if (status === "saved")
     return (
-      <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex" role="status">
+      <span className="hidden items-center gap-1 text-sm text-muted-foreground sm:flex" role="status">
         <Check className="size-3.5" />
         Salvo
       </span>
@@ -76,10 +75,10 @@ function SaveState() {
 
 export function Topbar({ title, showAreas = true }: { title: React.ReactNode; showAreas?: boolean }) {
   return (
-    <header className="sticky top-0 z-10 flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 border-b bg-background/90 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/75">
-      <SidebarTrigger className="-ml-1" />
+    <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 border-b bg-background/90 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/75">
+      <SidebarTrigger className="-ml-1 size-10 [&_svg]:size-5" />
       <Separator orientation="vertical" className="h-5" />
-      <div className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</div>
+      <div className="min-w-0 flex-1 truncate text-base font-semibold">{title}</div>
       <SaveState />
       {showAreas && <AreaSwitcher className="order-last w-full sm:order-none sm:w-auto" />}
     </header>

@@ -119,7 +119,7 @@ export function Board({ page, db, view, list }: { page: Page; db: Database; view
                 />
               ) : (
                 <button
-                  className="min-w-0 truncate rounded-md px-1 py-0.5 text-left text-sm font-semibold hover:bg-background"
+                  className="min-w-0 truncate rounded-md px-1 py-0.5 text-left text-[15px] font-semibold hover:bg-background"
                   title="Clique para renomear"
                   onClick={() => setEditing(o.id)}
                 >
@@ -344,7 +344,7 @@ function Card({
       onDragEnd={onDragEnd}
     >
       <div className="flex items-start gap-2">
-        <span className="min-w-0 flex-1 text-sm font-medium break-words">
+        <span className="min-w-0 flex-1 text-[15px] font-medium break-words">
           {it.title || <span className="text-muted-foreground">Sem título</span>}
         </span>
         <DropdownMenu>
@@ -376,7 +376,7 @@ function Card({
           {date && (
             <span
               className={cn(
-                "flex items-center gap-1 text-xs tabular-nums",
+                "flex items-center gap-1 text-[13px] tabular-nums",
                 late ? "font-medium text-destructive" : "text-muted-foreground",
               )}
             >
@@ -389,7 +389,7 @@ function Card({
             <OptionBadge key={t!.id} opt={t!} />
           ))}
           {review && (
-            <span className="flex items-center gap-1 text-xs text-primary">
+            <span className="flex items-center gap-1 text-[13px] text-primary">
               <RotateCcw className="size-3" />
               revisar {fmtDate(it.review!.next!).toLowerCase()}
             </span>

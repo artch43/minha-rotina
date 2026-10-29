@@ -39,7 +39,7 @@ export function DbPage({ page }: { page: Page }) {
   return (
     <div className="flex flex-col gap-4 px-4 py-6 md:px-8">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+        <h1 className="mr-auto flex items-center gap-2 text-3xl font-extrabold tracking-tight md:text-4xl">
           <span aria-hidden="true">{page.icon}</span>
           {page.title || "Sem título"}
         </h1>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Habit } from "@/lib/types";
+import { streakOf } from "@/lib/model";
 import { addDays, fmtDate, parseD, today, uid } from "@/lib/util";
 import { deleteHabit, toggleHabit, useStore } from "@/store";
 import { Button } from "@/components/ui/button";
@@ -30,8 +31,8 @@ export function Habits() {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 md:px-8">
       <div className="flex flex-wrap items-center gap-3">
         <div className="mr-auto">
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Hábitos</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">Hábitos</h1>
+          <p className="text-base text-muted-foreground">
             {habits.length
               ? `Hoje: ${doneToday} de ${habits.length} feitos`
               : "Pequenas coisas que você quer fazer com frequência."}
@@ -72,8 +73,9 @@ function HabitRow({ h }: { h: Habit }) {
   const [history, setHistory] = useState(() => readOpen(h.id));
   const T = today();
   const isOn = (d: string) => (log[d] || []).includes(h.id);
-  const week = Array.from({ length: 6 }, (_, k) => addDays(T, k - 6));
-  const times = [...week, T].filter(isOn).length;
+  // Oldest on the left, today last.
+  const week = Array.from({ length: 7 }, (_, k) => addDays(T, k - 6));
+  const streak = streakOf(log, h.id);
   const edit = (fn: (x: Habit) => void) => mut((w) => fn(w.habits.find((x) => x.id === h.id)!));
   const on = isOn(T);
   const toggleHistory = () => {
@@ -81,7 +83,7 @@ function HabitRow({ h }: { h: Habit }) {
     saveOpen(h.id, !history);
   };
   return (
-    <div data-del={"habit:" + h.id} className="flex flex-col gap-3 py-4">
+    <div data-del={"habit:" + h.id} className="flex flex-col gap-3 py-5">
       <div className="flex items-center gap-3">
         <EmojiPicker
           value={h.icon}
@@ -105,37 +107,45 @@ function HabitRow({ h }: { h: Habit }) {
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur();
             }}
-            className="min-w-0 rounded-md bg-transparent px-1 py-0.5 font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-w-0 rounded-md bg-transparent px-1 py-0.5 text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
-          <span className="px-1 text-xs text-muted-foreground">
-            {times ? `${times} ${times === 1 ? "vez" : "vezes"} nos últimos 7 dias` : "Quando der, marque aqui"}
+          <span className="px-1 text-sm text-muted-foreground">
+            {streak ? (
+              <>
+                🔥 <b className="font-semibold text-foreground tabular-nums">{streak}</b>{" "}
+                {streak === 1 ? "dia seguido" : "dias seguidos"}
+              </>
+            ) : (
+              "Comece hoje"
+            )}
           </span>
         </div>
         <Button
           variant={on ? "default" : "outline"}
           aria-pressed={on}
-          className={cn("min-w-28", on && "bg-success text-white hover:bg-success/90 dark:text-background")}
+          size="lg"
+          className={cn("h-11 min-w-32 text-base", on && "bg-success text-white hover:bg-success/90 dark:text-background")}
           onClick={() => toggleHabit(h.id, T)}
         >
           {on && <Check data-icon="inline-start" />}
           {on ? "Feito hoje" : "Hoje"}
         </Button>
       </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pl-12">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pl-14">
         <div className="flex gap-1.5" role="group" aria-label="Últimos dias">
           {week.map((d) => (
-            <DayDot key={d} day={d} on={isOn(d)} onClick={() => toggleHabit(h.id, d)} />
+            <DayDot key={d} day={d} on={isOn(d)} today={d === T} onClick={() => toggleHabit(h.id, d)} />
           ))}
         </div>
         <button
-          className="ml-auto flex items-center gap-1 rounded-md px-1 py-0.5 text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           aria-expanded={history}
           onClick={toggleHistory}
         >
           {history ? (
-            <ChevronUp className="size-3.5" aria-hidden="true" />
+            <ChevronUp className="size-4" aria-hidden="true" />
           ) : (
-            <ChevronDown className="size-3.5" aria-hidden="true" />
+            <ChevronDown className="size-4" aria-hidden="true" />
           )}
           {history ? "Esconder histórico" : "Ver histórico"}
         </button>
@@ -148,16 +158,17 @@ function HabitRow({ h }: { h: Habit }) {
   );
 }
 
-function DayDot({ day, on, onClick }: { day: string; on: boolean; onClick: () => void }) {
+function DayDot({ day, on, today: isToday, onClick }: { day: string; on: boolean; today?: boolean; onClick: () => void }) {
   return (
     <button
       aria-pressed={on}
-      aria-label={`${fmtDate(day)}${on ? ", feito" : ""}`}
-      title={fmtDate(day)}
+      aria-label={`${isToday ? "Hoje" : fmtDate(day)}${on ? ", feito" : ""}`}
+      title={isToday ? "Hoje" : fmtDate(day)}
       onClick={onClick}
       className={cn(
-        "flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-medium tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        "flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-medium tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         on ? "bg-success text-white dark:text-background" : "bg-muted text-muted-foreground hover:bg-accent",
+        isToday && "ring-2 ring-primary ring-offset-2 ring-offset-card",
       )}
     >
       {parseD(day).getDate()}
@@ -172,15 +183,19 @@ function History({ isOn, onToggle }: { isOn: (d: string) => boolean; onToggle: (
   const start = addDays(T, -dow - 7 * (WEEKS - 1));
   const days = Array.from({ length: WEEKS * 7 }, (_, k) => addDays(start, k));
   return (
-    <div className="ml-12 flex flex-col gap-1.5 rounded-lg bg-muted/40 p-3">
-      <div className="grid w-max grid-cols-7 gap-1.5 text-center text-[10px] text-muted-foreground">
+    <div className="ml-14 flex flex-col gap-1.5 rounded-xl bg-muted/40 p-3">
+      <div className="grid w-max grid-cols-7 gap-1.5 text-center text-xs text-muted-foreground">
         {["seg", "ter", "qua", "qui", "sex", "sáb", "dom"].map((d) => (
-          <span key={d} className="w-7">
+          <span key={d} className="w-9">
             {d}
           </span>
         ))}
         {days.map((d) =>
-          d > T ? <span key={d} className="size-7" /> : <DayDot key={d} day={d} on={isOn(d)} onClick={() => onToggle(d)} />,
+          d > T ? (
+            <span key={d} className="size-9" />
+          ) : (
+            <DayDot key={d} day={d} on={isOn(d)} today={d === T} onClick={() => onToggle(d)} />
+          ),
         )}
       </div>
     </div>

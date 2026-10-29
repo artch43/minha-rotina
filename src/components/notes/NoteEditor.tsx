@@ -13,9 +13,9 @@ import {
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { HighlightStyle, syntaxHighlighting, syntaxTree } from "@codemirror/language";
-import { autocompletion, startCompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { tags as t } from "@lezer/highlight";
-import { TAG_RE, parseWiki } from "../../lib/notes";
+import { TAG_RE } from "../../lib/notes";
+import { ATTACH_PREFIX, attachmentUrl } from "../../lib/attachments";
 
 export interface EditorApi {
   gotoLine: (line: number) => void;
@@ -24,7 +24,7 @@ export interface EditorApi {
   wrap: (mark: string) => void;
   linePrefix: (prefix: string) => void;
   link: () => void;
-  /** Types text at the cursor as if typed (so "[[" opens the note picker). */
+  /** Puts text at the cursor (used for attachments). */
   insert: (text: string) => void;
 }
 
@@ -82,10 +82,6 @@ const theme = EditorView.theme({
     boxShadow: "var(--shadow)",
     overflow: "hidden",
   },
-  ".cm-tooltip-autocomplete > ul": { fontFamily: "var(--f-body)", maxHeight: "260px" },
-  ".cm-tooltip-autocomplete > ul > li": { padding: "4px 10px !important" },
-  ".cm-tooltip-autocomplete > ul > li[aria-selected]": { background: "var(--hover)", color: "var(--fg)" },
-  ".cm-completionDetail": { color: "var(--faint)", fontStyle: "normal", marginLeft: "8px" },
 });
 
 const hide = Decoration.replace({});
@@ -131,7 +127,64 @@ class BulletWidget extends WidgetType {
   }
 }
 const bullet = Decoration.replace({ widget: new BulletWidget() });
-const WIKI = /\[\[([^\]\n]+?)\]\]/g;
+
+/** The picture itself in place of ![name](anexo:ID) or ![name](https://...). */
+class ImageWidget extends WidgetType {
+  constructor(
+    readonly src: string,
+    readonly alt: string,
+  ) {
+    super();
+  }
+  eq(other: ImageWidget) {
+    return other.src === this.src && other.alt === this.alt;
+  }
+  toDOM() {
+    const img = document.createElement("img");
+    img.className = "attach-img cm-attach-img";
+    img.alt = this.alt;
+    if (this.src.startsWith(ATTACH_PREFIX))
+      void attachmentUrl(this.src.slice(ATTACH_PREFIX.length)).then((u) => {
+        if (u) img.src = u;
+        else img.alt = `${this.alt} (arquivo não encontrado)`;
+      });
+    else img.src = this.src;
+    return img;
+  }
+}
+/** A card that opens the PDF in a new tab, in place of [📄 name](anexo:ID). */
+class FileWidget extends WidgetType {
+  constructor(
+    readonly id: string,
+    readonly label: string,
+  ) {
+    super();
+  }
+  eq(other: FileWidget) {
+    return other.id === this.id && other.label === this.label;
+  }
+  toDOM() {
+    const a = document.createElement("a");
+    a.className = "attach-file";
+    a.textContent = this.label;
+    a.title = "Abrir em nova aba";
+    a.addEventListener("mousedown", (e) => e.preventDefault());
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      const tab = window.open("about:blank", "_blank");
+      void attachmentUrl(this.id).then((u) => {
+        if (tab && u) tab.location.href = u;
+        else tab?.close();
+      });
+    });
+    return a;
+  }
+  ignoreEvent() {
+    return true;
+  }
+}
+const IMG = /!\[([^\]\n]*)\]\(((?:anexo:|https?:\/\/)[^)\s]+)\)/g;
+const FILE = /(?<!!)\[([^\]\n]+)\]\(anexo:([^)\s]+)\)/g;
 const lineDeco = (cls: string) => Decoration.line({ class: cls });
 
 /** Obsidian-style live preview: markup characters disappear on lines the cursor is not on. */
@@ -205,21 +258,17 @@ function buildDecorations(view: EditorView): DecorationSet {
       pos = line.to + 1;
     }
     const text = state.doc.sliceString(from, to);
-    for (const m of text.matchAll(WIKI)) {
+    for (const m of text.matchAll(IMG)) {
       const s = from + m.index!,
         e = s + m[0].length;
-      if (inCode(s, e)) continue;
-      const p = parseWiki(m[1]);
-      const attrs = { "data-target": p.target };
-      if (active.has(state.doc.lineAt(s).number)) {
-        out.push(Decoration.mark({ class: "cm-wikilink", attributes: attrs }).range(s, e));
-      } else {
-        const shownFrom = p.alias ? s + 2 + m[1].lastIndexOf("|") + 1 : s + 2;
-        out.push(hide.range(s, shownFrom));
-        if (e - 2 > shownFrom)
-          out.push(Decoration.mark({ class: "cm-wikilink cm-wikilink-live", attributes: attrs }).range(shownFrom, e - 2));
-        out.push(hide.range(e - 2, e));
-      }
+      if (inCode(s, e) || active.has(state.doc.lineAt(s).number)) continue;
+      out.push(Decoration.replace({ widget: new ImageWidget(m[2], m[1]) }).range(s, e));
+    }
+    for (const m of text.matchAll(FILE)) {
+      const s = from + m.index!,
+        e = s + m[0].length;
+      if (inCode(s, e) || active.has(state.doc.lineAt(s).number)) continue;
+      out.push(Decoration.replace({ widget: new FileWidget(m[2], m[1]) }).range(s, e));
     }
     for (const m of text.matchAll(TAG_RE)) {
       const s = from + m.index! + m[1].length;
@@ -274,10 +323,10 @@ function insertLink(view: EditorView) {
 export function NoteEditor(props: {
   noteId: string;
   body: string;
-  titles: () => string[];
   onChange: (body: string) => void;
-  onOpenLink: (title: string) => void;
   onTag: (tag: string) => void;
+  /** Images or PDFs pasted or dropped into the text. */
+  onFiles: (files: File[]) => void;
   apiRef?: MutableRefObject<EditorApi | null>;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -286,25 +335,6 @@ export function NoteEditor(props: {
   cb.current = props;
 
   useEffect(() => {
-    const complete = (ctx: CompletionContext): CompletionResult | null => {
-      const m = ctx.matchBefore(/\[\[[^\]\n|#]*/);
-      if (!m) return null;
-      return {
-        from: m.from + 2,
-        validFor: /^[^\]\n|#]*$/,
-        options: cb.current.titles().map((title) => ({
-          label: title,
-          type: "text",
-          apply: (view: EditorView, _c: unknown, from: number, to: number) => {
-            const closed = view.state.sliceDoc(to, to + 2) === "]]";
-            view.dispatch({
-              changes: { from, to, insert: title + (closed ? "" : "]]") },
-              selection: { anchor: from + title.length + 2 },
-            });
-          },
-        })),
-      };
-    };
     const view = new EditorView({
       parent: host.current!,
       state: EditorState.create({
@@ -323,24 +353,33 @@ export function NoteEditor(props: {
           syntaxHighlighting(highlight),
           livePreview,
           EditorView.lineWrapping,
-          placeholder("Comece a escrever… Use [[ para ligar a outra nota e # para tags."),
-          autocompletion({ override: [complete], icons: false }),
+          placeholder("Comece a escrever… Use # para tags."),
           theme,
           EditorView.contentAttributes.of({ "aria-label": "Texto da anotação", spellcheck: "true" }),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) cb.current.onChange(u.state.doc.toString());
           }),
           EditorView.domEventHandlers({
+            paste: (e) => {
+              const files = [...(e.clipboardData?.files ?? [])];
+              if (!files.length) return false;
+              e.preventDefault();
+              cb.current.onFiles(files);
+              return true;
+            },
+            drop: (e, view) => {
+              const files = [...(e.dataTransfer?.files ?? [])];
+              if (!files.length) return false;
+              e.preventDefault();
+              const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
+              if (pos != null) view.dispatch({ selection: { anchor: pos } });
+              cb.current.onFiles(files);
+              return true;
+            },
             mousedown: (e) => {
-              const el = (e.target as HTMLElement).closest<HTMLElement>(".cm-wikilink, .cm-tag");
+              const el = (e.target as HTMLElement).closest<HTMLElement>(".cm-tag");
               if (!el) return false;
-              const mod = e.metaKey || e.ctrlKey;
-              if (el.classList.contains("cm-wikilink") && (mod || el.classList.contains("cm-wikilink-live"))) {
-                e.preventDefault();
-                cb.current.onOpenLink(el.dataset.target!);
-                return true;
-              }
-              if (el.classList.contains("cm-tag") && mod) {
+              if (e.metaKey || e.ctrlKey) {
                 e.preventDefault();
                 cb.current.onTag(el.dataset.tag!);
                 return true;
@@ -373,10 +412,9 @@ export function NoteEditor(props: {
           view.dispatch({
             changes: { from: r.from, to: r.to, insert: text },
             selection: { anchor: r.from + text.length },
-            userEvent: "input.type",
+            userEvent: "input",
           });
           view.focus();
-          startCompletion(view);
         },
         link: () => {
           const r = view.state.selection.main;

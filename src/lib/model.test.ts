@@ -98,6 +98,17 @@ describe("sequência de hábitos", () => {
   it("zera quando houve um dia sem marcar", () => {
     expect(streakOf({ "2026-10-24": ["h"], "2026-10-25": ["h"] }, "h")).toBe(0);
   });
+  it("não depende da ordem em que os dias foram marcados", () => {
+    const log = { "2026-10-27": ["h"], "2026-10-25": ["h"], "2026-10-26": ["h"] };
+    expect(streakOf(log, "h")).toBe(3);
+  });
+  it("conta só a partir do último buraco", () => {
+    const log = { "2026-10-22": ["h"], "2026-10-23": ["h"], "2026-10-25": ["h"], "2026-10-26": ["h"], "2026-10-27": ["h"] };
+    expect(streakOf(log, "h")).toBe(3);
+  });
+  it("ignora os outros hábitos do mesmo dia", () => {
+    expect(streakOf({ "2026-10-26": ["outro"], "2026-10-27": ["h", "outro"] }, "h")).toBe(1);
+  });
 });
 
 describe("áreas", () => {

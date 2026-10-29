@@ -5,10 +5,11 @@ Um espaço pessoal e simples para organizar a rotina:
 - **Listas de tarefas** com quadro de status (colunas renomeáveis), tabela e calendário.
 - **Áreas** (Pessoal, Profissional, Estudos…) com um seletor no topo que filtra tudo; crie novas pelo botão ＋.
 - **Calendário** com eventos (inclusive repetidos) e **alertas por e-mail** no horário que você escolher. Tarefas com data também aparecem lá e podem ter alertas.
-- **Início** com as tarefas de hoje e um campo para adicionar mais; agenda do dia e atrasadas logo abaixo.
-- **Anotações** em Markdown, com barra de formatação, links `[[entre notas]]`, menções, pastas, tags e modo foco.
+- **Início** só para consulta: as tarefas com prazo para hoje; clicar numa leva ao quadro dela.
+- **Listas de tarefas em pastas** (e pastas dentro de pastas) na barra lateral.
+- **Anotações** em Markdown, com barra de formatação, imagens e PDF anexados, pastas, tags e modo foco.
 - **Instalável como app** (PWA) no celular e no computador.
-- **Hábitos**: marque o de hoje; o histórico fica recolhido para consulta.
+- **Hábitos**: marque o de hoje e acompanhe a sequência de dias seguidos; o histórico fica recolhido para consulta.
 
 ## Como rodar
 
@@ -60,7 +61,8 @@ src/
     migrate.ts          atualiza dados salvos por versões antigas
     template.ts         espaço inicial com exemplos
     sync.ts / records.ts   sincronização com a nuvem, lixeira e lembretes
-    notes.ts / notesIO.ts  links [[ ]], tags, menções, exportar .md
+    notes.ts / notesIO.ts  tags, pastas, exportar .md
+    attachments.ts      imagens e PDF das anotações (Supabase Storage ou o navegador)
     backup.ts, supabase.ts, storage.ts, util.ts
   components/
     ui/                 componentes do shadcn (gerados pela CLI)
@@ -70,7 +72,7 @@ src/
     notes/              Anotações: NotesView, NoteEditor (CodeMirror), NoteReader
     Home.tsx, Habits.tsx, Search.tsx, Settings.tsx, Trash.tsx, Auth.tsx
 supabase/
-  migrations/           SQL do banco (rode na ordem: 001 a 004, ou tudo de uma vez com setup.sql)
+  migrations/           SQL do banco (rode na ordem: 001 a 005, ou tudo de uma vez com setup.sql)
   functions/            send-reminders: envia os alertas por e-mail
   cron.sql              agenda a função para rodar a cada minuto
 ```

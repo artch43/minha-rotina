@@ -79,7 +79,7 @@ export const GUIDE_NOTE = (id = uid()): Note => ({
     "- As tarefas com data também aparecem lá.",
     "",
     "## Anotações",
-    "- Escreva em Markdown e ligue notas com [[Nome da nota]].",
+    "- Escreva em Markdown. Para anexar imagens e PDF, use o botão Imagem ou PDF ou cole e arraste no texto.",
     "- Ctrl/Cmd + K abre a busca.",
     "- Ctrl + Delete (⌘ + ⌫ no Mac) apaga o item selecionado ou sob o mouse. Dá para desfazer logo em seguida.",
     "",
@@ -211,7 +211,7 @@ export function template(): Workspace {
     title: "Ideias",
     created: Date.now(),
     updated: Date.now(),
-    body: "- Anote aqui o que vier à cabeça. Volte para o [[Guia rápido]].\n\n#exemplo\n",
+    body: "- Anote aqui o que vier à cabeça. Veja o Guia rápido para mais dicas.\n\n#exemplo\n",
   };
 
   return {
