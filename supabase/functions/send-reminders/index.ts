@@ -1,7 +1,8 @@
 // Supabase Edge Function: sends the reminders that are due, by e-mail or WhatsApp. Runs every minute (see supabase/cron.sql).
 // Secrets: CRON_SECRET, APP_URL, and one way to send e-mail:
 //   Gmail (or any SMTP, free, no domain needed): SMTP_USER (the address), SMTP_PASS (an app password),
-//     optional SMTP_HOST (default smtp.gmail.com), SMTP_PORT (default 465), SMTP_FROM_NAME (default "Minha Rotina").
+//     optional SMTP_HOST (default smtp.gmail.com), SMTP_PORT (default 465; Supabase blocks 25 and 587),
+//     SMTP_FROM (the sender address, when it isn't SMTP_USER, as with Brevo), SMTP_FROM_NAME (default "Minha Rotina").
 //   Resend (needs a verified domain to reach other people): RESEND_API_KEY, REMINDER_FROM
 //     (e.g. "Minha Rotina <alertas@seudominio.com>"). When both are set, SMTP is used.
 // WhatsApp (optional; until it is set up, WhatsApp reminders arrive by e-mail):
@@ -70,7 +71,7 @@ function smtpStatus(e: { code?: string; responseCode?: number }) {
 }
 
 async function sendSmtp(to: string, title: string, when: string, appUrl: string): Promise<Sent> {
-  const user = Deno.env.get("SMTP_USER")!;
+  const user = Deno.env.get("SMTP_FROM") || Deno.env.get("SMTP_USER")!;
   const name = (Deno.env.get("SMTP_FROM_NAME") ?? "Minha Rotina").replace(/["<>\r\n]/g, "");
   try {
     await smtpTransport().sendMail({
