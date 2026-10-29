@@ -126,6 +126,8 @@ function wantedReminders(r: Rec): OutRow[] {
   }
   // WhatsApp only when there is a number to send to; otherwise the alert still arrives by e-mail.
   // E-mail rows leave both columns out, so they keep working before migration 006 is applied.
+  // Kept within the limits the database checks (migration 007), so a long title can't block the insert.
+  rows = rows.map((x) => ({ ...x, title: x.title.slice(0, 300), when_label: x.when_label.slice(0, 200) }));
   const phone = ws.settings.whatsapp;
   return channel === "whatsapp" && phone ? rows.map((x) => ({ ...x, channel: "whatsapp", phone })) : rows;
 }
@@ -335,8 +337,20 @@ function begin() {
   }, 60_000);
 }
 
-export async function signOut() {
+/** Sends what is still waiting; true when nothing is left (waits for a send already under way). */
+async function flushAll() {
+  for (let i = 0; i < 50 && flushing; i++) await new Promise((r) => setTimeout(r, 100));
   await flush();
+  return pending.size === 0;
+}
+
+/**
+ * Signs out and clears this browser's copy. Refuses while changes still can't reach the cloud
+ * (offline, server error), since clearing then would lose them; `force` signs out anyway.
+ */
+export async function signOut(force = false) {
+  if (!(await flushAll()) && !force)
+    throw new Error("Algumas alterações ainda não foram salvas na nuvem. Conecte-se à internet e tente sair de novo.");
   try {
     localStorage.removeItem(cacheKey());
     localStorage.removeItem(metaKey());
@@ -356,8 +370,18 @@ export async function deleteAllMyData() {
   const { error } = await supabase.from(TABLE).delete().eq("user_id", uid);
   const rem = await supabase.from("reminders").delete().eq("user_id", uid);
   if (error || rem.error) throw new Error("Não foi possível apagar seus dados. Tente de novo.");
+  // Attached images and PDFs live in Storage, under a folder named after the user id.
+  const bucket = supabase.storage.from("anexos");
+  for (;;) {
+    const { data, error: listErr } = await bucket.list(uid, { limit: 1000 });
+    if (listErr) throw new Error("Seus dados foram apagados, mas não os anexos. Tente de novo.");
+    if (!data?.length) break;
+    const { error: rmErr } = await bucket.remove(data.map((f) => `${uid}/${f.name}`));
+    if (rmErr) throw new Error("Seus dados foram apagados, mas não os anexos. Tente de novo.");
+    if (data.length < 1000) break;
+  }
   reminderSigs = {};
-  await signOut();
+  await signOut(true);
 }
 
 if (typeof window !== "undefined") {

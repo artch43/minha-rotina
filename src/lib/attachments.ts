@@ -8,8 +8,11 @@ const BUCKET = "anexos";
 
 export type AttachmentKind = "image" | "pdf";
 
+/** Pictures only (no SVG: it can carry scripts, which would run if the file were opened in a tab). */
+export const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif", "image/heic", "image/heif"];
+
 export function kindOf(type: string): AttachmentKind | null {
-  if (type.startsWith("image/")) return "image";
+  if (IMAGE_TYPES.includes(type)) return "image";
   if (type === "application/pdf") return "pdf";
   return null;
 }
@@ -49,7 +52,7 @@ async function userId() {
 /** Stores the file and returns what the note needs to point at it. Throws with a readable message. */
 export async function saveAttachment(file: File) {
   const kind = kindOf(file.type);
-  if (!kind) throw new Error("Só dá para anexar imagens e PDF.");
+  if (!kind) throw new Error("Só dá para anexar fotos (PNG, JPG, WebP, GIF, HEIC) e PDF.");
   if (file.size > MAX_BYTES) throw new Error("O arquivo passa de 10 MB.");
   const id = uid();
   if (supabase) {

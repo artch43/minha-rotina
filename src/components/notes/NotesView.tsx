@@ -37,7 +37,7 @@ import { cn } from "@/lib/utils";
 import type { Note } from "@/lib/types";
 import { ago, extractTags, folderList, headings, plainSnippet } from "@/lib/notes";
 import { toast as sonner } from "sonner";
-import { attachmentMarkdown, saveAttachment } from "@/lib/attachments";
+import { IMAGE_TYPES, attachmentMarkdown, saveAttachment } from "@/lib/attachments";
 import { exportNoteMd, exportNotesZip, readMarkdownFiles } from "@/lib/notesIO";
 import {
   addFolder,
@@ -816,7 +816,7 @@ function NotePane({ note, editorApi }: { note: Note; editorApi: React.MutableRef
             <input
               ref={fileInput}
               type="file"
-              accept="image/*,application/pdf"
+              accept={[...IMAGE_TYPES, "application/pdf"].join(",")}
               multiple
               hidden
               onChange={(e) => {

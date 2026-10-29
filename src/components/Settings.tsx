@@ -6,7 +6,7 @@ import { ALERT_PRESETS } from "@/lib/events";
 import { downloadBackup, parseBackup } from "@/lib/backup";
 import { cloudEnabled } from "@/lib/supabase";
 import { deleteAllMyData, signOut, useSync } from "@/lib/sync";
-import { addArea, deleteArea, replaceWorkspace, toast, updateArea, useStore } from "@/store";
+import { addArea, deleteArea, notify, replaceWorkspace, toast, updateArea, useStore } from "@/store";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -263,7 +263,14 @@ function AccountTab({ onClose }: { onClose: () => void }) {
               Conectado como <b className="text-foreground">{user?.email}</b>. Seus dados ficam salvos na nuvem.
             </FieldDescription>
           </FieldContent>
-          <Button variant="outline" onClick={() => signOut()}>
+          <Button
+            variant="outline"
+            onClick={() =>
+              signOut().catch((e: Error) =>
+                notify(e.message, { label: "Sair e descartar", onClick: () => void signOut(true) }),
+              )
+            }
+          >
             <LogOut data-icon="inline-start" />
             Sair
           </Button>

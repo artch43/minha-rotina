@@ -171,7 +171,9 @@ class FileWidget extends WidgetType {
     a.addEventListener("mousedown", (e) => e.preventDefault());
     a.addEventListener("click", (e) => {
       e.preventDefault();
+      // Opened right away (still inside the click, so it isn't blocked), cut off from this page, then pointed at the file.
       const tab = window.open("about:blank", "_blank");
+      if (tab) tab.opener = null;
       void attachmentUrl(this.id).then((u) => {
         if (tab && u) tab.location.href = u;
         else tab?.close();

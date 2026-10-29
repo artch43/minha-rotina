@@ -7,6 +7,8 @@
 //   meta:   WHATSAPP_TOKEN, WHATSAPP_PHONE_ID, WHATSAPP_TEMPLATE (approved template with two body
 //           variables: title and when; default "lembrete"), WHATSAPP_LANG (default "pt_BR")
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase automatically.
+// Daily limits per person (last 24 h), so one account can't run up the bill or message strangers:
+//   DAILY_EMAIL_LIMIT (default 50), DAILY_WHATSAPP_LIMIT (default 20), DAILY_WHATSAPP_NUMBERS (default 2).
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -25,6 +27,18 @@ function emailHtml(title: string, when: string, appUrl: string) {
 }
 
 type Sent = { ok: true } | { ok: false; status: number; reason: string };
+
+/** Constant-time comparison, so the secret can't be guessed from response times. */
+function sameSecret(a: string, b: string) {
+  const x = new TextEncoder().encode(a),
+    y = new TextEncoder().encode(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  return diff === 0;
+}
+/** WhatsApp template variables can't have line breaks, tabs or long runs of spaces. */
+const oneLine = (t: string) => t.replace(/[\r\n\t]+/g, " ").replace(/ {2,}/g, " ").trim().slice(0, 200);
+const num = (name: string, fallback: number) => Number(Deno.env.get(name)) || fallback;
 
 async function sendEmail(to: string, title: string, when: string, appUrl: string): Promise<Sent> {
   const from = Deno.env.get("REMINDER_FROM") ?? "Minha Rotina <onboarding@resend.dev>";
@@ -51,8 +65,8 @@ async function sendWhatsApp(phone: string, title: string, when: string, appUrl: 
     const content = Deno.env.get("TWILIO_CONTENT_SID");
     if (content) {
       body.set("ContentSid", content);
-      body.set("ContentVariables", JSON.stringify({ 1: title, 2: when }));
-    } else body.set("Body", `⏰ Lembrete do Minha Rotina\n*${title}*\n${when}\n\n${appUrl}`);
+      body.set("ContentVariables", JSON.stringify({ 1: oneLine(title), 2: oneLine(when) }));
+    } else body.set("Body", `⏰ Lembrete do Minha Rotina\n*${oneLine(title)}*\n${oneLine(when)}\n\n${appUrl}`);
     res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: "POST",
       headers: { Authorization: "Basic " + btoa(`${sid}:${Deno.env.get("TWILIO_AUTH_TOKEN")}`), "Content-Type": "application/x-www-form-urlencoded" },
@@ -69,7 +83,7 @@ async function sendWhatsApp(phone: string, title: string, when: string, appUrl: 
         template: {
           name: Deno.env.get("WHATSAPP_TEMPLATE") ?? "lembrete",
           language: { code: Deno.env.get("WHATSAPP_LANG") ?? "pt_BR" },
-          components: [{ type: "body", parameters: [{ type: "text", text: title }, { type: "text", text: when }] }],
+          components: [{ type: "body", parameters: [{ type: "text", text: oneLine(title) }, { type: "text", text: oneLine(when) }] }],
         },
       }),
     });
@@ -79,29 +93,72 @@ async function sendWhatsApp(phone: string, title: string, when: string, appUrl: 
 
 Deno.serve(async (req) => {
   const secret = Deno.env.get("CRON_SECRET");
-  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) return new Response("unauthorized", { status: 401 });
+  if (!secret || !sameSecret(req.headers.get("authorization") ?? "", `Bearer ${secret}`))
+    return new Response("unauthorized", { status: 401 });
+  // Without the e-mail key every send would fail and the reminders would be given up on: stop here instead.
+  if (!Deno.env.get("RESEND_API_KEY")) return new Response("RESEND_API_KEY is not set", { status: 500 });
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const appUrl = (Deno.env.get("APP_URL") ?? "") + "/#/calendario";
-  const wa = whatsappReady();
+  let wa = whatsappReady();
+  const limit = { email: num("DAILY_EMAIL_LIMIT", 50), whatsapp: num("DAILY_WHATSAPP_LIMIT", 20), numbers: num("DAILY_WHATSAPP_NUMBERS", 2) };
 
   const { data: due, error } = await supabase.rpc("due_reminders", { max_rows: 100 });
   if (error) return new Response(error.message, { status: 500 });
 
+  // What each person in this batch already received today.
+  const users = [...new Set((due ?? []).map((r: { user_id: string }) => r.user_id))];
+  const usage = new Map<string, { email: number; whatsapp: number; phones: Set<string> }>();
+  const use = (u: string) => usage.get(u) ?? (usage.set(u, { email: 0, whatsapp: 0, phones: new Set() }), usage.get(u)!);
+  if (users.length) {
+    const { data: rows, error: uErr } = await supabase.rpc("reminders_sent_today", { ids: users });
+    if (uErr) return new Response(uErr.message, { status: 500 });
+    for (const r of rows ?? []) {
+      const u = use(r.user_id);
+      if (r.channel === "whatsapp") {
+        u.whatsapp += Number(r.sent);
+        if (r.phone) u.phones.add(r.phone);
+      } else u.email += Number(r.sent);
+    }
+  }
+  const giveUp = (id: string, reason: string) =>
+    supabase.from("reminders").update({ sent_at: new Date().toISOString(), last_error: reason }).eq("id", id);
+
   let sent = 0;
   const failed: string[] = [];
   for (const r of due ?? []) {
-    const byWhatsApp = r.channel === "whatsapp" && r.phone && wa;
-    const res = byWhatsApp ? await sendWhatsApp(r.phone, r.title, r.when_label, appUrl) : await sendEmail(r.email, r.title, r.when_label, appUrl);
+    const u = use(r.user_id);
+    // WhatsApp only while under the daily limits; otherwise (or when not set up) the reminder goes by e-mail.
+    const waOk =
+      r.channel === "whatsapp" && r.phone && wa && u.whatsapp < limit.whatsapp && (u.phones.has(r.phone) || u.phones.size < limit.numbers);
+    if (!waOk && u.email >= limit.email) {
+      await giveUp(r.id, "daily limit reached");
+      failed.push(`${r.id}: daily limit reached`);
+      continue;
+    }
+    let viaWa = !!waOk;
+    let res = viaWa ? await sendWhatsApp(r.phone, r.title, r.when_label, appUrl) : await sendEmail(r.email, r.title, r.when_label, appUrl);
+    if (viaWa && !res.ok && (res.status === 401 || res.status === 403)) {
+      // WhatsApp keys are wrong: stop using WhatsApp in this run and deliver by e-mail instead.
+      failed.push(`${r.id}: ${res.reason}`);
+      wa = false;
+      viaWa = false;
+      res = await sendEmail(r.email, r.title, r.when_label, appUrl);
+    }
     if (res.ok) {
       await supabase.from("reminders").update({ sent_at: new Date().toISOString() }).eq("id", r.id);
+      if (viaWa) {
+        u.whatsapp++;
+        u.phones.add(r.phone);
+      } else u.email++;
       sent++;
-    } else {
-      failed.push(`${r.id}: ${res.reason}`);
-      // 4xx (except rate limits) will fail the same way next minute: give up on this one.
-      if (res.status >= 400 && res.status < 500 && res.status !== 429)
-        await supabase.from("reminders").update({ sent_at: new Date().toISOString(), last_error: res.reason.slice(0, 500) }).eq("id", r.id);
+      continue;
     }
+    failed.push(`${r.id}: ${res.reason}`);
+    // 401/403 mean a wrong or missing key on our side: keep the reminder and try again next minute.
+    // Other 4xx (except rate limits) will fail the same way every time: give up on this one.
+    if (res.status === 401 || res.status === 403) break;
+    if (res.status >= 400 && res.status < 500 && res.status !== 429) await giveUp(r.id, res.reason.slice(0, 500));
   }
   return Response.json({ due: due?.length ?? 0, sent, failed });
 });

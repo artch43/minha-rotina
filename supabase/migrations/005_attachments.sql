@@ -1,7 +1,7 @@
 -- Images and PDFs attached to notes. Each person's files live under a folder named after their user id,
 -- in a private bucket: nobody else can list, read or delete them.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('anexos', 'anexos', false, 10485760, array['image/*', 'application/pdf'])
+values ('anexos', 'anexos', false, 10485760, array['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif', 'image/heic', 'image/heif', 'application/pdf'])
 on conflict (id) do update
   set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 

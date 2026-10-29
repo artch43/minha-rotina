@@ -60,6 +60,7 @@ describe("anexos", () => {
     expect(kindOf("image/png")).toBe("image");
     expect(kindOf("application/pdf")).toBe("pdf");
     expect(kindOf("text/plain")).toBeNull();
+    expect(kindOf("image/svg+xml")).toBeNull();
   });
   it("escreve a referência no texto da nota", () => {
     expect(attachmentMarkdown({ id: "x1", name: "foto [1].jpg", kind: "image" })).toBe("![foto  1 .jpg](anexo:x1)");
