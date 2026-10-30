@@ -188,7 +188,7 @@ const PrivacyLink = () => (
 );
 
 /** Password field with a show/hide button. */
-function PasswordInput(props: React.ComponentProps<typeof Input>) {
+export function PasswordInput(props: React.ComponentProps<typeof Input>) {
   const [show, setShow] = useState(false);
   return (
     <InputGroup className="h-11">

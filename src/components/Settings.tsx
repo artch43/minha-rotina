@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Download, LogOut, Plus, Trash2, Upload } from "lucide-react";
+import { Download, KeyRound, Loader2, LogOut, Plus, Trash2, Upload } from "lucide-react";
 import type { AreaColor, Settings as S, Workspace } from "@/lib/types";
 import { WhatsAppNumber } from "./calendar/AlertPicker";
 import { ALERT_PRESETS } from "@/lib/events";
 import { downloadBackup, parseBackup } from "@/lib/backup";
-import { cloudEnabled } from "@/lib/supabase";
+import { cloudEnabled, supabase } from "@/lib/supabase";
 import { deleteAllMyData, signOut, useSync } from "@/lib/sync";
 import { addArea, deleteArea, notify, replaceWorkspace, toast, updateArea, useStore } from "@/store";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -28,6 +28,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AreaSwatches, areaVar, useAreas } from "./common";
 import { Glyph } from "./icons";
 import { AppearanceTab } from "./AppearanceTab";
+import { PasswordInput } from "./Auth";
 
 export function Settings() {
   const ws = useStore((s) => s.ws);
@@ -175,8 +176,8 @@ function AreasTab() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        As áreas separam suas tarefas e eventos (por exemplo, pessoal e profissional). Escolha uma no topo da tela para
-        ver só o que é dela.
+        As áreas separam suas tarefas e eventos (por exemplo, pessoal e profissional). Escolha uma no topo da tela para ver só o
+        que é dela.
       </p>
       {areas.map((a) => (
         <div key={a.id} style={areaVar(a)} className="area-stripe flex flex-col gap-3 rounded-lg border py-3 pr-3 pl-5">
@@ -228,6 +229,133 @@ function AreasTab() {
   );
 }
 
+/** Change the password: asks for the current one first (checked with the server), then the new one twice. */
+function ChangePassword({ email }: { email: string }) {
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [again, setAgain] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const reset = () => {
+    setCurrent("");
+    setNext("");
+    setAgain("");
+    setError("");
+  };
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (next.length < 6) return setError("A nova senha precisa ter pelo menos 6 caracteres.");
+    if (next !== again) return setError("As duas senhas novas não são iguais.");
+    if (next === current) return setError("A nova senha precisa ser diferente da atual.");
+    setBusy(true);
+    // Confirms it's really you: the current password must be right.
+    const check = await supabase!.auth.signInWithPassword({ email, password: current });
+    if (check.error) {
+      setBusy(false);
+      return setError(
+        check.error.message === "Invalid login credentials"
+          ? "A senha atual está incorreta."
+          : "Não foi possível confirmar sua senha agora. Tente de novo em instantes.",
+      );
+    }
+    const { error: upd } = await supabase!.auth.updateUser({ password: next });
+    setBusy(false);
+    if (upd) {
+      setError(
+        /reauth|nonce/i.test(upd.message)
+          ? "O servidor pede uma confirmação extra por e-mail para trocar a senha. Use “Esqueci a senha” na tela de entrada."
+          : /different from the old/i.test(upd.message)
+            ? "A nova senha precisa ser diferente da atual."
+            : /weak|short|characters/i.test(upd.message)
+              ? "Escolha uma senha mais forte (pelo menos 6 caracteres)."
+              : "Não foi possível trocar a senha. Tente de novo.",
+      );
+      return;
+    }
+    reset();
+    setOpen(false);
+    notify("Senha alterada", undefined, "Use a nova senha da próxima vez que entrar.");
+  };
+  if (!open)
+    return (
+      <Field orientation="horizontal">
+        <FieldContent>
+          <FieldLabel>Senha</FieldLabel>
+          <FieldDescription>Troque a senha de entrada da sua conta.</FieldDescription>
+        </FieldContent>
+        <Button variant="outline" onClick={() => setOpen(true)}>
+          <KeyRound data-icon="inline-start" />
+          Alterar senha
+        </Button>
+      </Field>
+    );
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-4 rounded-xl border p-4" aria-labelledby="pw-title">
+      <h3 id="pw-title" className="text-base font-semibold">
+        Alterar senha
+      </h3>
+      {/* Lets password managers match the account. */}
+      <input type="email" autoComplete="username" value={email} readOnly hidden />
+      <Field>
+        <FieldLabel htmlFor="pw-current">Senha atual</FieldLabel>
+        <PasswordInput
+          id="pw-current"
+          autoComplete="current-password"
+          required
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="pw-new">Nova senha</FieldLabel>
+        <PasswordInput
+          id="pw-new"
+          autoComplete="new-password"
+          minLength={6}
+          required
+          value={next}
+          onChange={(e) => setNext(e.target.value)}
+        />
+        <FieldDescription>Pelo menos 6 caracteres.</FieldDescription>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="pw-again">Repita a nova senha</FieldLabel>
+        <PasswordInput
+          id="pw-again"
+          autoComplete="new-password"
+          minLength={6}
+          required
+          value={again}
+          onChange={(e) => setAgain(e.target.value)}
+        />
+      </Field>
+      {error && (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => {
+            reset();
+            setOpen(false);
+          }}
+        >
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={busy}>
+          {busy && <Loader2 data-icon="inline-start" className="animate-spin" />}
+          {busy ? "Salvando…" : "Salvar nova senha"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function AccountTab({ onClose }: { onClose: () => void }) {
   const user = useSync((s) => s.user);
   const [pending, setPending] = useState<Workspace | null>(null);
@@ -256,9 +384,7 @@ function AccountTab({ onClose }: { onClose: () => void }) {
           <Button
             variant="outline"
             onClick={() =>
-              signOut().catch((e: Error) =>
-                notify(e.message, { label: "Sair e descartar", onClick: () => void signOut(true) }),
-              )
+              signOut().catch((e: Error) => notify(e.message, { label: "Sair e descartar", onClick: () => void signOut(true) }))
             }
           >
             <LogOut data-icon="inline-start" />
@@ -270,6 +396,12 @@ function AccountTab({ onClose }: { onClose: () => void }) {
           <AlertTitle>Sem conta</AlertTitle>
           <AlertDescription>Seus dados ficam salvos apenas neste navegador. Baixe um backup de vez em quando.</AlertDescription>
         </Alert>
+      )}
+      {cloudEnabled && user && (
+        <>
+          <FieldSeparator />
+          <ChangePassword email={user.email} />
+        </>
       )}
       <FieldSeparator />
       <Field>
