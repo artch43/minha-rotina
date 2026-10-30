@@ -99,6 +99,32 @@ export function AppearanceTab() {
         </div>
       </FieldSet>
 
+      <Field>
+        <FieldLabel>Barra lateral</FieldLabel>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          className="flex-wrap"
+          value={st.sidebarStyle ?? "solid"}
+          onValueChange={(v) => v && set("sidebarStyle", v === "solid" ? undefined : (v as Settings["sidebarStyle"]))}
+        >
+          <ToggleGroupItem value="solid" className="px-3">
+            Padrão
+          </ToggleGroupItem>
+          <ToggleGroupItem value="accent" className="px-3">
+            Cor de destaque
+          </ToggleGroupItem>
+          <ToggleGroupItem value="glass" className="px-3">
+            Acompanhar o papel de parede
+          </ToggleGroupItem>
+        </ToggleGroup>
+        <FieldDescription>
+          {st.sidebarStyle === "glass" && (st.wallpaper?.kind ?? "none") === "none"
+            ? "Escolha um papel de parede abaixo para ver o efeito de vidro."
+            : "“Acompanhar o papel de parede” deixa a barra translúcida, com o fundo desfocado."}
+        </FieldDescription>
+      </Field>
+
       <FieldSet>
         <FieldLegend variant="label">Papel de parede</FieldLegend>
         <FieldDescription>Aparece atrás das páginas. Cartões e menus continuam sólidos para a leitura.</FieldDescription>

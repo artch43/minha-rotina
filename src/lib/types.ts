@@ -174,6 +174,8 @@ export interface Settings {
   accent?: string;
   /** Background behind the pages. A photo stays on each device; presets sync. */
   wallpaper?: { kind: "none" | "preset" | "image"; preset?: string; strength?: number };
+  /** Sidebar look: the default, a tint of the accent, or frosted glass over the wallpaper. */
+  sidebarStyle?: "solid" | "accent" | "glass";
 }
 export interface Workspace {
   version: 2;

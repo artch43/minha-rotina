@@ -204,3 +204,10 @@ export async function applyWallpaper(w: Wallpaper | undefined) {
   root.style.setProperty("--wallpaper", value);
   root.style.setProperty("--wallpaper-veil", String(1 - Math.min(0.7, Math.max(0.1, w?.strength ?? 0.35))));
 }
+
+/** Sidebar look (Settings → Aparência). */
+export function applySidebarStyle(style: "solid" | "accent" | "glass" | undefined) {
+  const root = document.documentElement;
+  root.classList.toggle("sidebar-tint", style === "accent");
+  root.classList.toggle("sidebar-glass", style === "glass");
+}

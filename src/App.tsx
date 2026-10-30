@@ -5,7 +5,7 @@ import { authLink, clearAuthLink, cloudEnabled, supabase } from "./lib/supabase"
 import { startCloud, useSync } from "./lib/sync";
 import { installDeleteShortcut } from "./lib/shortcuts";
 import { installTouchDnd } from "./lib/touchDnd";
-import { applyAccent, applyWallpaper } from "./lib/appearance";
+import { applyAccent, applySidebarStyle, applyWallpaper } from "./lib/appearance";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -112,7 +112,9 @@ function ThemeSync() {
   const wallpaper = useStore((s) => s.ws.settings.wallpaper);
   const { setTheme } = useTheme();
   useEffect(() => setTheme(theme), [theme]);
+  const sidebarStyle = useStore((s) => s.ws.settings.sidebarStyle);
   useEffect(() => applyAccent(accent), [accent]);
+  useEffect(() => applySidebarStyle(sidebarStyle), [sidebarStyle]);
   useEffect(() => {
     void applyWallpaper(wallpaper);
   }, [wallpaper?.kind, wallpaper?.preset, wallpaper?.strength]);
