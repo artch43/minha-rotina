@@ -170,6 +170,10 @@ export interface Settings {
   boardFolderIcons?: Record<string, string>;
   /** Which version of the quick guide note this workspace has. */
   guideVersion?: number;
+  /** Accent color (hex); missing = the default teal. */
+  accent?: string;
+  /** Background behind the pages. A photo stays on each device; presets sync. */
+  wallpaper?: { kind: "none" | "preset" | "image"; preset?: string; strength?: number };
 }
 export interface Workspace {
   version: 2;

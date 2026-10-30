@@ -544,3 +544,31 @@ html {
 .edge-fade[data-fade-left][data-fade-right] {
   mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
 }
+
+/* Wallpaper (Settings → Aparência): the picture, then a veil of the page color so text stays legible.
+   Cards, menus and the sidebar keep their own solid backgrounds. */
+html.has-wallpaper body {
+  background: transparent;
+}
+html.has-wallpaper {
+  background: var(--background);
+}
+html.has-wallpaper body::before,
+html.has-wallpaper body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+html.has-wallpaper body::before {
+  background: var(--wallpaper);
+}
+html.has-wallpaper body::after {
+  background: var(--background);
+  opacity: var(--wallpaper-veil, 0.65);
+}
+html.has-wallpaper [data-slot="sidebar-wrapper"],
+html.has-wallpaper [data-slot="sidebar-inset"] {
+  background: transparent;
+}

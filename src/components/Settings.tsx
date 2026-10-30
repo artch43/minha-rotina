@@ -27,6 +27,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AreaSwatches, areaVar, useAreas } from "./common";
 import { Glyph } from "./icons";
+import { AppearanceTab } from "./AppearanceTab";
 
 export function Settings() {
   const ws = useStore((s) => s.ws);
@@ -51,6 +52,7 @@ export function Settings() {
         <Tabs defaultValue="geral" className="gap-5">
           <TabsList className="w-full">
             <TabsTrigger value="geral">Geral</TabsTrigger>
+            <TabsTrigger value="aparencia">Aparência</TabsTrigger>
             <TabsTrigger value="areas">Áreas</TabsTrigger>
             <TabsTrigger value="alertas">Alertas</TabsTrigger>
             <TabsTrigger value="conta">Conta</TabsTrigger>
@@ -77,26 +79,12 @@ export function Settings() {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field>
-                <FieldLabel>Tema</FieldLabel>
-                <ToggleGroup
-                  type="single"
-                  variant="outline"
-                  value={st.theme}
-                  onValueChange={(v) => v && set("theme", v as S["theme"])}
-                >
-                  <ToggleGroupItem value="system" className="px-3">
-                    Automático
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="light" className="px-3">
-                    Claro
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="dark" className="px-3">
-                    Escuro
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              </Field>
+              <p className="text-sm text-muted-foreground">Tema, cores e papel de parede ficam em Aparência.</p>
             </FieldGroup>
+          </TabsContent>
+
+          <TabsContent value="aparencia">
+            <AppearanceTab />
           </TabsContent>
 
           <TabsContent value="areas">

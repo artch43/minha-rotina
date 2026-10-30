@@ -5,6 +5,7 @@ import { authLink, clearAuthLink, cloudEnabled, supabase } from "./lib/supabase"
 import { startCloud, useSync } from "./lib/sync";
 import { installDeleteShortcut } from "./lib/shortcuts";
 import { installTouchDnd } from "./lib/touchDnd";
+import { applyAccent, applyWallpaper } from "./lib/appearance";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -104,11 +105,17 @@ function CloudGate() {
   return <Workspace />;
 }
 
-/** Keeps the light/dark choice from Settings in sync with the page. */
+/** Keeps the light/dark choice, the accent color and the wallpaper from Settings on the page. */
 function ThemeSync() {
   const theme = useStore((s) => s.ws.settings.theme);
+  const accent = useStore((s) => s.ws.settings.accent);
+  const wallpaper = useStore((s) => s.ws.settings.wallpaper);
   const { setTheme } = useTheme();
   useEffect(() => setTheme(theme), [theme]);
+  useEffect(() => applyAccent(accent), [accent]);
+  useEffect(() => {
+    void applyWallpaper(wallpaper);
+  }, [wallpaper?.kind, wallpaper?.preset, wallpaper?.strength]);
   return null;
 }
 
