@@ -1,13 +1,14 @@
 /**
  * Sign-in attempt limit for this browser. After 5 wrong passwords in a row, signing in pauses for
- * 30 s, doubling with each further miss (up to 15 min). A successful sign-in clears it.
+ * 5 min, 2.5× longer with each further miss (up to 24 h). A successful sign-in clears it.
  * This slows down guessing from the app; Supabase also limits attempts on the server
  * (Authentication → Rate Limits), which is what stops anyone calling the API directly.
  */
 const KEY = "organizer:login-tries";
 export const FREE_TRIES = 5;
-const BASE_MS = 30_000;
-const MAX_MS = 15 * 60_000;
+const BASE_MS = 5 * 60_000;
+const GROWTH = 2.5;
+const MAX_MS = 24 * 60 * 60_000;
 
 type State = { fails: number; until: number };
 
@@ -36,7 +37,7 @@ export function waitLeft(now = Date.now()) {
 export function recordFailure(now = Date.now()) {
   const s = read();
   const fails = s.fails + 1;
-  const pause = fails >= FREE_TRIES ? Math.min(MAX_MS, BASE_MS * 2 ** (fails - FREE_TRIES)) : 0;
+  const pause = fails >= FREE_TRIES ? Math.round(Math.min(MAX_MS, BASE_MS * GROWTH ** (fails - FREE_TRIES))) : 0;
   write({ fails, until: pause ? now + pause : 0 });
   return pause;
 }
@@ -54,8 +55,11 @@ export function clearFailures() {
   }
 }
 
-/** "0:30", "2:00"… */
+/** "0:30", "12:30", "1:18:08"… */
 export const fmtWait = (ms: number) => {
   const s = Math.ceil(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  const two = (n: number) => String(n).padStart(2, "0");
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h ? `${h}:${two(m)}:${two(s % 60)}` : `${m}:${two(s % 60)}`;
 };
