@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Plus, Repeat } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Area } from "@/lib/types";
 import { monthGrid } from "@/lib/events";
-import { DOW, parseD, today } from "@/lib/util";
+import { DOW, addDays, parseD, today } from "@/lib/util";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { areaVar } from "../common";
@@ -211,14 +211,33 @@ export function MonthView({
       </div>
       {/* Phones: the chosen day, readable (the grid is too narrow for titles). Entries can be dragged up onto another day. */}
       <section className="flex flex-col gap-1.5 rounded-2xl border bg-card p-3 shadow-card sm:hidden" aria-live="polite">
-        <div className="flex items-center justify-between gap-2 px-1">
-          <h3 className="text-base font-semibold">
+        <div className="flex items-center justify-between gap-1 px-1">
+          {/* Previous/next day: works by touch and by keyboard, not only by tapping the grid. */}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Dia anterior"
+            disabled={day === days[0]}
+            onClick={() => setPicked(addDays(day, -1))}
+          >
+            <ChevronLeft />
+          </Button>
+          <h3 className="mr-auto text-base font-semibold">
             {day === T
               ? "Hoje, " + parseD(day).toLocaleDateString("pt-BR", { day: "numeric", month: "long" })
               : parseD(day)
                   .toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })
                   .replace(/^./, (c) => c.toUpperCase())}
           </h3>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Próximo dia"
+            disabled={day === days[days.length - 1]}
+            onClick={() => setPicked(addDays(day, 1))}
+          >
+            <ChevronRight />
+          </Button>
           {onAdd && (
             <Button variant="ghost" size="sm" onClick={() => onAdd(day)}>
               <Plus data-icon="inline-start" />

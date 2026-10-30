@@ -182,9 +182,16 @@ export function CalendarPage() {
         <WeekView days={week} byDay={byDay} />
       )}
       <p className="text-sm text-muted-foreground">
-        Arraste para remarcar. Eventos aparecem com fundo colorido; tarefas, só com o ponto da área. Na semana, clique
-        duas vezes num horário para criar um evento.
-      </p>
+          {/* Touch screens and mouse/keyboard get the instructions that apply to them. */}
+          <span className="pointer-fine:hidden">
+            Toque num dia para ver a agenda dele. Para remarcar, segure um item e arraste até outro dia, ou abra-o e mude a
+            data. Para criar, use Novo evento.
+          </span>
+          <span className="pointer-coarse:hidden">
+            Arraste para remarcar, ou abra o item (Enter) e mude a data. Eventos aparecem com fundo colorido; tarefas, só com
+            o ponto da área. Na semana, clique duas vezes num horário para criar um evento, ou use Novo evento.
+          </span>
+        </p>
     </div>
   );
 }
