@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { CalendarDays, CheckSquare, FileText } from "lucide-react";
 import { go, openEvent, openNotes, openPeek, useStore } from "@/store";
 import {
@@ -18,6 +19,9 @@ import { Glyph } from "./icons";
 
 /** Ctrl/Cmd + K: find pages, tasks, events and notes. Each result has a second line so look-alike names can be told apart. */
 export function Search() {
+  // Empty box: a short preview of each group. Once something is typed, every item is searched.
+  const [q, setQ] = useState("");
+  const cap = q.trim() ? Infinity : 50;
   const ws = useStore((s) => s.ws);
   const setUi = useStore((s) => s.setUi);
   const close = () =>
@@ -38,7 +42,7 @@ export function Search() {
       className="max-sm:top-3 max-sm:translate-y-0 max-sm:[&_[data-slot=command-list]]:max-h-[45dvh]"
     >
       <Command>
-        <CommandInput placeholder="Buscar páginas, tarefas, eventos e anotações…" />
+        <CommandInput placeholder="Buscar páginas, tarefas, eventos e anotações…" value={q} onValueChange={setQ} />
         <CommandList>
           <CommandEmpty>Nada encontrado.</CommandEmpty>
           <CommandGroup heading="Páginas">
@@ -56,7 +60,7 @@ export function Search() {
           <CommandGroup heading="Tarefas">
             {Object.values(ws.items)
               .filter((i) => i.title)
-              .slice(0, 200)
+              .slice(0, cap)
               .map((i) => {
                 const db = ws.dbs[i.db];
                 const list = ws.pages.find((p) => p.id === i.db);
@@ -67,19 +71,23 @@ export function Search() {
                   <CommandItem
                     key={i.id}
                     value={"tarefa " + i.title + " " + i.id}
-                    keywords={list ? [list.title] : undefined}
+                    // The list's name and the task's notes count too (searching "capítulo" finds a task that mentions it).
+                    keywords={[list?.title ?? "", i.notes.slice(0, 200)].filter(Boolean)}
                     onSelect={run(() => {
                       go(i.db);
                       openPeek(i.id);
                     })}
                   >
                     <CheckSquare />
-                    <Two title={i.title} sub={[list && `${emojiOf(list.icon)} ${list.title}`.trim(), status, date && fmtDate(date)]} />
+                    <Two
+                      title={i.title}
+                      sub={[list && `${emojiOf(list.icon)} ${list.title}`.trim(), status, date && fmtDate(date)]}
+                    />
                   </CommandItem>
                 );
               })}
             {Object.values(ws.todos)
-              .slice(0, 200)
+              .slice(0, cap)
               .map((t) => (
                 <CommandItem key={t.id} value={"tarefa " + t.text + " " + t.id} onSelect={run(() => go("home"))}>
                   <CheckSquare />
@@ -89,7 +97,7 @@ export function Search() {
           </CommandGroup>
           <CommandGroup heading="Eventos">
             {Object.values(ws.events)
-              .slice(0, 200)
+              .slice(0, cap)
               .map((e) => (
                 <CommandItem
                   key={e.id}
