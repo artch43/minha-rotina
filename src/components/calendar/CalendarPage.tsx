@@ -188,8 +188,8 @@ export function CalendarPage() {
             data. Para criar, use Novo evento.
           </span>
           <span className="pointer-coarse:hidden">
-            Arraste para remarcar, ou abra o item (Enter) e mude a data. Eventos aparecem com fundo colorido; tarefas, só com
-            o ponto da área. Na semana, clique duas vezes num horário para criar um evento, ou use Novo evento.
+            Arraste para remarcar, ou abra o item (Enter) e mude a data. Eventos aparecem com fundo colorido e horário; tarefas,
+            com uma caixinha de marcar. Na semana, clique duas vezes num horário para criar um evento, ou use Novo evento.
           </span>
         </p>
     </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, Repeat } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Repeat, Square, SquareCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Area } from "@/lib/types";
 import { monthGrid } from "@/lib/events";
@@ -60,10 +60,15 @@ export function EntryChip({
         large && "min-h-11 gap-2.5 px-3 py-2 text-[15px]",
       )}
     >
-      <span
-        aria-hidden="true"
-        className={cn("shrink-0 rounded-full bg-(--area,var(--muted-foreground))", e.kind === "event" ? "h-3 w-1" : "size-1.5")}
-      />
+      {/* Events: a colored bar (and their time). Tasks: a little checkbox, ticked when done. */}
+      {e.kind === "event" ? (
+        <span aria-hidden="true" className="h-3 w-1 shrink-0 rounded-full bg-(--area,var(--muted-foreground))" />
+      ) : e.done ? (
+        <SquareCheck aria-hidden="true" className="size-3.5 shrink-0 text-(--area,var(--muted-foreground))" />
+      ) : (
+        <Square aria-hidden="true" className="size-3.5 shrink-0 text-(--area,var(--muted-foreground))" />
+      )}
+      <span className="sr-only">{e.kind === "event" ? "Evento: " : "Tarefa: "}</span>
       {e.time && <span className="shrink-0 tabular-nums">{e.time}</span>}
       <span className="truncate">{e.title || "Sem título"}</span>
       {e.repeat && <Repeat className="size-3 shrink-0 opacity-70" aria-label="Repete" />}
@@ -190,17 +195,31 @@ export function MonthView({
                 {list.length > max && (
                   <Popover>
                     <PopoverTrigger asChild>
-                      <button className="px-1.5 text-left text-[13px] font-medium text-muted-foreground hover:text-foreground max-sm:hidden">
+                      <button
+                        className="mt-0.5 w-fit rounded-md bg-muted px-1.5 py-0.5 text-left text-[13px] font-semibold text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-sm:hidden"
+                        aria-label={`Ver todos os ${list.length} itens de ${parseD(d).toLocaleDateString("pt-BR", { day: "numeric", month: "long" })}`}
+                      >
                         +{list.length - max} mais
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="flex w-64 flex-col gap-1">
-                      <span className="mb-1 text-sm font-semibold capitalize">
-                        {parseD(d).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
-                      </span>
+                    <PopoverContent className="flex w-72 flex-col gap-1">
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold">
+                          {parseD(d)
+                            .toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })
+                            .replace(/^./, (c) => c.toUpperCase())}
+                        </span>
+                        <span className="text-xs text-muted-foreground tabular-nums">{list.length} itens</span>
+                      </div>
                       {list.map((e) => (
                         <EntryChip key={e.key} e={e} onOpen={onOpen} />
                       ))}
+                      {onAdd && (
+                        <Button variant="ghost" size="sm" className="mt-1 justify-start" onClick={() => onAdd(d)}>
+                          <Plus data-icon="inline-start" />
+                          Adicionar neste dia
+                        </Button>
+                      )}
                     </PopoverContent>
                   </Popover>
                 )}
