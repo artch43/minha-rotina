@@ -26,6 +26,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AreaSwatches, areaVar, useAreas } from "./common";
+import { Glyph } from "./icons";
 
 export function Settings() {
   const ws = useStore((s) => s.ws);
@@ -68,7 +69,8 @@ export function Settings() {
                     <SelectGroup>
                       {ws.pages.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.icon} {p.title}
+                          <Glyph icon={p.icon} size="xs" />
+                          {p.title}
                         </SelectItem>
                       ))}
                     </SelectGroup>

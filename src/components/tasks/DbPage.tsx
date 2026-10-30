@@ -13,6 +13,8 @@ import { OptionBadge } from "../common";
 import { Board } from "./Board";
 import { TaskTable } from "./TaskTable";
 import { TaskCalendar } from "./TaskCalendar";
+import { emojiOf } from "@/lib/util";
+import { Glyph } from "../icons";
 
 const ICON = { board: Columns3, table: Table2, calendar: CalendarDays } as const;
 const DATE_FILTERS: [string, string][] = [
@@ -253,12 +255,12 @@ function PageTitle({ page }: { page: Page }) {
     setEditing(false);
     if (save && v.trim() && v.trim() !== page.title) {
       renamePage(page.id, v);
-      celebrate("Lista renomeada", `Agora se chama “${v.trim()}”`, page.icon || "✏️");
+      celebrate("Lista renomeada", `Agora se chama “${v.trim()}”`, emojiOf(page.icon, "✏️"));
     }
   };
   return (
     <h1 className="mr-auto flex min-w-0 items-center gap-2 text-3xl font-extrabold tracking-tight md:text-4xl">
-      <span aria-hidden="true">{page.icon}</span>
+      <Glyph icon={page.icon} size="lg" />
       {editing ? (
         <input
           autoFocus

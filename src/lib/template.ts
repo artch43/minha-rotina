@@ -223,6 +223,23 @@ export const GUIDE_NOTE = (id = uid()): Note => ({
   body: GUIDE_BODY,
 });
 
+/** The example's original emojis and the drawn icons that replace them (only while still untouched). */
+export const EXAMPLE_ICONS: { pages: Record<string, [string, string]>; habits: Record<string, [string, string]> } = {
+  pages: {
+    home: ["🏠", "lucide:house"],
+    calendario: ["🗓️", "lucide:calendar-days:blue"],
+    estudos: ["📚", "lucide:graduation:purple"],
+    trabalho: ["💼", "lucide:briefcase:blue"],
+    compromissos: ["📅", "lucide:calendar-check:orange"],
+    habits: ["🌱", "lucide:sprout:green"],
+  },
+  habits: {
+    "Ler 20 minutos": ["📖", "lucide:book:purple"],
+    Exercício: ["🏃", "lucide:dumbbell:orange"],
+    "Beber 2 L de água": ["💧", "lucide:droplet:blue"],
+  },
+};
+
 /** Starting workspace for a new person. Items tagged "Exemplo" are safe to delete. */
 export function template(): Workspace {
   const T = today();
@@ -352,12 +369,12 @@ export function template(): Workspace {
   return {
     version: 2,
     pages: [
-      { id: "home", title: "Início", icon: "🏠", type: "home", parent: null, order: 0 },
-      { id: "calendario", title: "Calendário", icon: "🗓️", type: "calendar", parent: null, order: 1 },
-      { id: E, title: "Estudos", icon: "📚", type: "db", parent: null, order: 2, fav: true },
-      { id: W, title: "Trabalho", icon: "💼", type: "db", parent: null, order: 3 },
-      { id: C, title: "Compromissos", icon: "📅", type: "db", parent: null, order: 4 },
-      { id: "habits", title: "Hábitos", icon: "🌱", type: "habits", parent: null, order: 5 },
+      { id: "home", title: "Início", icon: "lucide:house", type: "home", parent: null, order: 0 },
+      { id: "calendario", title: "Calendário", icon: "lucide:calendar-days:blue", type: "calendar", parent: null, order: 1 },
+      { id: E, title: "Estudos", icon: "lucide:graduation:purple", type: "db", parent: null, order: 2, fav: true },
+      { id: W, title: "Trabalho", icon: "lucide:briefcase:blue", type: "db", parent: null, order: 3 },
+      { id: C, title: "Compromissos", icon: "lucide:calendar-check:orange", type: "db", parent: null, order: 4 },
+      { id: "habits", title: "Hábitos", icon: "lucide:sprout:green", type: "habits", parent: null, order: 5 },
     ],
     dbs: { [E]: dbE, [W]: dbW, [C]: dbC },
     items: Object.fromEntries(items.map((i) => [i.id, i])),
@@ -365,9 +382,9 @@ export function template(): Workspace {
     todos: Object.fromEntries(todos.map((t) => [t.id, t])),
     notes: { [guide.id]: guide, [ideas.id]: ideas },
     habits: [
-      { id: uid(), name: "Ler 20 minutos", icon: "📖", created: today() },
-      { id: uid(), name: "Exercício", icon: "🏃", created: today() },
-      { id: uid(), name: "Beber 2 L de água", icon: "💧", created: today() },
+      { id: uid(), name: "Ler 20 minutos", icon: "lucide:book:purple", created: today() },
+      { id: uid(), name: "Exercício", icon: "lucide:dumbbell:orange", created: today() },
+      { id: uid(), name: "Beber 2 L de água", icon: "lucide:droplet:blue", created: today() },
     ],
     habitLog: {},
     settings: { ...DEFAULT_SETTINGS, areas: DEFAULT_AREAS.map((a) => ({ ...a })), guideVersion: GUIDE_VERSION },

@@ -3,12 +3,13 @@ import { Check, ChevronDown, ChevronUp, Circle, Plus, Trash2 } from "lucide-reac
 import { cn } from "@/lib/utils";
 import type { Habit } from "@/lib/types";
 import { firstDoneOf, streakOf } from "@/lib/model";
-import { DOW, addDays, fmtDate, parseD, uid } from "@/lib/util";
+import { DEFAULT_HABIT_ICON, DOW, addDays, fmtDate, parseD, uid } from "@/lib/util";
 import { celebrate, deleteHabit, toggleHabit, useStore } from "@/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { EmojiPicker, useToday } from "./common";
+import { useToday } from "./common";
+import { IconPicker } from "./IconPicker";
 
 const WEEKS = 5;
 
@@ -19,7 +20,7 @@ export function Habits() {
   const mut = useStore((s) => s.mut);
   const add = () => {
     mut((w) => {
-      w.habits.push({ id: uid(), name: "Novo hábito", icon: "⭐", created: T });
+      w.habits.push({ id: uid(), name: "Novo hábito", icon: DEFAULT_HABIT_ICON, created: T });
     });
     celebrate("Hábito criado", "Dê um nome e marque quando fizer.", "🌱");
     setTimeout(() => {
@@ -96,8 +97,9 @@ function HabitRow({ h, T, i }: { h: Habit; T: string; i: number }) {
       style={{ "--i": Math.min(i, 12) } as React.CSSProperties}
     >
       <div className="flex items-center gap-3">
-        <EmojiPicker
+        <IconPicker
           value={h.icon}
+          label={`Trocar ícone de ${h.name}`}
           onChange={(icon) =>
             edit((x) => {
               x.icon = icon;

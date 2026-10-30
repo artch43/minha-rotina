@@ -1,6 +1,6 @@
 import type { Block, Color, Database, Item, Note, Page, Prop, Workspace } from "./types";
 import { FIXED_PROPS } from "./types";
-import { DEFAULT_SETTINGS, GUIDE_BODY, GUIDE_NOTE, GUIDE_VERSION, OLD_GUIDE_BODIES } from "./template";
+import { DEFAULT_SETTINGS, EXAMPLE_ICONS, GUIDE_BODY, GUIDE_NOTE, GUIDE_VERSION, OLD_GUIDE_BODIES } from "./template";
 import { today, uid } from "./util";
 
 const FIXED = new Set<string>(FIXED_PROPS);
@@ -148,7 +148,7 @@ export function normalizeWorkspace(input: Workspace): Workspace {
   for (const t of Object.values(w.todos)) if (!t.done && !t.date) t.date = today();
   if (!w.pages.some((p) => p.type === "calendar")) {
     for (const p of w.pages) if (p.order >= 1) p.order += 1;
-    w.pages.push({ id: "calendario", title: "Calendário", icon: "🗓️", type: "calendar", parent: null, order: 1 });
+    w.pages.push({ id: "calendario", title: "Calendário", icon: EXAMPLE_ICONS.pages.calendario[1], type: "calendar", parent: null, order: 1 });
   }
 
   // Tasks: notes as text, an area, only the fixed fields.
@@ -184,6 +184,16 @@ export function normalizeWorkspace(input: Workspace): Workspace {
       w.notes[n.id] = n;
     }
     w.settings.guideVersion = GUIDE_VERSION;
+  }
+
+  // The example's emojis become drawn icons, but only where the person never changed them.
+  for (const p of w.pages) {
+    const m = EXAMPLE_ICONS.pages[p.id];
+    if (m && p.icon === m[0]) p.icon = m[1];
+  }
+  for (const h of w.habits) {
+    const m = EXAMPLE_ICONS.habits[h.name];
+    if (m && h.icon === m[0]) h.icon = m[1];
   }
 
   w.version = 2;

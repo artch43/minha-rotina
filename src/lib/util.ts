@@ -150,3 +150,9 @@ export function formatPhone(p: string) {
   const m = /^\+55(\d{2})(\d{4,5})(\d{4})$/.exec(p);
   return m ? `+55 ${m[1]} ${m[2]}-${m[3]}` : p;
 }
+
+/** Icons given to new lists and habits (drawn icons; see src/components/icons.tsx). */
+export const DEFAULT_LIST_ICON = "lucide:list-checks";
+export const DEFAULT_HABIT_ICON = "lucide:star:yellow";
+/** For plain text (toasts, Markdown): the emoji the person chose, or `fallback` for a drawn icon. */
+export const emojiOf = (icon: string | undefined, fallback = "") => (!icon || icon.startsWith("lucide:") ? fallback : icon);

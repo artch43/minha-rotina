@@ -207,3 +207,19 @@ describe("atualização ao abrir", () => {
     expect(diff).toEqual([]);
   });
 });
+
+describe("ícones do exemplo", () => {
+  it("troca os emojis originais por ícones, mas mantém os que a pessoa escolheu", async () => {
+    const { template } = await import("./template");
+    const w = template();
+    w.pages.find((p) => p.id === "estudos")!.icon = "📚";
+    w.pages.find((p) => p.id === "trabalho")!.icon = "🦄";
+    w.habits[0].icon = "📖";
+    w.habits[1].icon = "🎯";
+    const out = normalizeWorkspace(w);
+    expect(out.pages.find((p) => p.id === "estudos")!.icon).toBe("lucide:graduation:purple");
+    expect(out.pages.find((p) => p.id === "trabalho")!.icon).toBe("🦄");
+    expect(out.habits[0].icon).toBe("lucide:book:purple");
+    expect(out.habits[1].icon).toBe("🎯");
+  });
+});

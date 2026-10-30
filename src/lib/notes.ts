@@ -1,6 +1,7 @@
 import type { Note, Workspace } from "./types";
 import { dateOf, groupOf } from "./model";
 import { today } from "./util";
+import { emojiOf } from "./util";
 
 /** Splits a [[target#heading|alias]] link body into its parts. */
 export function parseWiki(inner: string) {
@@ -77,7 +78,7 @@ export function dailyBody(ws: Workspace, date = today()) {
     if (due || g === "review" || g === "doing")
       lines.push(`- [ ] ${it.title || "Sem título"}${g === "review" ? " (revisar)" : ""} · ${page?.title ?? ""}`);
   }
-  const habits = ws.habits.map((h) => `- [ ] ${h.icon} ${h.name}`);
+  const habits = ws.habits.map((h) => `- [ ] ${emojiOf(h.icon)} ${h.name}`.replace("  ", " "));
   return [
     `# ${head}`,
     "",

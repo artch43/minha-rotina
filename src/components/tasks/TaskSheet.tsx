@@ -17,6 +17,7 @@ import { AreaDot, NewAreaButton, OptionBadge, areaVar, useAreas } from "../commo
 import { AlertPicker } from "../calendar/AlertPicker";
 import { Kbd } from "@/components/ui/kbd";
 import { MOD } from "@/lib/shortcuts";
+import { Glyph } from "../icons";
 
 const NONE = "__none";
 
@@ -59,7 +60,16 @@ export function TaskSheet() {
         {it && db && sp && (
           <>
             <SheetHeader className="area-stripe gap-1 border-b pl-7" style={areaVar(area)}>
-              <SheetDescription>{page ? `${page.icon} ${page.title}` : "Tarefa"}</SheetDescription>
+              <SheetDescription className="flex items-center gap-1.5">
+                {page ? (
+                  <>
+                    <Glyph icon={page.icon} size="xs" />
+                    {page.title}
+                  </>
+                ) : (
+                  "Tarefa"
+                )}
+              </SheetDescription>
               <SheetTitle className="sr-only">{it.title || "Tarefa sem título"}</SheetTitle>
               <Input
                 ref={titleRef}

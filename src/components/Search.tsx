@@ -1,4 +1,4 @@
-import { CalendarDays, CheckSquare, FileText, LayoutGrid } from "lucide-react";
+import { CalendarDays, CheckSquare, FileText } from "lucide-react";
 import { go, openEvent, openNotes, openPeek, useStore } from "@/store";
 import {
   Command,
@@ -13,6 +13,8 @@ import { fmtDate } from "@/lib/util";
 import { dateOf, statusProp } from "@/lib/model";
 import { REPEAT_LABELS } from "@/lib/events";
 import { plainSnippet } from "@/lib/notes";
+import { emojiOf } from "@/lib/util";
+import { Glyph } from "./icons";
 
 /** Ctrl/Cmd + K: find pages, tasks, events and notes. Each result has a second line so look-alike names can be told apart. */
 export function Search() {
@@ -42,8 +44,8 @@ export function Search() {
           <CommandGroup heading="Páginas">
             {ws.pages.map((p) => (
               <CommandItem key={p.id} value={"pagina " + p.title} onSelect={run(() => go(p.id))}>
-                <LayoutGrid />
-                {p.icon} {p.title}
+                <Glyph icon={p.icon} size="xs" />
+                {p.title}
               </CommandItem>
             ))}
             <CommandItem value="pagina anotacoes" onSelect={run(() => openNotes(null))}>
@@ -72,7 +74,7 @@ export function Search() {
                     })}
                   >
                     <CheckSquare />
-                    <Two title={i.title} sub={[list && `${list.icon} ${list.title}`, status, date && fmtDate(date)]} />
+                    <Two title={i.title} sub={[list && `${emojiOf(list.icon)} ${list.title}`.trim(), status, date && fmtDate(date)]} />
                   </CommandItem>
                 );
               })}

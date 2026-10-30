@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { emojiOf } from "@/lib/util";
 
 const SHOWN = new Set(["page", "item", "note", "event", "todo"]);
 const sameBatch = (a: string, b: string) => Math.abs(new Date(a).getTime() - new Date(b).getTime()) < 3000;
@@ -43,7 +44,7 @@ export function Trash() {
   });
   const label = (r: TrashRow) => {
     const d = r.data as Partial<Page & Note & CalendarEvent & Todo & Item>;
-    if (r.kind === "page") return `${d.icon} ${d.title || "Sem título"}`;
+    if (r.kind === "page") return `${emojiOf(d.icon)} ${d.title || "Sem título"}`.trim();
     if (r.kind === "todo") return d.text || "Tarefa do dia";
     return d.title || "Sem título";
   };

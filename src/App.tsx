@@ -23,6 +23,8 @@ import { TaskSheet } from "./components/tasks/TaskSheet";
 import { StatusDialog } from "./components/tasks/StatusDialog";
 import { CalendarPage } from "./components/calendar/CalendarPage";
 import { EventDialog } from "./components/calendar/EventDialog";
+import { NotebookPen } from "lucide-react";
+import { Glyph } from "./components/icons";
 
 const NotesView = lazy(() => import("./components/notes/NotesView"));
 
@@ -155,10 +157,11 @@ function Workspace() {
 
   const title =
     route === "notes" ? (
-      <span>📓 Anotações{note ? <span className="text-muted-foreground"> / {note.title}</span> : null}</span>
+      <span className="flex items-center gap-2"><NotebookPen className="size-4 text-primary-strong" aria-hidden="true" />Anotações{note ? <span className="text-muted-foreground"> / {note.title}</span> : null}</span>
     ) : page ? (
-      <span>
-        {page.icon} {page.title || "Sem título"}
+      <span className="flex items-center gap-2">
+        <Glyph icon={page.icon} size="xs" />
+        {page.title || "Sem título"}
       </span>
     ) : null;
   const current = page ?? (route === "notes" ? null : useStore.getState().ws.pages.find((p) => p.type === "home"));

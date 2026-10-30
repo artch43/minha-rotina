@@ -8,12 +8,13 @@ import { go, useStore } from "@/store";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { areaVar, greeting, useAreas, useToday } from "./common";
 import { Progress } from "@/components/ui/progress";
+import { Glyph } from "./icons";
 
 interface Entry {
   key: string;
   time: string;
   title: string;
-  sub?: string;
+  sub?: React.ReactNode;
   area?: Area;
   done: boolean;
   order: number;
@@ -41,7 +42,12 @@ export function Home() {
       key: "t" + it.id,
       time: d.slice(11, 16),
       title: it.title || "Sem título",
-      sub: page ? `${page.icon} ${page.title}` : undefined,
+      sub: page ? (
+        <span className="inline-flex items-center gap-1.5">
+          <Glyph icon={page.icon} size="xs" />
+          {page.title}
+        </span>
+      ) : undefined,
       area: areaOf(it.area),
       done: groupOf(db, it) === "done",
       order: it.created,

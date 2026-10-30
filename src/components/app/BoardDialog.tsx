@@ -6,7 +6,11 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AreaDot, EmojiPicker, useAreas } from "../common";
+import { AreaDot, useAreas } from "../common";
+import { IconPicker } from "../IconPicker";
+import { Glyph } from "../icons";
+import { DEFAULT_LIST_ICON } from "@/lib/util";
+import { Folder } from "lucide-react";
 
 const NONE = "__none";
 
@@ -28,7 +32,7 @@ export function BoardDialog({
   const db = useStore((s) => (pageId ? s.ws.dbs[pageId] : undefined));
   const areas = useAreas();
   const [title, setTitle] = useState(page?.title ?? "");
-  const [icon, setIcon] = useState(page?.icon ?? "🗂️");
+  const [icon, setIcon] = useState(page?.icon ?? DEFAULT_LIST_ICON);
   const [area, setArea] = useState(db?.defaultArea ?? "none");
   const [folder, setFolder] = useState(page ? page.folder || NONE : startFolder || NONE);
   const save = () => {
@@ -67,7 +71,11 @@ export function BoardDialog({
             <Field>
               <FieldLabel htmlFor="board-title">Nome</FieldLabel>
               <div className="flex gap-2">
-                <EmojiPicker value={icon} onChange={setIcon} />
+                <IconPicker value={icon} onChange={setIcon} label="Ícone da lista">
+                  <Button type="button" variant="outline" size="icon" aria-label="Ícone da lista" className="size-10 shrink-0">
+                    <Glyph icon={icon} size="md" />
+                  </Button>
+                </IconPicker>
                 <Input
                   id="board-title"
                   ref={nameRef}
@@ -90,7 +98,8 @@ export function BoardDialog({
                       <SelectItem value={NONE}>Sem pasta</SelectItem>
                       {folders.map((f) => (
                         <SelectItem key={f} value={f}>
-                          📁 {f.split("/").join(" › ")}
+                          <Folder className="text-primary-strong" aria-hidden="true" />
+                          {f.split("/").join(" › ")}
                         </SelectItem>
                       ))}
                     </SelectGroup>

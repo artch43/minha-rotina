@@ -6,7 +6,7 @@ import { toast as sonner } from "sonner";
 import type { Area, CalendarEvent, Color, Group, Item, Note, PropValue, Todo, Workspace } from "./lib/types";
 import { template, mkDb, DEFAULT_STATUS } from "./lib/template";
 import { applyStatusChange, childrenOf, runReviews, statusProp, streakOf } from "./lib/model";
-import { addDays, diffDays, fmtDate, parseD, today, uid } from "./lib/util";
+import { DEFAULT_LIST_ICON, addDays, diffDays, emojiOf, fmtDate, parseD, today, uid } from "./lib/util";
 import { dailyBody, uniqueTitle } from "./lib/notes";
 import { STORAGE_KEY, workspaceStorage } from "./lib/storage";
 import { normalizeWorkspace } from "./lib/migrate";
@@ -194,7 +194,7 @@ function announceFresh() {
   const page = ws().pages.find((p) => p.id === it.db);
   const d = typeof it.props.date === "string" ? it.props.date : "";
   const when = d ? fmtDate(d.slice(0, 10)).toLowerCase() + (d.slice(11, 16) ? " às " + d.slice(11, 16) : "") : "";
-  celebrate(`Tarefa “${it.title.trim()}” criada`, [page && `${page.icon} ${page.title}`, when && `para ${when}`].filter(Boolean).join(" · "), "✅");
+  celebrate(`Tarefa “${it.title.trim()}” criada`, [page && `${emojiOf(page.icon)} ${page.title}`.trim(), when && `para ${when}`].filter(Boolean).join(" · "), "✅");
 }
 export function openPeek(id: string, focus = false) {
   if (useStore.getState().ui.peek !== id) announceFresh();
@@ -400,7 +400,7 @@ export function addBoard(title: string, icon: string, defaultArea?: string, fold
     w.pages.push({
       id,
       title: title.trim() || "Nova lista",
-      icon: icon || "🗂️",
+      icon: icon || DEFAULT_LIST_ICON,
       type: "db",
       parent: null,
       order: (top.at(-1)?.order ?? 0) + 1,
@@ -410,7 +410,7 @@ export function addBoard(title: string, icon: string, defaultArea?: string, fold
   });
   go(id);
   const name = title.trim() || "Nova lista";
-  celebrate(`Lista “${name}” criada`, folder ? `Na pasta ${folder.split("/").join(" › ")}` : "Adicione a primeira tarefa no quadro.", icon || "🗂️");
+  celebrate(`Lista “${name}” criada`, folder ? `Na pasta ${folder.split("/").join(" › ")}` : "Adicione a primeira tarefa no quadro.", emojiOf(icon, "🗂️"));
   return id;
 }
 export function renamePage(id: string, title: string, icon?: string) {
@@ -444,7 +444,7 @@ export function setPageFolder(id: string, folder: string, announce = false) {
     else delete p.folder;
   });
   if (announce)
-    celebrate(`“${before.title}” movida`, folder ? `Para ${folder.split("/").join(" › ")}` : "Para fora das pastas", before.icon || "🗂️");
+    celebrate(`“${before.title}” movida`, folder ? `Para ${folder.split("/").join(" › ")}` : "Para fora das pastas", emojiOf(before.icon, "🗂️"));
 }
 
 /* ---------- task-list folders (sidebar) ---------- */
@@ -694,7 +694,7 @@ export function toggleHabit(hid: string, day: string) {
   const h = ws().habits.find((x) => x.id === hid);
   if (!wasOn && h && day === today()) {
     const n = streakOf(ws().habitLog, hid);
-    celebrate(`${h.name}: feito hoje!`, n > 1 ? `${n} dias seguidos. Continue assim!` : "Primeiro dia da sequência.", n > 1 ? "🔥" : h.icon);
+    celebrate(`${h.name}: feito hoje!`, n > 1 ? `${n} dias seguidos. Continue assim!` : "Primeiro dia da sequência.", n > 1 ? "🔥" : emojiOf(h.icon, "✅"));
   }
 }
 export const checkReviews = () => mut(runReviews);

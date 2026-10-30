@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { EMOJI_GROUPS, today } from "@/lib/util";
+import { today } from "@/lib/util";
 import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 
@@ -109,112 +109,6 @@ export function AreaSwatches({ value, onChange }: { value: AreaColor; onChange: 
   );
 }
 
-export function EmojiPicker({
-  value,
-  onChange,
-  label = "Trocar ícone",
-  className,
-  extra,
-  renderValue,
-  children,
-}: {
-  value: string;
-  onChange: (e: string) => void;
-  label?: string;
-  className?: string;
-  /** An extra first tab of non-emoji choices (e.g. drawn icons). */
-  extra?: { name: string; items: { value: string; label: string; node: React.ReactNode }[] };
-  /** How to show the current value on the button, when it isn't a plain emoji. */
-  renderValue?: (v: string) => React.ReactNode;
-  /** A custom trigger (e.g. the icon itself in the sidebar) instead of the default button. */
-  children?: React.ReactElement;
-}) {
-  const [open, setOpen] = useState(false);
-  // With an extra tab, -1 is that tab (shown first); 0… are the emoji groups.
-  const [group, setGroup] = useState(extra ? -1 : 0);
-  const [custom, setCustom] = useState("");
-  const pick = (e: string) => {
-    onChange(e);
-    setOpen(false);
-  };
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        {children ?? (
-          <Button variant="ghost" size="icon" aria-label={label} className={cn("text-2xl", className)}>
-            {renderValue ? renderValue(value) : value}
-          </Button>
-        )}
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-3" align="start" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-2 flex flex-wrap gap-1" role="tablist" aria-label="Categorias de ícones">
-          {[...(extra ? [{ name: extra.name, i: -1 }] : []), ...EMOJI_GROUPS.map((g, i) => ({ name: g.name, i }))].map(({ name, i }) => (
-            <button
-              key={name}
-              type="button"
-              role="tab"
-              aria-selected={group === i}
-              onClick={() => setGroup(i)}
-              className={cn(
-                "rounded-full px-2.5 py-1 text-[13px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                group === i ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-        {group === -1 && extra ? (
-          <div className="grid grid-cols-8 gap-0.5" role="tabpanel">
-            {extra.items.map((it) => (
-              <Button
-                key={it.value}
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={it.label}
-                title={it.label}
-                className={cn("transition-transform hover:scale-110", it.value === value && "bg-accent ring-2 ring-primary")}
-                onClick={() => pick(it.value)}
-              >
-                {it.node}
-              </Button>
-            ))}
-          </div>
-        ) : (
-        <div className="grid grid-cols-8 gap-0.5" role="tabpanel">
-          {EMOJI_GROUPS[group].list.map((e) => (
-            <Button
-              key={e}
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={e}
-              className={cn("text-xl transition-transform hover:scale-110", e === value && "bg-accent ring-2 ring-primary")}
-              onClick={() => pick(e)}
-            >
-              {e}
-            </Button>
-          ))}
-        </div>
-        )}
-        <Input
-          className="mt-3"
-          aria-label="Outro emoji"
-          placeholder="Ou cole um emoji e tecle Enter…"
-          value={custom}
-          onChange={(e) => setCustom(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && custom.trim()) {
-              e.preventDefault();
-              pick([...custom.trim()].slice(0, 2).join(""));
-            }
-          }}
-        />
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 /** Today's date ("YYYY-MM-DD"), updated when the day changes while the page stays open. */
 export function useToday() {

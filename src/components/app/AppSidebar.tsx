@@ -77,9 +77,11 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { BoardDialog } from "./BoardDialog";
-import { EmojiPicker } from "../common";
-import { FOLDER_ICONS, FolderGlyph, LUCIDE } from "./folderIcons";
+import { IconPicker } from "../IconPicker";
+import { Glyph } from "../icons";
+import { FolderGlyph } from "./folderIcons";
 import { TASK_MIME, draggedTask } from "@/lib/dnd";
+import { emojiOf } from "@/lib/util";
 
 type SideDialog =
   | { kind: "edit"; pageId: string }
@@ -305,7 +307,7 @@ export function AppSidebar() {
               setRenaming(null);
               if (title.trim() && title.trim() !== p.title) {
                 renamePage(p.id, title);
-                celebrate("Lista renomeada", `Agora se chama “${title.trim()}”`, p.icon || "✏️");
+                celebrate("Lista renomeada", `Agora se chama “${title.trim()}”`, emojiOf(p.icon, "✏️"));
               }
             }}
             onEdit={() => setDialog({ kind: "edit", pageId: p.id })}
@@ -537,7 +539,7 @@ function BoardItem({
           onDoubleClick={onStartRename}
         >
           <IconSpot label="Trocar ícone da lista" value={p.icon} onPick={(v) => renamePage(p.id, p.title, v)}>
-            <span className="w-5 text-center text-base leading-none">{p.icon}</span>
+            <Glyph icon={p.icon} size="sm" />
           </IconSpot>
           <span>{p.title || "Sem título"}</span>
         </SidebarMenuButton>
@@ -602,7 +604,7 @@ function InlineName({
   };
   return (
     <div className="flex h-10 items-center gap-2 px-1.5">
-      {icon && <span className="w-5 text-center text-base leading-none">{icon}</span>}
+      {icon && <Glyph icon={icon} size="sm" />}
       <Input
         autoFocus
         aria-label={label}
@@ -620,19 +622,6 @@ function InlineName({
   );
 }
 
-/** The "Ícones" tab of the folder icon picker: the default folder plus the drawn icons. */
-const FOLDER_CHOICES = {
-  name: "Ícones",
-  items: [
-    { value: "", label: "Pasta (padrão)", node: <FolderGlyph /> },
-    ...Object.entries(FOLDER_ICONS).map(([k, { label }]) => ({
-      value: LUCIDE + k,
-      label,
-      node: <FolderGlyph icon={LUCIDE + k} />,
-    })),
-  ],
-};
-
 /** The icon in a sidebar row: one click opens the icon picker (the row's menu also has it, for the keyboard). */
 function IconSpot({
   label,
@@ -648,7 +637,7 @@ function IconSpot({
   children: React.ReactNode;
 }) {
   return (
-    <EmojiPicker value={value} onChange={onPick} label={label} extra={folder ? FOLDER_CHOICES : undefined}>
+    <IconPicker value={value} onChange={onPick} label={label} folder={folder}>
       <span
         aria-hidden="true"
         title={label}
@@ -658,7 +647,7 @@ function IconSpot({
       >
         {children}
       </span>
-    </EmojiPicker>
+    </IconPicker>
   );
 }
 
@@ -710,14 +699,11 @@ function FolderDialog({
           className="flex flex-col gap-4"
         >
           <div className="flex gap-2">
-            <EmojiPicker
-              value={icon}
-              onChange={setIcon}
-              label="Ícone da pasta"
-              className="shrink-0 border"
-              renderValue={(v) => <FolderGlyph icon={v} className="size-6! text-2xl" />}
-              extra={FOLDER_CHOICES}
-            />
+            <IconPicker value={icon} onChange={setIcon} label="Ícone da pasta" folder>
+              <Button type="button" variant="outline" size="icon" aria-label="Ícone da pasta" className="size-10 shrink-0">
+                <FolderGlyph icon={icon} />
+              </Button>
+            </IconPicker>
             <Input
               ref={nameRef}
               autoComplete="off"
