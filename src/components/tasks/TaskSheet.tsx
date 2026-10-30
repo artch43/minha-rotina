@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import { BellRing, Check, RotateCcw, Trash2, X } from "lucide-react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { BellRing, Check, Eye, PencilLine, RotateCcw, Trash2, X } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { PropValue } from "@/lib/types";
 import { groupOf, optOf, statusProp } from "@/lib/model";
 import { COLORS, INTERVALS, fmtDate, uid } from "@/lib/util";
 import { closePeek, deleteItem, patchItem, setProp, useStore } from "@/store";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -245,20 +246,7 @@ export function TaskSheet() {
                 </Alert>
               )}
 
-              <Field>
-                <FieldLabel htmlFor="task-notes">Anotações</FieldLabel>
-                <Textarea
-                  id="task-notes"
-                  placeholder="Detalhes, links, resumo…"
-                  value={it.notes}
-                  className="min-h-40 field-sizing-content"
-                  onChange={(e) =>
-                    patchItem(it.id, (x) => {
-                      x.notes = e.target.value;
-                    })
-                  }
-                />
-              </Field>
+              <TaskNotes key={it.id} value={it.notes} onChange={(v) => patchItem(it.id, (x) => void (x.notes = v))} />
             </div>
 
             <SheetFooter className="mt-auto flex-row justify-between border-t">
@@ -276,6 +264,56 @@ export function TaskSheet() {
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+const TaskNotesPreview = lazy(() => import("./TaskNotesPreview"));
+
+/** The task's notes: write in Markdown, or see them formatted. Opens in "Visualizar" when there's text already. */
+function TaskNotes({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [mode, setMode] = useState<"write" | "view">(value.trim() ? "view" : "write");
+  return (
+    <Field>
+      <div className="flex items-center justify-between gap-2">
+        <FieldLabel htmlFor="task-notes">Anotações</FieldLabel>
+        <ToggleGroup
+          type="single"
+          size="sm"
+          variant="outline"
+          aria-label="Modo das anotações"
+          value={mode}
+          onValueChange={(v) => v && setMode(v as "write" | "view")}
+        >
+          <ToggleGroupItem value="write" className="px-2.5">
+            <PencilLine data-icon="inline-start" />
+            Escrever
+          </ToggleGroupItem>
+          <ToggleGroupItem value="view" className="px-2.5" disabled={!value.trim()}>
+            <Eye data-icon="inline-start" />
+            Visualizar
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+      {mode === "write" || !value.trim() ? (
+        <>
+          <Textarea
+            id="task-notes"
+            placeholder="Detalhes, links, resumo…"
+            value={value}
+            className="min-h-40 field-sizing-content"
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <FieldDescription>Aceita **negrito**, *itálico*, listas com “- ” e links.</FieldDescription>
+        </>
+      ) : (
+        <Suspense fallback={<div className="min-h-24 rounded-xl border bg-card" />}>
+          {/* Plain block (it can hold links); "Escrever" above, or a double-click, goes back to editing. */}
+          <div title="Clique duas vezes para editar" onDoubleClick={() => setMode("write")}>
+            <TaskNotesPreview text={value} />
+          </div>
+        </Suspense>
+      )}
+    </Field>
   );
 }
 
@@ -307,10 +345,10 @@ function TagPicker({ dbId, itemId, value }: { dbId: string; itemId: string; valu
         const o = optOf(tags, id);
         return o ? (
           <span key={id} className="flex items-center">
-            <OptionBadge opt={o} className="pr-1" />
+            <OptionBadge opt={o} className="max-w-none pr-6" />
             <button
               aria-label={`Tirar ${o.name}`}
-              className="-ml-5 rounded-full p-0.5 hover:bg-background/60"
+              className="-ml-5 flex size-4 items-center justify-center rounded-full hover:bg-background/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               onClick={() => toggle(id)}
             >
               <X className="size-3" />
