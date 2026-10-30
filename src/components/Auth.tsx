@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ArrowLeft, Eye, EyeOff, Loader2, MailCheck } from "lucide-react";
 import { clearAuthLink, supabase } from "@/lib/supabase";
@@ -161,7 +162,8 @@ function Shell({
             {tabs}
             <header className="flex flex-col gap-1.5">
               <h1 className="text-[1.75rem] leading-tight font-extrabold tracking-tight sm:text-3xl">{title}</h1>
-              {description && <p className="text-base text-muted-foreground">{description}</p>}
+              {/* Two lines reserved, so switching Entrar/Criar conta doesn't move the form. */}
+              {description && <p className="min-h-[2lh] text-base text-muted-foreground">{description}</p>}
             </header>
             {children}
             {footer && <div className="flex flex-wrap justify-center gap-2 text-sm">{footer}</div>}
@@ -328,7 +330,7 @@ export function Auth({ error: outer, startMode }: { error?: string; startMode?: 
           </Field>
           {mode !== "forgot" && (
             <Field data-invalid={!!error}>
-              <div className="flex items-center justify-between">
+              <div className="flex h-6 items-center justify-between">
                 <FieldLabel htmlFor="auth-pass">Senha</FieldLabel>
                 {mode === "signin" && (
                   <Button type="button" variant="link" className="h-auto p-0 text-sm" onClick={() => switchTo("forgot")}>
@@ -346,7 +348,10 @@ export function Auth({ error: outer, startMode }: { error?: string; startMode?: 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-              {mode === "signup" && <FieldDescription>Pelo menos 6 caracteres.</FieldDescription>}
+              {/* The hint's line is kept on both tabs (hidden when signing in), so the button below stays put. */}
+              <FieldDescription className={cn(mode !== "signup" && "invisible")} aria-hidden={mode !== "signup"}>
+                Pelo menos 6 caracteres.
+              </FieldDescription>
             </Field>
           )}
           {!error && mode === "signin" && locked > 0 && (
