@@ -83,6 +83,7 @@ import { Button } from "@/components/ui/button";
 import { BoardDialog } from "./BoardDialog";
 import { IconPicker } from "../IconPicker";
 import { Glyph } from "../icons";
+import { SidebarTrash } from "./TrashDropZone";
 import { FolderGlyph } from "./folderIcons";
 import { TASK_MIME, draggedTask } from "@/lib/dnd";
 import { emojiOf } from "@/lib/util";
@@ -378,6 +379,12 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={route === "notes"} onClick={nav(() => openNotes())}>
+                  <NotebookPen />
+                  <span>Anotações</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               {cal && (
                 <SidebarMenuItem>
                   <SidebarMenuButton isActive={route === cal.id} onClick={nav(() => go(cal.id))}>
@@ -386,12 +393,6 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              <SidebarMenuItem>
-                <SidebarMenuButton isActive={route === "notes"} onClick={nav(() => openNotes())}>
-                  <NotebookPen />
-                  <span>Anotações</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
               {habits && (
                 <SidebarMenuItem>
                   <SidebarMenuButton isActive={route === habits.id} onClick={nav(() => go(habits.id))}>
@@ -480,12 +481,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           {/* The trash works with or without an account (kept on this device when there is none). */}
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={nav(() => openModal("trash"))}>
-              <Trash2 />
-              <span>Lixeira</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          <SidebarTrash onOpen={nav(() => openModal("trash"))} />
           <SidebarMenuItem>
             <SidebarMenuButton onClick={nav(() => openModal("settings"))}>
               <Settings />
@@ -591,7 +587,7 @@ function BoardItem({
   return (
     <SidebarMenuItem
       {...dropProps}
-      // Can be dragged to the trash (TrashDropZone), which asks before deleting.
+      // Can be dragged to the sidebar trash (SidebarTrash), which asks before deleting.
       data-trash={"page:" + p.id}
       onDragOver={(e) => {
         if (!isTask(e)) return dropProps.onDragOver?.(e);
