@@ -90,6 +90,15 @@ function autoScroll() {
       moved = true;
     }
   }
+  // Nothing scrolls up/down inside: the page itself does (e.g. stacked board columns on a phone).
+  if (!sy) {
+    const step = d.y < EDGE_PX * 1.5 ? -SCROLL_STEP : d.y > innerHeight - EDGE_PX * 2 ? SCROLL_STEP : 0;
+    if (step) {
+      const before = scrollY;
+      scrollBy(0, step);
+      if (scrollY !== before) moved = true;
+    }
+  }
   if (moved) moveTo(d.x, d.y);
   d.raf = requestAnimationFrame(autoScroll);
 }

@@ -80,7 +80,8 @@ export function Board({ page, db, view, list }: { page: Page; db: Database; view
   };
 
   return (
-    <div className="-mx-4 flex items-start gap-3 overflow-x-auto px-4 pb-6 md:-mx-8 md:px-8">
+    // Phones: columns stacked full width (no sideways scrolling). Bigger screens: side by side, scrolling sideways if needed.
+    <div className="-mx-4 flex items-start gap-3 overflow-x-auto px-4 pb-6 max-sm:flex-col max-sm:items-stretch max-sm:overflow-visible md:-mx-8 md:px-8">
       {sp.options!.map((o, ci) => {
         const items = list.filter((i) => i.props[sp.id] === o.id);
         return (
@@ -89,7 +90,7 @@ export function Board({ page, db, view, list }: { page: Page; db: Database; view
             aria-label={o.name}
             className={cn(
               // Columns share the width on big screens (so four fit side by side), but stay readable: 16–22rem.
-              "flex w-72 shrink-0 flex-col gap-2 rounded-2xl border border-border/60 bg-column p-2 transition-colors xl:w-auto xl:max-w-88 xl:min-w-64 xl:flex-1",
+              "flex w-72 shrink-0 flex-col gap-2 rounded-2xl border border-border/60 bg-column p-2 transition-colors max-sm:w-full xl:w-auto xl:max-w-88 xl:min-w-64 xl:flex-1",
               drop?.col === o.id && "bg-primary/8 ring-2 ring-primary/30",
             )}
             onDragOver={(e) => {
@@ -192,7 +193,7 @@ export function Board({ page, db, view, list }: { page: Page; db: Database; view
         variant="ghost"
         aria-label="Nova coluna"
         title="Nova coluna"
-        className="h-24 w-12 shrink-0 rounded-2xl border-2 border-dashed border-border text-muted-foreground hover:border-primary/50 hover:bg-primary/5 hover:text-primary-strong"
+        className="h-24 w-12 shrink-0 rounded-2xl border-2 border-dashed border-border text-muted-foreground hover:border-primary/50 hover:bg-primary/5 hover:text-primary-strong max-sm:h-12 max-sm:w-full"
         onClick={() => {
           const id = addStatus(page.id);
           setEditing(id);
