@@ -23,6 +23,7 @@ import {
   newItem,
   celebrate,
   isJustCreated,
+  toast,
   openPeek,
   patchItem,
   renameStatus,
@@ -64,15 +65,25 @@ export function Board({ page, db, view, list }: { page: Page; db: Database; view
 
   const finishDrop = (colId: string) => {
     if (!drag || !drop) return;
+    const { mut } = useStore.getState();
+    // Reordering inside a column means "I want my own order here": this view switches to manual,
+    // starting from the order on screen, so only the dragged card moves.
+    // Moving to another column keeps the automatic order (the card just lands where it belongs).
+    const sameColumn = useStore.getState().ws.items[drag]?.props[sp.id] === colId;
+    if (sameColumn && view.sort !== null) {
+      mut((w) => {
+        list.forEach((it, k) => {
+          if (w.items[it.id]) w.items[it.id].order = (k + 1) * 1024;
+        });
+        w.dbs[page.id].views.find((v) => v.id === view.id)!.sort = null;
+      });
+      toast("Ordem manual neste quadro. Para voltar à automática, use Ordenar.");
+    }
     const items = useStore.getState().ws.items;
     const ids = list.filter((i) => i.props[sp.id] === colId && i.id !== drag).map((i) => i.id);
     const prev = items[ids[drop.index - 1]],
       next = items[ids[drop.index]];
     const order = prev && next ? (prev.order + next.order) / 2 : prev ? prev.order + 1 : next ? next.order - 1 : Date.now();
-    if (view.sort?.prop)
-      useStore.getState().mut((w) => {
-        w.dbs[page.id].views.find((v) => v.id === view.id)!.sort = null;
-      });
     patchItem(drag, (it) => {
       it.order = order;
     });

@@ -1,11 +1,20 @@
 import { useRef, useState } from "react";
 import { NewTaskDialog } from "./NewTaskDialog";
-import { CalendarDays, Check, Columns3, Filter, Plus, Search, Settings2, Table2, X } from "lucide-react";
+import { ArrowDownUp, CalendarDays, Check, Columns3, Filter, Plus, Search, Settings2, Table2, X } from "lucide-react";
 import type { Filter as F, Page, View } from "@/lib/types";
 import { applyFilters, defaultsFromFilters, filterLabel } from "@/lib/model";
 import { celebrate, renamePage, useStore } from "@/store";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
@@ -104,6 +113,15 @@ export function DbPage({ page }: { page: Page }) {
               }}
             />
           </InputGroup>
+          <SortButton
+            view={view}
+            onChange={(sort) =>
+              mutView((v) => {
+                if (sort === undefined) delete v.sort;
+                else v.sort = sort;
+              })
+            }
+          />
           <FilterButton
             dbId={page.id}
             view={view}
@@ -163,6 +181,46 @@ export function DbPage({ page }: { page: Page }) {
         />
       )}
     </div>
+  );
+}
+
+const SORTS: { key: string; label: string; sort: View["sort"] }[] = [
+  { key: "auto", label: "Automática: prazo e prioridade", sort: undefined },
+  { key: "date", label: "Só pelo prazo", sort: { prop: "date", dir: "asc" } },
+  { key: "prio", label: "Só pela prioridade", sort: { prop: "prio", dir: "asc" } },
+  { key: "title", label: "Nome (A–Z)", sort: { prop: "title", dir: "asc" } },
+  { key: "manual", label: "Manual (como você arrastou)", sort: null },
+];
+const sortKey = (s: View["sort"]) => (s === undefined || s?.prop === "auto" ? "auto" : s === null ? "manual" : s.prop);
+
+/** How the cards are ordered. Automatic by default; dragging inside a column switches to manual. */
+function SortButton({ view, onChange }: { view: View; onChange: (s: View["sort"]) => void }) {
+  const key = sortKey(view.sort);
+  const cur = SORTS.find((x) => x.key === key) ?? SORTS[0];
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" aria-label={`Ordenar: ${cur.label}`} title={`Ordem: ${cur.label}`} className="max-sm:size-10 max-sm:px-0">
+          <ArrowDownUp data-icon="inline-start" className="max-sm:m-0" />
+          <span className="max-sm:hidden">{key === "auto" ? "Ordenar" : cur.key === "manual" ? "Manual" : "Ordenado"}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuLabel>Ordem das tarefas</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={key} onValueChange={(k) => onChange(SORTS.find((x) => x.key === k)!.sort)}>
+          {SORTS.map((x) => (
+            <DropdownMenuRadioItem key={x.key} value={x.key}>
+              {x.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <p className="px-2 py-1.5 text-xs text-muted-foreground">
+          Na automática, o prazo mais próximo vem primeiro e, no mesmo dia, a prioridade mais alta. Arrastar um cartão
+          dentro da coluna muda para a manual.
+        </p>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

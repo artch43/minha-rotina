@@ -103,6 +103,9 @@ export function applyFilters(ws: Workspace, dbId: string, view: View, search: st
       .includes(f.val.toLowerCase());
   }
   const s = view.sort;
+  // No choice made (or "auto"): nearest deadline first, then higher priority; tasks without a date last.
+  // null means the person arranged the cards by hand.
+  if (s === undefined || s?.prop === "auto") return autoSort(db, list);
   if (s?.prop) {
     const prop = db.props.find((x) => x.id === s.prop);
     const key = (i: Item): string | number => {
@@ -122,6 +125,25 @@ export function applyFilters(ws: Workspace, dbId: string, view: View, search: st
     });
   }
   return [...list].sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+
+/** Deadline day (soonest first, overdue on top), then priority (as ordered in the list's options), then time, then manual order. */
+export function autoSort(db: Database, list: Item[]) {
+  const prio = db.props.find((p) => p.id === "prio")?.options ?? [];
+  const date = (i: Item) => (typeof i.props.date === "string" ? i.props.date : "");
+  const day = (i: Item) => date(i).slice(0, 10) || "~";
+  const time = (i: Item) => date(i).slice(11, 16) || "~";
+  const rank = (i: Item) => {
+    const k = prio.findIndex((o) => o.id === i.props.prio);
+    return k < 0 ? 999 : k;
+  };
+  // Plain comparison: localeCompare would put "~" (no date) before the digits.
+  const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+  // Day first; within a day, priority; then the time (untimed after timed); then the order they were placed.
+  return [...list].sort(
+    (a, b) =>
+      cmp(day(a), day(b)) || rank(a) - rank(b) || cmp(time(a), time(b)) || (a.order || 0) - (b.order || 0),
+  );
 }
 
 const DATE_FILTERS: Record<string, string> = {

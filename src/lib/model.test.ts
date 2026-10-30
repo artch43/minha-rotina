@@ -87,6 +87,32 @@ describe("filtros e ordenação", () => {
     expect(applyFilters(ws, "estudos", view(), "LOGA").map((i) => i.title)).toEqual(["Logaritmos"]);
   });
 
+  it("ordena sozinho por prazo e, no mesmo dia, por prioridade; sem prazo vai para o fim", () => {
+    const db = ws.dbs.estudos;
+    const prio = (n: string) => db.props.find((p) => p.id === "prio")!.options!.find((o) => o.name === n)!.id;
+    const set = (t: string, date: string | undefined, p?: string) => {
+      const it = find(t);
+      if (date) it.props.date = date;
+      else delete it.props.date;
+      if (p) it.props.prio = prio(p);
+      else delete it.props.prio;
+    };
+    set("Logaritmos", "2026-10-30", "Baixa");
+    set("Revolução Francesa", "2026-10-30T09:00", "Alta");
+    set("Funções do 2º grau", "2026-10-28");
+    set("Concordância verbal", undefined, "Alta");
+    const v = { ...view(), sort: undefined };
+    expect(applyFilters(ws, "estudos", v, "").map((i) => i.title)).toEqual([
+      "Funções do 2º grau",
+      "Revolução Francesa",
+      "Logaritmos",
+      "Concordância verbal",
+    ]);
+    // Arranged by hand (null): the cards keep the order they were placed in.
+    const manual = applyFilters(ws, "estudos", { ...v, sort: null }, "");
+    expect(manual.map((i) => i.order)).toEqual([...manual.map((i) => i.order)].sort((a, b) => a - b));
+  });
+
   it("ordena por nome", () => {
     const v = { ...view(), sort: { prop: "title", dir: "asc" as const } };
     expect(applyFilters(ws, "estudos", v, "").map((i) => i.title)).toEqual([
