@@ -53,6 +53,24 @@ Sem o arquivo `.env.local`, o app roda **sem login**, com os dados no navegador.
 
 ---
 
+## E-mails de cadastro e de nova senha (Brevo)
+
+O e-mail padrão do Supabase só entrega para os endereços da equipe do projeto e só uns 2 por hora, então
+o cadastro de outras pessoas falha. Para liberar, use um SMTP próprio. O [Brevo](https://www.brevo.com) é
+grátis (300 e-mails por dia) e não precisa de domínio:
+
+1. Crie a conta no Brevo e confirme o e-mail que vai aparecer como remetente (**Senders, Domains & Dedicated IPs → Senders**).
+2. Em **SMTP & API → SMTP**, gere uma **SMTP key**. Anote o login SMTP que aparece na página.
+3. No Supabase, em **Authentication → Emails → SMTP Settings**, ative **Enable custom SMTP** e preencha:
+   - Sender email: o e-mail confirmado no passo 1. Sender name: `Organizer`.
+   - Host: `smtp-relay.brevo.com`. Port: `587`.
+   - Username: o login SMTP do Brevo. Password: a SMTP key.
+4. Em **Authentication → Rate Limits**, aumente **Rate limit for sending emails** (por exemplo, 100 por hora).
+5. Em **Authentication → Providers → Email**, defina **Minimum password length** = `8` e
+   **Password requirements** = letras e números, a mesma regra que o app pede.
+
+A chave fica só no painel do Supabase: não a coloque no código.
+
 ## Configurar os alarmes
 
 Os alarmes são enviados pela função `supabase/functions/send-reminders`, que roda a cada minuto.

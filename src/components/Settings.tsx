@@ -39,6 +39,8 @@ import { AreaSwatches, areaVar, useAreas } from "./common";
 import { Glyph } from "./icons";
 import { AppearanceTab } from "./AppearanceTab";
 import { PasswordInput } from "./Auth";
+import { passwordProblem } from "@/lib/password";
+import { PasswordRules } from "./PasswordRules";
 
 export function Settings() {
   const ws = useStore((s) => s.ws);
@@ -303,7 +305,8 @@ function ChangePassword({ email }: { email: string }) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (next.length < 6) return setError("A nova senha precisa ter pelo menos 6 caracteres.");
+    const weak = passwordProblem(next);
+    if (weak) return setError(weak);
     if (next !== again) return setError("As duas senhas novas não são iguais.");
     if (next === current) return setError("A nova senha precisa ser diferente da atual.");
     setBusy(true);
@@ -326,7 +329,7 @@ function ChangePassword({ email }: { email: string }) {
           : /different from the old/i.test(upd.message)
             ? "A nova senha precisa ser diferente da atual."
             : /weak|short|characters/i.test(upd.message)
-              ? "Escolha uma senha mais forte (pelo menos 6 caracteres)."
+              ? "Escolha uma senha mais forte: pelo menos 8 caracteres, com números."
               : "Não foi possível trocar a senha. Tente de novo.",
       );
       return;
@@ -370,19 +373,20 @@ function ChangePassword({ email }: { email: string }) {
         <PasswordInput
           id="pw-new"
           autoComplete="new-password"
-          minLength={6}
+          minLength={8}
+          aria-describedby="pw-new-rules"
           required
           value={next}
           onChange={(e) => setNext(e.target.value)}
         />
-        <FieldDescription>Pelo menos 6 caracteres.</FieldDescription>
+        <PasswordRules id="pw-new-rules" value={next} />
       </Field>
       <Field>
         <FieldLabel htmlFor="pw-again">Repita a nova senha</FieldLabel>
         <PasswordInput
           id="pw-again"
           autoComplete="new-password"
-          minLength={6}
+          minLength={8}
           required
           value={again}
           onChange={(e) => setAgain(e.target.value)}

@@ -6,7 +6,7 @@ import { clearAuthLink, supabase } from "@/lib/supabase";
 import { clearFailures, fmtWait, recordFailure, triesLeft, waitLeft } from "@/lib/loginLimit";
 import { seedAccount, useSync } from "@/lib/sync";
 import { template } from "@/lib/template";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -14,13 +14,16 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Logo } from "./app/AppSidebar";
 import { isNativeApp, SITE_URL } from "@/lib/native";
+import { passwordProblem } from "@/lib/password";
+import { PasswordRules } from "./PasswordRules";
 
 export type Mode = "signin" | "signup" | "forgot";
 
 const ERRORS: Record<string, string> = {
   "Invalid login credentials": "E-mail ou senha incorretos.",
   "Email not confirmed": "Confirme seu e-mail pelo link que enviamos antes de entrar.",
-  "User already registered": "Já existe uma conta com este e-mail. Tente entrar.",
+  "User already registered": "Já existe uma conta com este e-mail. Entre ou use “Esqueci a senha”.",
+  "Signups not allowed for this instance": "Os cadastros estão fechados no momento.",
 };
 function msgOf(e: { message?: string; name?: string } | null) {
   if (!e) return "";
@@ -28,7 +31,11 @@ function msgOf(e: { message?: string; name?: string } | null) {
   if (ERRORS[m]) return ERRORS[m];
   if (/fetch|network/i.test(m) || e.name === "AuthRetryableFetchError")
     return "Não foi possível conectar ao servidor. Verifique sua internet.";
-  if (/password/i.test(m)) return "A senha precisa ter pelo menos 6 caracteres.";
+  // The e-mail service refused to send (address not allowed or too many e-mails in the last hour).
+  if (/email address not authorized|email rate limit|error sending|sending (confirmation|recovery)/i.test(m))
+    return "Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos.";
+  if (/invalid.*email|email.*invalid|unable to validate email/i.test(m)) return "Confira o e-mail: ele parece inválido.";
+  if (/password/i.test(m)) return "Escolha uma senha mais forte: pelo menos 8 caracteres, com números.";
   if (/rate limit/i.test(m)) return "Muitas tentativas. Aguarde alguns minutos e tente de novo.";
   return "Algo deu errado. Tente de novo em instantes.";
 }
@@ -236,6 +243,8 @@ export function Auth({ error: outer, startMode }: { error?: string; startMode?: 
     setInfo("");
   };
 
+  // A password problem doesn't make the e-mail field look wrong.
+  const emailBad = !!error && !/^A senha|senha mais forte/.test(error);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!supabase) return;
@@ -258,6 +267,11 @@ export function Auth({ error: outer, startMode }: { error?: string; startMode?: 
         );
       } else setError(msgOf(error));
     } else if (mode === "signup") {
+      const weak = passwordProblem(password);
+      if (weak) {
+        setError(weak);
+        return setBusy(false);
+      }
       const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirect } });
       if (error) setError(msgOf(error));
       else if (!data.session)
@@ -312,7 +326,7 @@ export function Auth({ error: outer, startMode }: { error?: string; startMode?: 
     >
       <form onSubmit={submit} noValidate={false}>
         <FieldGroup>
-          <Field data-invalid={!!error}>
+          <Field data-invalid={emailBad}>
             <FieldLabel htmlFor="auth-email">E-mail</FieldLabel>
             <Input
               id="auth-email"
@@ -326,7 +340,7 @@ export function Auth({ error: outer, startMode }: { error?: string; startMode?: 
               placeholder="voce@email.com"
               className="h-11"
               value={email}
-              aria-invalid={!!error}
+              aria-invalid={emailBad}
               onChange={(e) => setEmail(e.target.value)}
             />
           </Field>
@@ -343,17 +357,21 @@ export function Auth({ error: outer, startMode }: { error?: string; startMode?: 
               <PasswordInput
                 id="auth-pass"
                 name="password"
-                minLength={6}
+                minLength={mode === "signup" ? 8 : undefined}
                 required
                 aria-invalid={!!error}
+                aria-describedby={mode === "signup" ? "auth-pass-rules" : undefined}
                 autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
               {/* The hint's line is kept on both tabs (hidden when signing in), so the button below stays put. */}
-              <FieldDescription className={cn(mode !== "signup" && "invisible")} aria-hidden={mode !== "signup"}>
-                Pelo menos 6 caracteres.
-              </FieldDescription>
+              <PasswordRules
+                id="auth-pass-rules"
+                value={password}
+                className={cn(mode !== "signup" && "invisible")}
+                aria-hidden={mode !== "signup"}
+              />
             </Field>
           )}
           {!error && mode === "signin" && locked > 0 && (
@@ -395,7 +413,8 @@ export function NewPassword() {
   const [busy, setBusy] = useState(false);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) return setError("A senha precisa ter pelo menos 6 caracteres.");
+    const weak = passwordProblem(password);
+    if (weak) return setError(weak);
     if (password !== again) return setError("As duas senhas não são iguais.");
     setBusy(true);
     const { error } = await supabase!.auth.updateUser({ password });
@@ -423,7 +442,8 @@ export function NewPassword() {
             <FieldLabel htmlFor="new-pass">Nova senha</FieldLabel>
             <PasswordInput
               id="new-pass"
-              minLength={6}
+              minLength={8}
+              aria-describedby="new-pass-rules"
               required
               autoFocus
               autoComplete="new-password"
@@ -431,13 +451,13 @@ export function NewPassword() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            <FieldDescription>Pelo menos 6 caracteres.</FieldDescription>
+            <PasswordRules id="new-pass-rules" value={password} />
           </Field>
           <Field data-invalid={!!error && password !== again}>
             <FieldLabel htmlFor="new-pass-2">Repita a nova senha</FieldLabel>
             <PasswordInput
               id="new-pass-2"
-              minLength={6}
+              minLength={8}
               required
               autoComplete="new-password"
               aria-invalid={!!error && password !== again}
