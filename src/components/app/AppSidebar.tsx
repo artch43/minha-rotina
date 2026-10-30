@@ -222,6 +222,7 @@ export function AppSidebar() {
             <SidebarMenuItem
               key={"f:" + f}
               {...dropProps(f)}
+              data-trash={"folder:" + f}
               className={cn(
                 "rounded-lg transition-colors",
                 over === f && "bg-primary/10 ring-2 ring-primary/50",

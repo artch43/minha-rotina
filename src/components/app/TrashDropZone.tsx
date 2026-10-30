@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { deleteByShortcut } from "@/lib/shortcuts";
-import { deletePage, useStore } from "@/store";
+import { deleteBoardFolder, deleteBoardFolderWithLists, deletePage, useStore } from "@/store";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,16 +15,17 @@ import {
 } from "@/components/ui/alert-dialog";
 
 type Dragged = { kind: string; id: string };
-const KINDS = new Set(["task", "event", "todo", "note", "page"]);
+const KINDS = new Set(["task", "event", "todo", "note", "page", "folder"]);
 const LABEL: Record<string, string> = {
   task: "a tarefa",
   event: "o evento",
   todo: "a tarefa",
   note: "a anotação",
   page: "a lista",
+  folder: "a pasta",
 };
 
-/** What a drag started on: data-trash (lists) or data-del (tasks, events, notes…), as "kind:id". */
+/** What a drag started on: data-trash (lists, folders) or data-del (tasks, events, notes…), as "kind:id". */
 function draggedFrom(target: EventTarget | null): Dragged | null {
   const el = (target as Element | null)?.closest?.("[data-trash], [data-del]");
   const v = el?.getAttribute("data-trash") || el?.getAttribute("data-del");
@@ -36,8 +37,8 @@ function draggedFrom(target: EventTarget | null): Dragged | null {
 
 /**
  * A trash can that drops in at the top while something is being dragged (mouse or touch). Drop on it to delete,
- * with a little "gulp" and a burst; the usual toast offers Desfazer. Lists ask first, since their
- * tasks go too.
+ * with a little "gulp" and a burst; the usual toast offers Desfazer. Lists and folders ask first, since
+ * what's inside goes too.
  */
 export function TrashDropZone() {
   const [drag, setDrag] = useState<Dragged | null>(null);
@@ -48,6 +49,9 @@ export function TrashDropZone() {
   const hideTimer = useRef<number>(undefined);
   const pageTitle = useStore((s) => (askPage ? s.ws.pages.find((p) => p.id === askPage)?.title : undefined));
   const pageTasks = useStore((s) => (askPage ? Object.values(s.ws.items).filter((i) => i.db === askPage).length : 0));
+  const [askFolder, setAskFolder] = useState<string | null>(null);
+  const inFolder = (f = "") => !!askFolder && (f === askFolder || f.startsWith(askFolder + "/"));
+  const folderLists = useStore((s) => (askFolder ? s.ws.pages.filter((p) => p.type === "db" && inFolder(p.folder)).length : 0));
 
   useEffect(() => {
     const start = (e: DragEvent) => {
@@ -78,6 +82,7 @@ export function TrashDropZone() {
     setBurst({ x: e.clientX, y: e.clientY, k: Date.now() });
     navigator.vibrate?.(20);
     if (drag.kind === "page") setAskPage(drag.id);
+    else if (drag.kind === "folder") setAskFolder(drag.id);
     else deleteByShortcut(drag);
   };
 
@@ -86,8 +91,9 @@ export function TrashDropZone() {
       <div
         aria-hidden={!drag}
         className={cn(
-          // At the top: the toasts (with Desfazer) and the phone's bottom bar live at the bottom.
-          "pointer-events-none fixed inset-x-0 top-3 z-50 flex justify-center transition-[opacity,transform] duration-300 ease-out",
+          // At the top: the toasts (with Desfazer) and the phone's bottom bar live at the bottom. Above the
+          // phone's menu drawer (z-50), or lists dragged from it would have nowhere to land.
+          "pointer-events-none fixed inset-x-0 top-3 z-[60] flex justify-center transition-[opacity,transform] duration-300 ease-out",
           drag ? "translate-y-0 opacity-100" : "-translate-y-8 opacity-0",
         )}
       >
@@ -129,7 +135,7 @@ export function TrashDropZone() {
         <div
           key={burst.k}
           aria-hidden="true"
-          className="pointer-events-none fixed z-50"
+          className="pointer-events-none fixed z-[60]"
           style={{ left: burst.x, top: burst.y }}
           onAnimationEnd={(e) => e.currentTarget === e.target && setBurst(null)}
         >
@@ -155,6 +161,33 @@ export function TrashDropZone() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={() => askPage && deletePage(askPage)}>
               Excluir lista
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={!!askFolder} onOpenChange={(o) => !o && setAskFolder(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir a pasta “{askFolder?.split("/").pop()}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {folderLists
+                ? `Ela tem ${folderLists} ${folderLists === 1 ? "lista" : "listas"}. Você pode manter as listas (elas saem da pasta) ou excluir tudo junto.`
+                : "A pasta está vazia."}{" "}
+              Você pode desfazer logo em seguida.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            {folderLists > 0 && (
+              <AlertDialogAction variant="outline" onClick={() => askFolder && deleteBoardFolder(askFolder)}>
+                Só a pasta
+              </AlertDialogAction>
+            )}
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => askFolder && (folderLists ? deleteBoardFolderWithLists(askFolder) : deleteBoardFolder(askFolder))}
+            >
+              {folderLists ? "Excluir tudo" : "Excluir pasta"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
