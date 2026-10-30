@@ -12,6 +12,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AppSidebar } from "./components/app/AppSidebar";
 import { Topbar } from "./components/app/Topbar";
 import { MobileNav } from "./components/app/MobileNav";
+import { TrashDropZone } from "./components/app/TrashDropZone";
 import { BoardDialog } from "./components/app/BoardDialog";
 import { Search } from "./components/Search";
 import { Settings } from "./components/Settings";
@@ -203,6 +204,7 @@ function Workspace() {
           </div>
         )}
         <MobileNav />
+        <TrashDropZone />
       </SidebarInset>
       <TaskSheet />
       <EventDialog />

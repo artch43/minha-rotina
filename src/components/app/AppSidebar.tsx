@@ -591,6 +591,8 @@ function BoardItem({
   return (
     <SidebarMenuItem
       {...dropProps}
+      // Can be dragged to the trash (TrashDropZone), which asks before deleting.
+      data-trash={"page:" + p.id}
       onDragOver={(e) => {
         if (!isTask(e)) return dropProps.onDragOver?.(e);
         e.stopPropagation();
