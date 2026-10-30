@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useState } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { checkReviews, closePeek, openModal, scrollToTop, useStore } from "./store";
 import { authLink, clearAuthLink, cloudEnabled, supabase } from "./lib/supabase";
-import { startCloud, useSync } from "./lib/sync";
+import { installLocalTrash, startCloud, useSync } from "./lib/sync";
 import { installDeleteShortcut } from "./lib/shortcuts";
 import { installTouchDnd } from "./lib/touchDnd";
 import { applyAccent, applySidebarStyle, applyWallpaper } from "./lib/appearance";
@@ -219,6 +219,8 @@ function Workspace() {
 /** Esc closes the task panel when no dialog is open (dialogs handle Esc themselves); Ctrl/⌘+Delete deletes. */
 function EscToClose() {
   useEffect(() => installDeleteShortcut(), []);
+  // Without an account, deletions go to a trash kept on this device.
+  useEffect(() => (cloudEnabled ? undefined : installLocalTrash()), []);
   // Long-press and drag on phones and tablets (cards, calendar entries, lists and folders).
   useEffect(() => installTouchDnd(), []);
   useEffect(() => {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { CalendarEvent, Item, Note, Page, Todo } from "@/lib/types";
 import { deleteForever, loadTrash, restoreRows, type TrashRow } from "@/lib/sync";
 import { toast, useStore } from "@/store";
+import { cloudEnabled } from "@/lib/supabase";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -16,6 +17,7 @@ export function Trash() {
   const setUi = useStore((s) => s.setUi);
   const ws = useStore((s) => s.ws);
   const [rows, setRows] = useState<TrashRow[] | null>(null);
+  const [local, setLocal] = useState(false);
   const [error, setError] = useState("");
   const close = () =>
     setUi((u) => {
@@ -23,7 +25,10 @@ export function Trash() {
     });
   useEffect(() => {
     loadTrash()
-      .then(setRows)
+      .then((t) => {
+        setRows(t.rows);
+        setLocal(t.local);
+      })
       .catch(() => setError("Não foi possível abrir a lixeira. Verifique a conexão."));
   }, []);
 
@@ -62,7 +67,13 @@ export function Trash() {
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Lixeira</DialogTitle>
-          <DialogDescription>O que você exclui fica aqui por 30 dias.</DialogDescription>
+          <DialogDescription>
+            O que você exclui fica aqui por 30 dias.
+            {local &&
+              (cloudEnabled
+                ? " Sem conexão: aparece só o que foi excluído neste aparelho e ainda não foi enviado."
+                : " Sem conta, a lixeira fica só neste aparelho.")}
+          </DialogDescription>
         </DialogHeader>
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!rows && !error && (

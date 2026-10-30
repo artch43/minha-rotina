@@ -453,16 +453,75 @@ async function purgeOld() {
   const cutoff = new Date(Date.now() - PURGE_DAYS * 864e5).toISOString();
   await supabase?.from(TABLE).delete().lt("deleted_at", cutoff);
 }
-export async function loadTrash(): Promise<TrashRow[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("kind,id,data,updated_at,deleted_at")
-    .not("deleted_at", "is", null)
-    .order("deleted_at", { ascending: false })
-    .limit(1000);
-  if (error) throw error;
-  return data as TrashRow[];
+
+/* ---------- local trash (no account, or no connection) ---------- */
+export const LOCAL_TRASH_KEY = "minha-rotina:trash";
+/** Kinds that show up in the trash, plus the board that goes with a list (restored together). */
+const TRASH_KINDS = new Set<Kind>(["page", "db", "item", "note", "event", "todo"]);
+const LOCAL_TRASH_MAX = 500;
+
+/** Rows deleted on this device in the last 30 days (older ones are dropped as they're read). */
+export function readLocalTrash(): TrashRow[] {
+  try {
+    const cutoff = Date.now() - PURGE_DAYS * 864e5;
+    const rows = JSON.parse(localStorage.getItem(LOCAL_TRASH_KEY) || "[]") as TrashRow[];
+    return Array.isArray(rows) ? rows.filter((r) => r && r.deleted_at && new Date(r.deleted_at).getTime() >= cutoff) : [];
+  } catch {
+    return [];
+  }
+}
+function writeLocalTrash(rows: TrashRow[]) {
+  try {
+    localStorage.setItem(LOCAL_TRASH_KEY, JSON.stringify(rows.slice(0, LOCAL_TRASH_MAX)));
+  } catch {
+    /* storage full: keep what we had */
+  }
+}
+
+/**
+ * Without an account, deletions are kept on this device so the trash still works: anything that
+ * leaves the workspace goes in, and anything that comes back (Desfazer, Restaurar) comes out.
+ * Call once after the saved data is loaded; returns the cleanup function.
+ */
+export function installLocalTrash() {
+  let before = toEntities(useStore.getState().ws);
+  writeLocalTrash(readLocalTrash()); // drops what is over 30 days old
+  return useStore.subscribe((s, old) => {
+    if (s.ws === old.ws) return;
+    const next = toEntities(s.ws);
+    const { removed } = diffEntities(before, next);
+    let rows = readLocalTrash();
+    const size = rows.length;
+    rows = rows.filter((r) => !next.has(keyOf(r.kind, r.id)));
+    const now = new Date().toISOString();
+    for (const k of removed) {
+      const e = before.get(k)!;
+      if (TRASH_KINDS.has(e.kind)) rows.unshift({ kind: e.kind, id: e.id, data: e.data, deleted_at: now });
+    }
+    before = next;
+    if (removed.length || rows.length !== size) writeLocalTrash(rows);
+  });
+}
+
+/**
+ * The trash: from the cloud when signed in and online; otherwise from this device
+ * (with an account but offline: what was deleted here and hasn't reached the server yet).
+ */
+export async function loadTrash(): Promise<{ rows: TrashRow[]; local: boolean }> {
+  if (!supabase || !uid) return { rows: readLocalTrash(), local: true };
+  try {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("kind,id,data,updated_at,deleted_at")
+      .not("deleted_at", "is", null)
+      .order("deleted_at", { ascending: false })
+      .limit(1000);
+    if (error) throw error;
+    return { rows: data as TrashRow[], local: false };
+  } catch {
+    const waiting = [...pending.values()].filter((r): r is TrashRow => !!r.deleted_at);
+    return { rows: waiting.sort((a, b) => b.deleted_at.localeCompare(a.deleted_at)), local: true };
+  }
 }
 /** Restores rows by putting them back into the workspace; the normal sync then uploads them. */
 export function restoreRows(rows: Rec[]) {
@@ -474,6 +533,8 @@ export function restoreRows(rows: Rec[]) {
   );
 }
 export async function deleteForever(rows: { kind: Kind; id: string }[]) {
-  if (!supabase) return;
+  const gone = new Set(rows.map((r) => keyOf(r.kind, r.id)));
+  writeLocalTrash(readLocalTrash().filter((r) => !gone.has(keyOf(r.kind, r.id))));
+  if (!supabase || !uid) return;
   for (const r of rows) await supabase.from(TABLE).delete().eq("kind", r.kind).eq("id", r.id).not("deleted_at", "is", null);
 }

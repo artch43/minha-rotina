@@ -23,7 +23,6 @@ import type { Page } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { childrenOf, groupOf } from "@/lib/model";
 import { boardFolderList } from "@/lib/notes";
-import { cloudEnabled } from "@/lib/supabase";
 import {
   addBoardFolder,
   archivePage,
@@ -480,14 +479,13 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
-          {cloudEnabled && (
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={nav(() => openModal("trash"))}>
-                <Trash2 />
-                <span>Lixeira</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
+          {/* The trash works with or without an account (kept on this device when there is none). */}
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={nav(() => openModal("trash"))}>
+              <Trash2 />
+              <span>Lixeira</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={nav(() => openModal("settings"))}>
               <Settings />
