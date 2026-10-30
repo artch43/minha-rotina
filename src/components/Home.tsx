@@ -1,11 +1,31 @@
-import { AlertCircle, CalendarClock, CalendarDays, Check, ChevronRight, Circle, CircleCheck, Sprout } from "lucide-react";
+import {
+  AlertCircle,
+  Sparkles,
+  CalendarClock,
+  CalendarDays,
+  Check,
+  ChevronRight,
+  Circle,
+  CircleCheck,
+  Sprout,
+} from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { Area } from "@/lib/types";
 import { eventsByDay, inArea } from "@/lib/events";
 import { dateOf, firstOptInGroup, groupOf, statusProp } from "@/lib/model";
 import { addDays, fmtDate, parseD, today } from "@/lib/util";
-import { go, setProp, toast, toggleTodo, updateTodo, useStore } from "@/store";
+import { exampleData, go, removeExamples, setProp, toast, toggleTodo, updateTodo, useStore } from "@/store";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -116,6 +136,7 @@ export function Home() {
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-8 px-4 py-6 md:px-8 md:py-8 lg:max-w-6xl">
+      <WelcomeBanner />
       <header className="flex flex-col gap-2">
         <p className="text-lg text-muted-foreground">{greeting(ws.settings.name)}</p>
         <h1 className="text-4xl leading-tight font-extrabold tracking-tight md:text-5xl">{date}</h1>
@@ -299,6 +320,72 @@ function DayProgress({ done, total }: { done: number; total: number }) {
         {complete ? "Tudo feito!" : `${done}/${total}`}
       </span>
     </div>
+  );
+}
+
+/**
+ * First steps: while the starter examples are still around (and the person hasn't dismissed this),
+ * a short card explains them and offers to clear them or keep exploring.
+ */
+function WelcomeBanner() {
+  const ws = useStore((s) => s.ws);
+  const mut = useStore((s) => s.mut);
+  const [ask, setAsk] = useState(false);
+  const ex = exampleData(ws);
+  const count = ex.items.length + ex.events.length + ex.todos.length + ex.notes.length;
+  if (!count || ws.settings.examplesDismissed) return null;
+  const dismiss = () =>
+    mut((w) => {
+      w.settings.examplesDismissed = true;
+    });
+  return (
+    <section
+      aria-labelledby="welcome-title"
+      className="flex flex-col gap-3 rounded-2xl border border-primary/30 bg-card p-4 shadow-card sm:flex-row sm:items-center sm:gap-4 sm:p-5"
+    >
+      <span
+        className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary-strong max-sm:hidden"
+        aria-hidden="true"
+      >
+        <Sparkles className="size-5" />
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <h2 id="welcome-title" className="text-base font-semibold">
+          Bem-vindo ao Minha Rotina!
+        </h2>
+        <p className="text-sm text-muted-foreground">Você está visualizando dados de exemplo para conhecer os recursos.</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" onClick={() => setAsk(true)}>
+          Limpar exemplos e começar do zero
+        </Button>
+        <Button variant="ghost" onClick={dismiss}>
+          Explorar com exemplos
+        </Button>
+      </div>
+      <AlertDialog open={ask} onOpenChange={setAsk}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar os exemplos?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Saem só os {count} itens de exemplo (tarefas, eventos e a nota “Ideias”). O Guia rápido e o que você criou ficam. Dá
+              para desfazer logo em seguida.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                removeExamples();
+                dismiss();
+              }}
+            >
+              Limpar exemplos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
   );
 }
 
