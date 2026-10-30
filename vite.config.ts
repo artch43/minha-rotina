@@ -9,7 +9,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
     // Installable app with offline support: the app shell is cached; data still syncs through Supabase.
+    // The phone apps (npm run build:app) carry their files inside the app: no service worker there.
     VitePWA({
+      disable: process.env.APP_BUILD === "1",
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {

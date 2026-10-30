@@ -129,7 +129,7 @@ npm install
 npm run dev     # http://localhost:5173 (sem configuração, os dados ficam no navegador)
 ```
 
-Como ligar a nuvem, os alarmes e publicar: **[docs/CONFIGURACAO.md](docs/CONFIGURACAO.md)**.
+Como ligar a nuvem, os alarmes e publicar: **[docs/CONFIGURACAO.md](docs/CONFIGURACAO.md)**. Apps para Android e iPhone: **[docs/APLICATIVO.md](docs/APLICATIVO.md)**.
 
 <br />
 

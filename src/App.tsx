@@ -5,6 +5,7 @@ import { authLink, clearAuthLink, cloudEnabled, supabase } from "./lib/supabase"
 import { installLocalTrash, startCloud, useSync } from "./lib/sync";
 import { installDeleteShortcut } from "./lib/shortcuts";
 import { installTouchDnd } from "./lib/touchDnd";
+import { installNativeBars } from "./lib/native";
 import { applyAccent, applySidebarStyle, applyWallpaper } from "./lib/appearance";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -225,6 +226,10 @@ function EscToClose() {
   useEffect(() => (cloudEnabled ? undefined : installLocalTrash()), []);
   // Long-press and drag on phones and tablets (cards, calendar entries, lists and folders).
   useEffect(() => installTouchDnd(), []);
+  useEffect(() => {
+    const stop = installNativeBars();
+    return () => void stop.then((f) => f());
+  }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented) return;

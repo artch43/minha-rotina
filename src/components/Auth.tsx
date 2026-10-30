@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Logo } from "./app/AppSidebar";
+import { isNativeApp, SITE_URL } from "@/lib/native";
 
 export type Mode = "signin" | "signup" | "forgot";
 
@@ -241,7 +242,8 @@ export function Auth({ error: outer, startMode }: { error?: string; startMode?: 
     setBusy(true);
     setError("");
     setInfo("");
-    const redirect = location.origin + location.pathname;
+    // In the phone apps the page lives inside the app, which an e-mail link can't open: use the site.
+    const redirect = isNativeApp ? SITE_URL + "/" : location.origin + location.pathname;
     if (mode === "signin") {
       if (waitLeft() > 0) return setBusy(false);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
