@@ -6,7 +6,7 @@ import { ALERT_PRESETS } from "@/lib/events";
 import { downloadBackup, parseBackup } from "@/lib/backup";
 import { cloudEnabled, supabase } from "@/lib/supabase";
 import { deleteAllMyData, signOut, useSync } from "@/lib/sync";
-import { addArea, deleteArea, notify, replaceWorkspace, toast, updateArea, useStore } from "@/store";
+import { addArea, deleteArea, exampleData, notify, removeExamples, replaceWorkspace, toast, updateArea, useStore } from "@/store";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -25,6 +25,16 @@ import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { AreaSwatches, areaVar, useAreas } from "./common";
 import { Glyph } from "./icons";
 import { AppearanceTab } from "./AppearanceTab";
@@ -81,6 +91,7 @@ export function Settings() {
                 </Select>
               </Field>
               <p className="text-sm text-muted-foreground">Tema, cores e papel de parede ficam em Aparência.</p>
+              <ExamplesField />
             </FieldGroup>
           </TabsContent>
 
@@ -144,6 +155,52 @@ export function Settings() {
         </Tabs>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Starter examples: listed, removed only after confirming, and recoverable (Desfazer, and the Lixeira with an account). */
+function ExamplesField() {
+  const ws = useStore((s) => s.ws);
+  const ex = exampleData(ws);
+  const parts = [
+    ex.items.length && `${ex.items.length} ${ex.items.length === 1 ? "tarefa" : "tarefas"}`,
+    ex.todos.length && `${ex.todos.length} ${ex.todos.length === 1 ? "tarefa do dia" : "tarefas do dia"}`,
+    ex.events.length && `${ex.events.length} ${ex.events.length === 1 ? "evento" : "eventos"}`,
+    ex.notes.length && `${ex.notes.length} ${ex.notes.length === 1 ? "anotação" : "anotações"}`,
+  ].filter(Boolean);
+  const [ask, setAsk] = useState(false);
+  return (
+    <Field orientation="horizontal">
+      <FieldContent>
+        <FieldLabel>Exemplos do início</FieldLabel>
+        <FieldDescription>
+          {parts.length
+            ? `Ainda há ${parts.join(", ")} marcados como exemplo. O Guia rápido e o que você criou ficam.`
+            : "Não há mais exemplos. Tudo o que está aqui é seu."}
+        </FieldDescription>
+      </FieldContent>
+      {parts.length > 0 && (
+        <AlertDialog open={ask} onOpenChange={setAsk}>
+          <Button variant="outline" onClick={() => setAsk(true)}>
+            <Trash2 data-icon="inline-start" />
+            Remover exemplos
+          </Button>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remover os exemplos?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Sai só o que veio de exemplo: {parts.join(", ")}. Você pode desfazer logo em seguida
+                {cloudEnabled ? " ou recuperar pela Lixeira por 30 dias" : ""}.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => removeExamples()}>Remover exemplos</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </Field>
   );
 }
 

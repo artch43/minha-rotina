@@ -550,6 +550,45 @@ export function deletePage(id: string) {
   );
 }
 
+/* ---------- example data ---------- */
+const IDEAS_BODY = "- Anote aqui o que vier à cabeça. Veja o Guia rápido para mais dicas.\n\n#exemplo\n";
+/**
+ * What came with the starter workspace and is still marked as an example: tasks tagged
+ * "Exemplo", events and quick tasks named "(exemplo)", and the "Ideias" note if never edited.
+ * The quick guide stays.
+ */
+export function exampleData(w: Workspace = ws()) {
+  const isExampleTag = (dbId: string, tagId: string) =>
+    w.dbs[dbId]?.props.find((p) => p.id === "tags")?.options?.find((o) => o.id === tagId)?.name === "Exemplo";
+  return {
+    items: Object.values(w.items).filter((i) => Array.isArray(i.props.tags) && i.props.tags.some((t) => isExampleTag(i.db, t))),
+    events: Object.values(w.events).filter((e) => /\(exemplo\)/i.test(e.title)),
+    todos: Object.values(w.todos).filter((t) => /\(exemplo\)/i.test(t.text)),
+    notes: Object.values(w.notes).filter((n) => n.title === "Ideias" && n.body === IDEAS_BODY),
+  };
+}
+/** Removes the example data (after the person confirms), with undo. Nothing the person made is touched. */
+export function removeExamples() {
+  const ex = exampleData();
+  const total = ex.items.length + ex.events.length + ex.todos.length + ex.notes.length;
+  if (!total) return 0;
+  mut((w) => {
+    for (const i of ex.items) delete w.items[i.id];
+    for (const e of ex.events) delete w.events[e.id];
+    for (const t of ex.todos) delete w.todos[t.id];
+    for (const n of ex.notes) delete w.notes[n.id];
+  });
+  toast(`${total} ${total === 1 ? "exemplo removido" : "exemplos removidos"}`, () =>
+    mut((w) => {
+      for (const i of ex.items) w.items[i.id] = i;
+      for (const e of ex.events) w.events[e.id] = e;
+      for (const t of ex.todos) w.todos[t.id] = t;
+      for (const n of ex.notes) w.notes[n.id] = n;
+    }),
+  );
+  return total;
+}
+
 /* ---------- areas ---------- */
 export function addArea(name: string, color: Area["color"]) {
   const id = uid();
