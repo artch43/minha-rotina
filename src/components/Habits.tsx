@@ -46,13 +46,16 @@ export function Habits() {
         </Button>
       </div>
       {habits.length ? (
-        <Card className="py-2 shadow-card">
-          <CardContent className="stagger flex flex-col divide-y px-4">
-            {habits.map((h, i) => (
-              <HabitRow key={h.id} h={h} T={T} i={i} />
-            ))}
-          </CardContent>
-        </Card>
+        <>
+          <HabitLegend />
+          <Card className="py-2 shadow-card">
+            <CardContent className="stagger flex flex-col divide-y px-4">
+              {habits.map((h, i) => (
+                <HabitRow key={h.id} h={h} T={T} i={i} />
+              ))}
+            </CardContent>
+          </Card>
+        </>
       ) : (
         <Empty className="border">
           <EmptyHeader>
@@ -151,7 +154,10 @@ function HabitRow({ h, T, i }: { h: Habit; T: string; i: number }) {
           {week.map((d) => (
             // The weekday above each day, so "27" reads as "segunda, 27".
             <div key={d} className="flex flex-col items-center gap-1">
-              <span aria-hidden="true" className={cn("text-[11px] leading-none text-muted-foreground", d === T && "font-semibold text-primary-strong")}>
+              <span
+                aria-hidden="true"
+                className={cn("text-[11px] leading-none text-muted-foreground", d === T && "font-semibold text-primary-strong")}
+              >
                 {DOW[parseD(d).getDay()]}
               </span>
               <DayDot day={d} on={isOn(d)} today={d === T} missed={missed(d)} onClick={() => toggleHabit(h.id, d)} />
@@ -201,18 +207,54 @@ function DayDot({
       aria-label={`${isToday ? "Hoje" : fmtDate(day)}${on ? ", feito" : missed ? ", não feito" : ""}`}
       title={isToday ? "Hoje" : fmtDate(day)}
       onClick={onClick}
+      // Each state has its own shape, not only its own color: done = solid with a ✓ badge,
+      // not done = dashed outline, no record = plain gray.
       className={cn(
-        "flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-medium tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:size-9",
+        "relative flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-medium tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:size-9",
         on
           ? "pop bg-success text-white dark:text-background"
           : missed
-            ? "bg-(--tag-red-bg) text-(--tag-red-fg) hover:brightness-95"
+            ? "border-2 border-dashed border-(--tag-red-fg)/70 text-(--tag-red-fg) hover:bg-(--tag-red-bg)/60"
             : "bg-muted text-muted-foreground hover:bg-accent",
         isToday && "ring-2 ring-primary ring-offset-2 ring-offset-card",
       )}
     >
       {parseD(day).getDate()}
+      {on && (
+        <span
+          aria-hidden="true"
+          className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-card text-success ring-1 ring-success/40"
+        >
+          <Check className="size-3" strokeWidth={3} />
+        </span>
+      )}
     </button>
+  );
+}
+
+/** What the day circles mean, in the same shapes. */
+function HabitLegend() {
+  const item = (dot: React.ReactNode, label: string) => (
+    <span className="flex items-center gap-1.5">
+      {dot}
+      {label}
+    </span>
+  );
+  return (
+    <p className="-mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground" aria-label="Legenda">
+      {item(
+        <span className="relative size-3.5 rounded-full bg-success">
+          <Check
+            className="absolute inset-0 m-auto size-2.5 text-white dark:text-background"
+            strokeWidth={3.5}
+            aria-hidden="true"
+          />
+        </span>,
+        "feito",
+      )}
+      {item(<span className="size-3.5 rounded-full border-2 border-dashed border-(--tag-red-fg)/70" />, "não feito")}
+      {item(<span className="size-3.5 rounded-full bg-muted ring-1 ring-border" />, "sem registro (antes de começar ou hoje)")}
+    </p>
   );
 }
 
