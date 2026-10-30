@@ -1,5 +1,24 @@
-import { useState } from "react";
-import { Check, ChevronDown, ChevronUp, Circle, Plus, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Circle,
+  History as HistoryIcon,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Smile,
+  Trash2,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { Habit } from "@/lib/types";
 import { firstDoneOf, streakOf } from "@/lib/model";
@@ -78,6 +97,9 @@ function HabitRow({ h, T, i }: { h: Habit; T: string; i: number }) {
   const mut = useStore((s) => s.mut);
   const [name, setName] = useState(h.name);
   const [history, setHistory] = useState(() => readOpen(h.id));
+  const [iconOpen, setIconOpen] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const afterMenu = useRef<(() => void) | null>(null);
   const isOn = (d: string) => (log[d] || []).includes(h.id);
   // Red only for past days after the first mark: before it the habit hadn't started (gray); today still has time.
   const first = firstDoneOf(log, h.id);
@@ -97,18 +119,21 @@ function HabitRow({ h, T, i }: { h: Habit; T: string; i: number }) {
       className="group/habit flex flex-col gap-3 py-5"
       style={{ "--i": Math.min(i, 12) } as React.CSSProperties}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 max-sm:flex-wrap">
         <IconPicker
           value={h.icon}
           label={`Trocar ícone de ${h.name}`}
+          open={iconOpen}
+          onOpenChange={setIconOpen}
           onChange={(icon) =>
             edit((x) => {
               x.icon = icon;
             })
           }
         />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col max-sm:min-w-[calc(100%-3.75rem)]">
           <input
+            ref={nameRef}
             data-habit-name
             aria-label="Nome do hábito"
             value={name}
@@ -134,23 +159,81 @@ function HabitRow({ h, T, i }: { h: Habit; T: string; i: number }) {
             )}
           </span>
         </div>
-        {/* The main action: clearly clickable before (teal outline), clearly done after (green). */}
-        <Button
-          variant={on ? "default" : "outline"}
-          aria-pressed={on}
-          size="lg"
-          className={cn(
-            "h-11 min-w-24 shrink-0 text-base sm:min-w-36",
-            on
-              ? "pop bg-success text-white hover:bg-success/90 dark:text-background"
-              : "border-primary/45 text-primary-strong hover:border-primary hover:bg-primary/8 hover:text-primary-strong",
-          )}
-          onClick={() => toggleHabit(h.id, T)}
-        >
-          {on ? <Check data-icon="inline-start" /> : <Circle data-icon="inline-start" />}
-          <span className="sm:hidden">{on ? "Feito" : "Hoje"}</span>
-          <span className="max-sm:hidden">{on ? "Feito hoje" : "Marcar hoje"}</span>
-        </Button>
+        {/* Phones: on a line of their own under the name, so the name keeps the width. */}
+        <div className="flex shrink-0 items-center gap-1 max-sm:w-full max-sm:justify-between max-sm:pl-14">
+          {/* The main action: clearly clickable before (teal outline), clearly done after (green). */}
+          <Button
+            variant={on ? "default" : "outline"}
+            aria-pressed={on}
+            size="lg"
+            className={cn(
+              "h-11 min-w-24 shrink-0 text-base sm:min-w-36",
+              on
+                ? "pop bg-success text-white hover:bg-success/90 dark:text-background"
+                : "border-primary/45 text-primary-strong hover:border-primary hover:bg-primary/8 hover:text-primary-strong",
+            )}
+            onClick={() => toggleHabit(h.id, T)}
+          >
+            {on ? <Check data-icon="inline-start" /> : <Circle data-icon="inline-start" />}
+            <span className="sm:hidden">{on ? "Feito" : "Hoje"}</span>
+            <span className="max-sm:hidden">{on ? "Feito hoje" : "Marcar hoje"}</span>
+          </Button>
+          {/* Always visible (touch and mouse): everything else about this habit. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Opções de ${h.name}`}
+                title="Opções"
+                className="shrink-0 text-muted-foreground"
+              >
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              // Renomear / Trocar ícone run once the menu has closed, instead of the focus going back to "⋯".
+              onCloseAutoFocus={(e) => {
+                const run = afterMenu.current;
+                afterMenu.current = null;
+                if (run) {
+                  e.preventDefault();
+                  run();
+                }
+              }}
+            >
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    afterMenu.current = () => {
+                      nameRef.current?.focus();
+                      nameRef.current?.select();
+                    };
+                  }}
+                >
+                  <Pencil />
+                  Renomear
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => (afterMenu.current = () => setIconOpen(true))}>
+                  <Smile />
+                  Trocar ícone
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={toggleHistory}>
+                  <HistoryIcon />
+                  {history ? "Esconder histórico" : "Ver histórico"}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem variant="destructive" onSelect={() => deleteHabit(h.id)}>
+                  <Trash2 />
+                  Excluir hábito
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:pl-14">
         <div className="flex gap-1.5" role="group" aria-label="Últimos dias">
@@ -175,16 +258,6 @@ function HabitRow({ h, T, i }: { h: Habit; T: string; i: number }) {
           {history ? <ChevronUp className="size-4" aria-hidden="true" /> : <ChevronDown className="size-4" aria-hidden="true" />}
           {history ? "Esconder histórico" : "Ver histórico"}
         </button>
-        {/* Quiet until the row is hovered (always shown on touch screens). */}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Excluir ${h.name}`}
-          className="text-muted-foreground hover:text-destructive pointer-fine:opacity-0 pointer-fine:group-hover/habit:opacity-100 pointer-fine:focus-visible:opacity-100"
-          onClick={() => deleteHabit(h.id)}
-        >
-          <Trash2 />
-        </Button>
       </div>
       {history && <History T={T} isOn={isOn} missed={missed} onToggle={(d) => toggleHabit(h.id, d)} />}
     </div>
@@ -286,14 +359,10 @@ function HabitLegend() {
             aria-hidden="true"
           />
         </span>,
-        "feito",
+        "Feito",
       )}
-      {item(<span className="size-3.5 rounded-full border-2 border-dashed border-(--tag-red-fg)/70" />, "não feito")}
-      {item(<span className="size-3.5 rounded-full bg-muted ring-1 ring-border" />, "sem registro (antes de começar ou hoje)")}
-      <span className="basis-full text-[13px]">
-        Toque num dia para marcar ou desmarcar. Para renomear, clique no nome; para trocar o ícone, clique nele; a lixeira
-        fica ao lado de “Ver histórico”.
-      </span>
+      {item(<span className="size-3.5 rounded-full border-2 border-dashed border-(--tag-red-fg)/70" />, "Não feito")}
+      {item(<span className="size-3.5 rounded-full bg-muted ring-1 ring-border" />, "Sem registro")}
     </p>
   );
 }

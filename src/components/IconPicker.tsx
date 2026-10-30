@@ -18,6 +18,8 @@ export function IconPicker({
   className,
   children,
   folder,
+  open: openProp,
+  onOpenChange,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -26,9 +28,17 @@ export function IconPicker({
   children?: React.ReactElement;
   /** Folders: the first choice is the default folder (empty value). */
   folder?: boolean;
+  /** Open it from elsewhere (e.g. a menu item); otherwise it opens from its own button. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const cur = parseIcon(value);
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = (v: boolean) => {
+    onOpenChange?.(v);
+    if (openProp === undefined) setOpenState(v);
+  };
   const [mode, setMode] = useState<"icons" | "emoji">(cur.kind === "emoji" && cur.text ? "emoji" : "icons");
   const [group, setGroup] = useState(0);
   const [color, setColor] = useState<IconColor>(cur.kind === "lucide" ? cur.color : "teal");
