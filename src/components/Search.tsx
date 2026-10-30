@@ -120,7 +120,14 @@ export function Search() {
                 onSelect={run(() => openNotes(n.id))}
               >
                 <FileText />
-                <Two title={n.title} sub={[n.folder && `📁 ${n.folder}`, plainSnippet(n.body, 70)]} />
+                <Two
+                  title={n.title || "Sem título"}
+                  sub={[
+                    n.folder ? `Pasta ${n.folder.split("/").join(" › ")}` : "",
+                    "editada " + fmtDate(new Date(n.updated).toISOString().slice(0, 10)).toLowerCase(),
+                    plainSnippet(n.body, 60),
+                  ]}
+                />
               </CommandItem>
             ))}
           </CommandGroup>
