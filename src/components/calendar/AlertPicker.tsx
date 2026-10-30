@@ -131,7 +131,7 @@ export function WhatsAppNumber({ phone }: { phone?: string }) {
     return (
       <p className="text-sm text-muted-foreground">
         Vai para <b className="font-medium text-foreground tabular-nums">{formatPhone(phone)}</b>.{" "}
-        <button type="button" className="text-primary underline-offset-4 hover:underline" onClick={() => setEditing(true)}>
+        <button type="button" className="text-primary-strong underline-offset-4 hover:underline" onClick={() => setEditing(true)}>
           Trocar número
         </button>
       </p>

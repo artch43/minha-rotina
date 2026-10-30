@@ -430,7 +430,7 @@ function Card({
             <OptionBadge key={t!.id} opt={t!} />
           ))}
           {review && (
-            <span className="flex items-center gap-1 text-[13px] text-primary">
+            <span className="flex items-center gap-1 text-[13px] text-primary-strong">
               <RotateCcw className="size-3" />
               revisar {fmtDate(it.review!.next!).toLowerCase()}
             </span>

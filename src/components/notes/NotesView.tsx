@@ -432,7 +432,7 @@ function NotesPanel() {
       >
         {/* Short label so it fits next to the four buttons; goes to the overview of all notes. */}
         <button
-          className="mr-auto min-w-0 truncate rounded-md px-1 text-[15px] font-semibold hover:text-primary"
+          className="mr-auto min-w-0 truncate rounded-md px-1 text-[15px] font-semibold hover:text-primary-strong"
           title="Ver todas as notas"
           onClick={() => openNotes(null)}
         >

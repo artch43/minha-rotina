@@ -90,7 +90,9 @@ export function accentVars(accent: string) {
     else lightPrimary = until(lightPrimary, "#000000", ["#ffffff"], 4.5);
   }
   const lightAccentBg = toHex(mix(parse(hex), [255, 255, 255], 0.88));
-  const lightStrong = until(hex, "#000000", [LIGHT.bg, LIGHT.card, lightAccentBg], 4.6);
+  // Selected buttons sit on a light tint of the accent (bg-primary/10) over the page or a card.
+  const lightTints = [LIGHT.bg, LIGHT.card].map((bg) => toHex(mix(parse(lightPrimary), parse(bg), 0.88)));
+  const lightStrong = until(hex, "#000000", [LIGHT.bg, LIGHT.card, lightAccentBg, ...lightTints], 4.6);
   // Dark: lighter shades on the dark backgrounds, with a dark label (lightened further if needed).
   let darkPrimary = until(hex, "#ffffff", [DARK.bg, DARK.card], 4.5);
   let darkFg = DARK.ink;
@@ -99,7 +101,8 @@ export function accentVars(accent: string) {
     else darkPrimary = until(darkPrimary, "#ffffff", [DARK.ink], 4.5);
   }
   const darkAccentBg = toHex(mix(parse(hex), parse(DARK.bg), 0.78));
-  const darkStrong = until(hex, "#ffffff", [DARK.bg, DARK.card, darkAccentBg], 7);
+  const darkTints = [DARK.bg, DARK.card].map((bg) => toHex(mix(parse(darkPrimary), parse(bg), 0.83)));
+  const darkStrong = until(hex, "#ffffff", [DARK.bg, DARK.card, darkAccentBg, ...darkTints], 7);
   const vars = (p: string, fg: string, strong: string, accentBg: string) => ({
     "--primary": p,
     "--primary-foreground": fg,
