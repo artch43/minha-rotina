@@ -533,3 +533,14 @@ html {
     scroll-padding-bottom: 5rem;
   }
 }
+
+/* A row that scrolls sideways: fade the edge where more content is hidden (see AreaSwitcher). */
+.edge-fade[data-fade-right] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+}
+.edge-fade[data-fade-left] {
+  mask-image: linear-gradient(to right, transparent, #000 2.5rem);
+}
+.edge-fade[data-fade-left][data-fade-right] {
+  mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+}

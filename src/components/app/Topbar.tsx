@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CloudOff, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { cloudEnabled } from "@/lib/supabase";
@@ -16,31 +17,62 @@ export function AreaSwitcher({ className }: { className?: string }) {
     setUi((u) => {
       u.area = id;
     });
+  // When the chips don't fit, they scroll sideways (no scrollbar line) and the edges fade out
+  // on the side where there is more, so it's clear there is more to swipe to.
+  const box = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const measure = useCallback(() => {
+    const el = box.current;
+    if (!el) return;
+    const left = el.scrollLeft > 2,
+      right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+    setEdges((e) => (e.left === left && e.right === right ? e : { left, right }));
+  }, []);
+  useEffect(() => {
+    measure();
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measure, areas.length]);
+  // The chosen chip is brought into view (e.g. "Estudos" chosen from elsewhere).
+  useEffect(() => {
+    box.current?.querySelector<HTMLElement>("[data-state=on]")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [area]);
   return (
     <div className={cn("flex max-w-full items-center gap-1.5", className)}>
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        aria-label="Mostrar a área"
-        className="min-w-0 overflow-x-auto"
-        value={area}
-        onValueChange={(v) => v && select(v)}
+      <div
+        ref={box}
+        onScroll={measure}
+        data-fade-left={edges.left || undefined}
+        data-fade-right={edges.right || undefined}
+        className="edge-fade no-scrollbar -my-1 min-w-0 snap-x snap-proximity overflow-x-auto scroll-px-2 px-0.5 py-1"
       >
-        <ToggleGroupItem value="all" className="px-3">
-          Todas
-        </ToggleGroupItem>
-        {areas.map((a) => (
-          <ToggleGroupItem
-            key={a.id}
-            value={a.id}
-            style={areaVar(a)}
-            className="gap-1.5 px-3 data-[state=on]:border-(--area) data-[state=on]:bg-(--area)/12 data-[state=on]:text-foreground"
-          >
-            <AreaDot area={a} />
-            {a.name}
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          aria-label="Mostrar a área"
+          className="w-max [&>*]:snap-start"
+          value={area}
+          onValueChange={(v) => v && select(v)}
+        >
+          <ToggleGroupItem value="all" className="px-3">
+            Todas
           </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+          {areas.map((a) => (
+            <ToggleGroupItem
+              key={a.id}
+              value={a.id}
+              style={areaVar(a)}
+              className="gap-1.5 px-3 data-[state=on]:border-(--area) data-[state=on]:bg-(--area)/12 data-[state=on]:text-foreground"
+            >
+              <AreaDot area={a} />
+              {a.name}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
       <NewAreaButton onCreated={select} className="shrink-0" />
     </div>
   );
