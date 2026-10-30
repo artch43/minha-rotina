@@ -47,6 +47,7 @@ import {
   deleteNote,
   openDailyNote,
   openNotes,
+  openPeek,
   renameFolder,
   renameNote,
   toast,
@@ -687,6 +688,8 @@ function NotePane({ note, editorApi }: { note: Note; editorApi: React.MutableRef
   const setUi = useStore((s) => s.setUi);
   const sidebar = useSidebar();
   const [title, setTitle] = useState(note.title);
+  // The task this note was opened from (gone if the task was deleted).
+  const task = useStore((s) => (note.task ? s.ws.items[note.task] : undefined));
   const onTag = useTagFilter();
   const fileInput = useRef<HTMLInputElement>(null);
   const attach = useAttach(editorApi, note.id);
@@ -877,6 +880,17 @@ function NotePane({ note, editorApi }: { note: Note; editorApi: React.MutableRef
           className="w-full bg-transparent text-4xl leading-tight font-bold tracking-tight text-balance outline-none placeholder:text-muted-foreground md:text-5xl"
         />
         <div className="mt-3 mb-6 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
+          {task && (
+            <button
+              type="button"
+              onClick={() => openPeek(task.id)}
+              title="Abrir a tarefa desta anotação"
+              className="flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 font-medium text-primary-strong transition-colors hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <CheckSquare className="size-3.5" aria-hidden="true" />
+              Tarefa: {task.title || "Sem título"}
+            </button>
+          )}
           {note.folder && (
             <span className="flex items-center gap-1">
               <Folder className="size-3.5" />

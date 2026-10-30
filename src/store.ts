@@ -820,6 +820,29 @@ export function createNote(init: Partial<Note> = {}) {
   return id;
 }
 
+/** The note linked to a task, if any. */
+export const taskNoteOf = (notes: Record<string, Note>, itemId: string) => Object.values(notes).find((n) => n.task === itemId);
+
+/**
+ * Opens the task's note in Anotações, creating it the first time (titled after the task, in the
+ * "Tarefas" folder). Text written in the task's old notes box goes into it, so nothing is lost.
+ */
+export function openTaskNote(itemId: string) {
+  const it = ws().items[itemId];
+  if (!it) return;
+  const found = taskNoteOf(ws().notes, itemId);
+  if (found) return openNotes(found.id);
+  const id = createNote({ title: it.title.trim() || "Tarefa", folder: "Tarefas", body: it.notes.trim() });
+  mut((w) => {
+    const n = w.notes[id];
+    if (n) n.task = itemId;
+    const item = w.items[itemId];
+    if (item) item.notes = "";
+  });
+  if (it.notes.trim()) celebrate("Anotação criada", "O texto que estava na tarefa veio junto.", "📝");
+  return id;
+}
+
 export function updateNote(id: string, patch: Partial<Note>) {
   mut((w) => {
     const n = w.notes[id];

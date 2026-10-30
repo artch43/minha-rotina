@@ -77,7 +77,7 @@ export interface Item {
   db: string;
   title: string;
   props: Record<string, PropValue>;
-  /** Free-text notes for the task. */
+  /** Old free-text notes. New notes live in a linked Note (Note.task); this moves there when it's opened. */
   notes: string;
   /** Minutes before the task's date/time when an e-mail alert is sent. */
   alerts?: number[];
@@ -100,6 +100,8 @@ export interface Note {
   created: number;
   updated: number;
   pinned?: boolean;
+  /** The task this note belongs to (opened from the task panel). */
+  task?: string;
 }
 export interface Habit {
   id: string;

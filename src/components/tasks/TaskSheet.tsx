@@ -1,14 +1,14 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { BellRing, Check, Eye, PencilLine, RotateCcw, Trash2, X } from "lucide-react";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUpRight, BellRing, Check, NotebookPen, NotebookText, RotateCcw, Trash2, X } from "lucide-react";
 import type { PropValue } from "@/lib/types";
 import { groupOf, optOf, statusProp } from "@/lib/model";
 import { COLORS, INTERVALS, fmtDate, uid } from "@/lib/util";
-import { closePeek, deleteItem, patchItem, setProp, useStore } from "@/store";
+import { closePeek, deleteItem, openTaskNote, patchItem, setProp, taskNoteOf, useStore } from "@/store";
+import { plainSnippet } from "@/lib/notes";
+import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -246,7 +246,7 @@ export function TaskSheet() {
                 </Alert>
               )}
 
-              <TaskNotes key={it.id} value={it.notes} onChange={(v) => patchItem(it.id, (x) => void (x.notes = v))} />
+              <TaskNote key={it.id} itemId={it.id} oldText={it.notes} />
             </div>
 
             <SheetFooter className="mt-auto flex-row justify-between border-t">
@@ -267,52 +267,40 @@ export function TaskSheet() {
   );
 }
 
-const TaskNotesPreview = lazy(() => import("./TaskNotesPreview"));
-
-/** The task's notes: write in Markdown, or see them formatted. Opens in "Visualizar" when there's text already. */
-function TaskNotes({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [mode, setMode] = useState<"write" | "view">(value.trim() ? "view" : "write");
+/**
+ * The task's note lives in Anotações (with everything the editor offers). Here: a button that opens
+ * it — creating it the first time — or, once it exists, a card with its first lines.
+ */
+function TaskNote({ itemId, oldText }: { itemId: string; oldText: string }) {
+  const note = useStore((s) => taskNoteOf(s.ws.notes, itemId));
+  const preview = note ? plainSnippet(note.body, 140) : oldText.trim() ? plainSnippet(oldText, 140) : "";
   return (
     <Field>
-      <div className="flex items-center justify-between gap-2">
-        <FieldLabel htmlFor="task-notes">Anotações</FieldLabel>
-        <ToggleGroup
-          type="single"
-          size="sm"
-          variant="outline"
-          aria-label="Modo das anotações"
-          value={mode}
-          onValueChange={(v) => v && setMode(v as "write" | "view")}
-        >
-          <ToggleGroupItem value="write" className="px-2.5">
-            <PencilLine data-icon="inline-start" />
-            Escrever
-          </ToggleGroupItem>
-          <ToggleGroupItem value="view" className="px-2.5" disabled={!value.trim()}>
-            <Eye data-icon="inline-start" />
-            Visualizar
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </div>
-      {mode === "write" || !value.trim() ? (
-        <>
-          <Textarea
-            id="task-notes"
-            placeholder="Detalhes, links, resumo…"
-            value={value}
-            className="min-h-40 field-sizing-content"
-            onChange={(e) => onChange(e.target.value)}
-          />
-          <FieldDescription>Aceita **negrito**, *itálico*, listas com “- ” e links.</FieldDescription>
-        </>
-      ) : (
-        <Suspense fallback={<div className="min-h-24 rounded-xl border bg-card" />}>
-          {/* Plain block (it can hold links); "Escrever" above, or a double-click, goes back to editing. */}
-          <div title="Clique duas vezes para editar" onDoubleClick={() => setMode("write")}>
-            <TaskNotesPreview text={value} />
-          </div>
-        </Suspense>
-      )}
+      <FieldLabel>Anotação</FieldLabel>
+      <button
+        type="button"
+        onClick={() => openTaskNote(itemId)}
+        className={cn(
+          "group flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition-[background-color,border-color,transform] hover:-translate-y-0.5 hover:border-primary/50 hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.99]",
+          !note && "border-dashed",
+        )}
+      >
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary-strong">
+          {note ? <NotebookText className="size-5" aria-hidden="true" /> : <NotebookPen className="size-5" aria-hidden="true" />}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="font-semibold">
+            {note ? note.title : oldText.trim() ? "Mover para Anotações" : "Criar anotação"}
+          </span>
+          <span className={cn("text-sm text-muted-foreground", preview ? "line-clamp-2" : "")}>
+            {preview || "Abre na aba Anotações, ligada a esta tarefa: com títulos, listas, fórmulas, imagens e PDF."}
+          </span>
+        </span>
+        <ArrowUpRight
+          className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+          aria-hidden="true"
+        />
+      </button>
     </Field>
   );
 }
