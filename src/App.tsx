@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
-import { checkReviews, closePeek, openModal, useStore } from "./store";
+import { checkReviews, closePeek, openModal, scrollToTop, useStore } from "./store";
 import { authLink, clearAuthLink, cloudEnabled, supabase } from "./lib/supabase";
 import { startCloud, useSync } from "./lib/sync";
 import { installDeleteShortcut } from "./lib/shortcuts";
@@ -148,6 +148,10 @@ function Workspace() {
       document.removeEventListener("keydown", onKey);
     };
   }, []);
+
+  // A new page starts at its top (whichever way it was opened: menu, bottom bar, link or back button).
+  const noteId = useStore((s) => s.ui.noteId);
+  useEffect(() => scrollToTop(), [route, route === "notes" ? noteId : null]);
 
   const title =
     route === "notes" ? (

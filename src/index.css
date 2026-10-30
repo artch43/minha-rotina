@@ -522,3 +522,14 @@
   user-select: none;
   cursor: grabbing;
 }
+
+/* The top bar is sticky (4rem): anything scrolled to by a link or by focus stops below it, not under it. */
+html {
+  scroll-padding-top: 4.5rem;
+}
+@media (max-width: 767.98px) {
+  /* Phones: the bottom bar covers the last 4rem. */
+  html {
+    scroll-padding-bottom: 5rem;
+  }
+}

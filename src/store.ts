@@ -163,7 +163,14 @@ export function go(id: string) {
     u.peek = null;
   });
   if (location.hash !== "#/" + id) history.pushState(null, "", "#/" + id);
-  document.querySelector("[data-scroll]")?.scrollTo(0, 0);
+}
+/**
+ * Back to the top of the page. The window is what scrolls (the layout grows with its content);
+ * the inner containers are reset too, for the pages that scroll inside themselves (Notes).
+ */
+export function scrollToTop() {
+  window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
+  for (const el of document.querySelectorAll<HTMLElement>("[data-scroll]")) el.scrollTop = 0;
 }
 /** Tasks the person just created (when), so their card can pop in once. */
 const created = new Map<string, number>();
