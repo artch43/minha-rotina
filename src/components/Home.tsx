@@ -1,10 +1,21 @@
-import { CalendarDays, Check, ChevronRight, CircleCheck, Sprout } from "lucide-react";
+import { AlertCircle, CalendarClock, CalendarDays, Check, ChevronRight, Circle, CircleCheck, Sprout } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { Area } from "@/lib/types";
 import { eventsByDay, inArea } from "@/lib/events";
-import { dateOf, groupOf } from "@/lib/model";
-import { addDays, parseD } from "@/lib/util";
-import { go, useStore } from "@/store";
+import { dateOf, firstOptInGroup, groupOf, statusProp } from "@/lib/model";
+import { addDays, fmtDate, parseD, today } from "@/lib/util";
+import { go, setProp, toast, toggleTodo, updateTodo, useStore } from "@/store";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { areaVar, greeting, useAreas, useToday } from "./common";
 import { Progress } from "@/components/ui/progress";
@@ -18,12 +29,18 @@ interface Entry {
   area?: Area;
   done: boolean;
   order: number;
+  /** The task's day (YYYY-MM-DD): today, or earlier for overdue ones. */
+  day: string;
   onOpen?: () => void;
+  /** Mark done / not done (absent when the list has no "done" column). */
+  onToggle?: () => void;
+  /** Move to another day (null = no date). */
+  onMove: (day: string | null) => void;
 }
 
 const byTime = (a: Entry, b: Entry) => (a.time || "99").localeCompare(b.time || "99") || a.order - b.order;
 
-/** Home is a read-only view of what is due today; clicking a task opens its board. */
+/** Home: what to do today (and what was left from earlier), with done/remarcar in one tap; a click on the name opens its list. */
 export function Home() {
   const ws = useStore((s) => s.ws);
   const area = useStore((s) => s.ui.area);
@@ -36,7 +53,10 @@ export function Home() {
     const db = ws.dbs[it.db];
     if (!db || !inArea(it.area, area)) continue;
     const d = dateOf(db, it);
-    if (!d || d.slice(0, 10) !== T) continue;
+    const day = d.slice(0, 10);
+    const isDone = groupOf(db, it) === "done";
+    // Today's tasks, plus earlier ones still open (overdue).
+    if (!d || day > T || (day < T && isDone)) continue;
     const page = ws.pages.find((p) => p.id === it.db);
     entries.push({
       key: "t" + it.id,
@@ -49,13 +69,16 @@ export function Home() {
         </span>
       ) : undefined,
       area: areaOf(it.area),
-      done: groupOf(db, it) === "done",
+      done: isDone,
       order: it.created,
+      day,
       onOpen: page ? () => go(page.id) : undefined,
+      onToggle: firstOptInGroup(db, "done") ? () => toggleItemDone(it.id) : undefined,
+      onMove: (to) => moveItemDay(it.id, to),
     });
   }
   for (const t of Object.values(ws.todos)) {
-    if (t.date !== T || !inArea(t.area, area)) continue;
+    if (!t.date || t.date > T || (t.date < T && t.done) || !inArea(t.area, area)) continue;
     entries.push({
       key: "d" + t.id,
       time: "",
@@ -63,17 +86,30 @@ export function Home() {
       area: areaOf(t.area),
       done: t.done,
       order: t.order,
+      day: t.date,
+      onToggle: () => {
+        toggleTodo(t.id);
+        toast(t.done ? "Tarefa reaberta" : "Tarefa concluída", () => toggleTodo(t.id));
+      },
+      onMove: (to) => {
+        const prev = t.date;
+        updateTodo(t.id, { date: to ?? undefined });
+        toast(movedLabel(to), () => updateTodo(t.id, { date: prev }));
+      },
     });
   }
-  const open = entries.filter((e) => !e.done).sort(byTime);
-  const done = entries.filter((e) => e.done).sort(byTime);
+  const overdue = entries.filter((e) => e.day < T).sort((a, b) => a.day.localeCompare(b.day) || byTime(a, b));
+  const todays = entries.filter((e) => e.day === T);
+  const open = todays.filter((e) => !e.done).sort(byTime);
+  const done = todays.filter((e) => e.done).sort(byTime);
 
   const summary =
-    open.length === 0
+    (open.length === 0
       ? done.length
         ? "Tudo feito por hoje."
         : "Nenhuma tarefa com prazo para hoje."
-      : `${open.length} ${open.length === 1 ? "tarefa" : "tarefas"} com prazo hoje${done.length ? `, ${done.length} já ${done.length === 1 ? "feita" : "feitas"}` : ""}.`;
+      : `${open.length} ${open.length === 1 ? "tarefa" : "tarefas"} para hoje${done.length ? `, ${done.length} já ${done.length === 1 ? "feita" : "feitas"}` : ""}.`) +
+    (overdue.length ? ` ${overdue.length} ${overdue.length === 1 ? "atrasada" : "atrasadas"}.` : "");
   const date = parseD(T)
     .toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })
     .replace(/^./, (c) => c.toUpperCase());
@@ -85,7 +121,7 @@ export function Home() {
         <h1 className="text-4xl leading-tight font-extrabold tracking-tight md:text-5xl">{date}</h1>
         <p className="text-lg text-muted-foreground">{summary}</p>
         {/* How much of today is already done: a bar with an outlined track (visible even at 0%), the count in words, and a done state. */}
-        {entries.length > 0 && <DayProgress done={done.length} total={entries.length} />}
+        {todays.length > 0 && <DayProgress done={done.length} total={todays.length} />}
       </header>
 
       {/* Wide screens: today's tasks on the left, what's coming up on the right. Phones: one column, tasks first. */}
@@ -94,20 +130,30 @@ export function Home() {
           <h2 id="home-tasks" className="sr-only">
             Tarefas de hoje
           </h2>
-          {entries.length ? (
-            <ol className="stagger flex flex-col gap-2.5" aria-label="Tarefas com prazo hoje">
-              {[...open, ...done].map((e, i) => (
-                <Row key={e.key} e={e} i={i} />
-              ))}
-            </ol>
-          ) : (
+          {overdue.length > 0 && (
+            <TaskGroup
+              title="Atrasadas"
+              count={overdue.length}
+              tone="warning"
+              hint="Ficaram de dias anteriores. Conclua ou remarque."
+              items={overdue}
+              T={T}
+            />
+          )}
+          {open.length > 0 && <TaskGroup title="Hoje" count={open.length} items={open} T={T} hideTitle={!overdue.length} />}
+          {!open.length && !overdue.length && (
             <Empty className="border border-dashed">
               <EmptyHeader>
-                <EmptyTitle>Dia livre</EmptyTitle>
-                <EmptyDescription>Tarefas com prazo para hoje aparecem aqui. Dê uma data a elas nos quadros.</EmptyDescription>
+                <EmptyTitle>{done.length ? "Tudo feito por hoje" : "Dia livre"}</EmptyTitle>
+                <EmptyDescription>
+                  {done.length
+                    ? "Bom trabalho! As concluídas estão logo abaixo."
+                    : "Tarefas com prazo para hoje aparecem aqui. Dê uma data a elas nos quadros."}
+                </EmptyDescription>
               </EmptyHeader>
             </Empty>
           )}
+          {done.length > 0 && <DoneGroup items={done} T={T} />}
         </section>
         <aside className="flex flex-col gap-4" aria-label="Resumo">
           <Upcoming T={T} area={area} />
@@ -143,9 +189,16 @@ function Upcoming({ T, area }: { T: string; area: string }) {
     go(cal.id);
   };
   const dayName = (d: string) =>
-    d === T ? "Hoje" : d === addDays(T, 1) ? "Amanhã" : parseD(d).toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+    d === T
+      ? "Hoje"
+      : d === addDays(T, 1)
+        ? "Amanhã"
+        : parseD(d).toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
   return (
-    <section aria-labelledby="home-upcoming" className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-card">
+    <section
+      aria-labelledby="home-upcoming"
+      className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-card"
+    >
       <div className="flex items-center justify-between gap-2">
         <h2 id="home-upcoming" className="flex items-center gap-2 text-base font-semibold">
           <CalendarDays className="size-[18px] text-primary-strong" aria-hidden="true" />
@@ -249,47 +302,192 @@ function DayProgress({ done, total }: { done: number; total: number }) {
   );
 }
 
-function Row({ e, i }: { e: Entry; i: number }) {
+/** A titled group of task rows (Atrasadas, Hoje). */
+function TaskGroup({
+  title,
+  count,
+  items,
+  T,
+  tone,
+  hint,
+  hideTitle,
+}: {
+  title: string;
+  count: number;
+  items: Entry[];
+  T: string;
+  tone?: "warning";
+  hint?: string;
+  hideTitle?: boolean;
+}) {
+  const id = "grp-" + title;
+  return (
+    <section aria-labelledby={id} className="flex flex-col gap-2.5">
+      <h2
+        id={id}
+        className={cn(
+          "flex items-baseline gap-2 text-sm font-semibold",
+          tone === "warning" ? "text-warning" : "text-muted-foreground",
+          hideTitle && "sr-only",
+        )}
+      >
+        {tone === "warning" && <AlertCircle className="size-4 self-center" aria-hidden="true" />}
+        {title}
+        <span className="font-normal tabular-nums">({count})</span>
+        {hint && <span className="font-normal text-muted-foreground max-sm:hidden">· {hint}</span>}
+      </h2>
+      <ol className="stagger flex flex-col gap-2.5">
+        {items.map((e, i) => (
+          <Row key={e.key} e={e} i={i} T={T} />
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/** Done today: folded away by default, one click to see them. */
+function DoneGroup({ items, T }: { items: Entry[]; T: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="flex flex-col gap-2.5">
+      <button
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="flex w-fit items-center gap-1.5 rounded-md px-1 py-1 text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        <ChevronRight className={cn("size-4 transition-transform", open && "rotate-90")} aria-hidden="true" />
+        Concluídas hoje <span className="font-normal tabular-nums">({items.length})</span>
+      </button>
+      {open && (
+        <ol className="flex flex-col gap-2.5">
+          {items.map((e, i) => (
+            <Row key={e.key} e={e} i={i} T={T} />
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+const movedLabel = (to: string | null) =>
+  to === null ? "Data removida" : to === today() ? "Movida para hoje" : `Remarcada para ${fmtDate(to).toLowerCase()}`;
+
+/** Done ⇄ not done, with undo. */
+function toggleItemDone(id: string) {
+  const { ws } = useStore.getState();
+  const it = ws.items[id];
+  const db = it && ws.dbs[it.db];
+  const sp = db && statusProp(db);
+  if (!it || !db || !sp) return;
+  const prev = it.props[sp.id];
+  const wasDone = groupOf(db, it) === "done";
+  const next = wasDone ? (firstOptInGroup(db, "todo") ?? sp.options![0].id) : firstOptInGroup(db, "done");
+  if (!next) return;
+  setProp(id, sp.id, next);
+  toast(wasDone ? "Tarefa reaberta" : "Tarefa concluída", () => setProp(id, sp.id, (prev as string) ?? null));
+}
+
+/** New day for a task (keeps its time), with undo. */
+function moveItemDay(id: string, to: string | null) {
+  const it = useStore.getState().ws.items[id];
+  if (!it) return;
+  const prev = typeof it.props.date === "string" ? it.props.date : null;
+  setProp(id, "date", to ? to + (prev?.slice(10) ?? "") : null, { quiet: true });
+  toast(movedLabel(to), () => setProp(id, "date", prev, { quiet: true }));
+}
+
+function Row({ e, i, T }: { e: Entry; i: number; T: string }) {
+  const late = e.day < T;
+  const when = late ? fmtDate(e.day) : e.time || "Dia todo";
   const body = (
     <>
-      {/* The whole page is "today", so the left column says when in the day (or that it has no set time). */}
+      {/* The left column says when: the time today, or the day for overdue ones. */}
       <span
         className={cn(
-          "flex w-16 shrink-0 flex-col text-base leading-tight tabular-nums",
-          e.time ? "font-semibold" : "text-sm text-muted-foreground",
+          "flex w-16 shrink-0 flex-col text-base leading-tight tabular-nums max-sm:hidden",
+          e.time && !late ? "font-semibold" : "text-sm text-muted-foreground",
+          late && "font-medium text-warning",
           e.done && "text-muted-foreground",
         )}
       >
-        {e.time || "Dia todo"}
+        {when}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className={cn("truncate text-base font-medium", e.done && "text-muted-foreground line-through")}>{e.title}</span>
-        {e.sub && <span className="truncate text-sm text-muted-foreground">{e.sub}</span>}
-      </span>
-      {e.done && (
-        <span className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
-          <CircleCheck className="size-4 text-success" aria-hidden="true" />
-          Feita
+        {/* Phones: "when" moves under the title, so the title gets the width. */}
+        <span className="flex min-w-0 items-center gap-1.5 truncate text-sm text-muted-foreground">
+          <span className={cn("shrink-0 tabular-nums sm:hidden", late && "font-medium text-warning")}>
+            {when}
+            {e.sub ? " ·" : ""}
+          </span>
+          {e.sub}
         </span>
-      )}
+      </span>
       {e.onOpen && <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
     </>
   );
-  const cls = "area-stripe flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-card py-4 pr-4 pl-5 text-left";
   return (
-    <li style={{ ...areaVar(e.area), "--i": Math.min(i, 12) } as React.CSSProperties} className={cn(e.done && "opacity-70")}>
+    <li
+      style={{ ...areaVar(e.area), "--i": Math.min(i, 12) } as React.CSSProperties}
+      className={cn(
+        "area-stripe flex items-center gap-1 rounded-2xl border border-border/70 bg-card py-1.5 pr-1.5 pl-3 shadow-card transition-colors focus-within:border-primary/40 hover:border-primary/40",
+        e.done && "opacity-75",
+      )}
+    >
+      {/* Done in one tap. */}
+      {e.onToggle && (
+        <button
+          role="checkbox"
+          aria-checked={e.done}
+          aria-label={e.done ? `Reabrir “${e.title}”` : `Concluir “${e.title}”`}
+          title={e.done ? "Reabrir" : "Concluir"}
+          onClick={e.onToggle}
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            e.done ? "text-success" : "text-muted-foreground hover:text-success",
+          )}
+        >
+          {e.done ? <CircleCheck className="size-6" /> : <Circle className="size-6" strokeWidth={1.75} />}
+        </button>
+      )}
       {e.onOpen ? (
         <button
           onClick={e.onOpen}
-          className={cn(
-            cls,
-            "lift hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-          )}
+          title="Abrir a lista desta tarefa"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl py-2.5 pr-2 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           {body}
         </button>
       ) : (
-        <div className={cn(cls, "shadow-card")}>{body}</div>
+        <div className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-2">{body}</div>
+      )}
+      {/* Another day, without opening anything. */}
+      {!e.done && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Remarcar “${e.title}”`}
+              title="Remarcar"
+              className="size-11 shrink-0 text-muted-foreground"
+            >
+              <CalendarClock />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Remarcar para</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              {late && <DropdownMenuItem onSelect={() => e.onMove(T)}>Hoje</DropdownMenuItem>}
+              <DropdownMenuItem onSelect={() => e.onMove(addDays(T, 1))}>Amanhã</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => e.onMove(addDays(T, 7))}>Daqui a uma semana</DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem onSelect={() => e.onMove(null)}>Tirar a data</DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </li>
   );
