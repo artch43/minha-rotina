@@ -165,6 +165,16 @@ export function Board({ page, db, view, list }: { page: Page; db: Database; view
                   );
                 }
                 if (drop?.col === o.id && visible === drop.index) nodes.push(<DropLine key="drop" />);
+                // An empty column says what it's for, instead of being a blank box.
+                if (!items.length && drop?.col !== o.id)
+                  nodes.push(
+                    <p
+                      key="empty"
+                      className="rounded-xl border border-dashed border-border px-3 py-3 text-center text-sm text-muted-foreground"
+                    >
+                      Nenhuma tarefa aqui. Arraste uma para cá ou use Nova tarefa.
+                    </p>,
+                  );
                 return nodes;
               })()}
             </div>

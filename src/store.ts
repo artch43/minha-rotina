@@ -158,6 +158,7 @@ export function replaceWorkspace(next: Workspace) {
 }
 
 export function go(id: string) {
+  announceFresh();
   setUi((u) => {
     u.route = id;
     u.peek = null;
@@ -181,7 +182,15 @@ function announceFresh() {
   const id = useStore.getState().ui.peek;
   if (!id || !fresh.delete(id)) return;
   const it = ws().items[id];
-  if (!it?.title.trim()) return;
+  if (!it) return;
+  // Made with "Nova tarefa" and closed without a name or notes: nothing to keep, so no "Sem título" task is left behind.
+  if (!it.title.trim()) {
+    if (!it.notes.trim())
+      mut((w) => {
+        delete w.items[id];
+      });
+    return;
+  }
   const page = ws().pages.find((p) => p.id === it.db);
   const d = typeof it.props.date === "string" ? it.props.date : "";
   const when = d ? fmtDate(d.slice(0, 10)).toLowerCase() + (d.slice(11, 16) ? " às " + d.slice(11, 16) : "") : "";
