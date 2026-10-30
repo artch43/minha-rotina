@@ -383,7 +383,7 @@ export function AppSidebar() {
           <SidebarGroupAction
             title="Nova pasta"
             aria-label="Nova pasta de listas"
-            className="right-11"
+            className="right-11 pointer-coarse:right-14"
             onClick={() => setDialog({ kind: "newFolder", parent: "" })}
           >
             <FolderPlus />
