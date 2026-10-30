@@ -32,6 +32,8 @@ export function Search() {
       onOpenChange={(o) => !o && close()}
       title="Buscar"
       description="Busque páginas, tarefas, eventos e anotações"
+      // Phones: at the top, so the keyboard doesn't cover the results.
+      className="max-sm:top-3 max-sm:translate-y-0 max-sm:[&_[data-slot=command-list]]:max-h-[45dvh]"
     >
       <Command>
         <CommandInput placeholder="Buscar páginas, tarefas, eventos e anotações…" />

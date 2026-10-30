@@ -80,7 +80,12 @@ export function EventDialog() {
 
   return (
     <Dialog open onOpenChange={(o) => !o && close()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent
+        className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
+        onOpenAutoFocus={(e) => {
+          if (existing) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{existing ? "Editar evento" : "Novo evento"}</DialogTitle>
           <DialogDescription>Escolha quando quer ser avisado por e-mail.</DialogDescription>
@@ -91,7 +96,8 @@ export function EventDialog() {
               <FieldLabel htmlFor="ev-title">Nome</FieldLabel>
               <Input
                 id="ev-title"
-                autoFocus
+                // A new event starts in its name; opening an existing one doesn't pop up the phone keyboard.
+                autoFocus={!existing}
                 data-title-field
                 autoComplete="off"
                 placeholder="Ex.: consulta, aula, reunião…"

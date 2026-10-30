@@ -1,9 +1,11 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 import { ArrowLeft, Eye, EyeOff, Loader2, MailCheck } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { clearAuthLink, supabase } from "@/lib/supabase";
+import { clearFailures, fmtWait, recordFailure, triesLeft, waitLeft } from "@/lib/loginLimit";
 import { seedAccount, useSync } from "@/lib/sync";
 import { template } from "@/lib/template";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -11,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Logo } from "./app/AppSidebar";
 
-type Mode = "signin" | "signup" | "forgot";
+export type Mode = "signin" | "signup" | "forgot";
 
 const ERRORS: Record<string, string> = {
   "Invalid login credentials": "E-mail ou senha incorretos.",
@@ -91,6 +93,44 @@ function BrandPanel() {
   );
 }
 
+/** Phones and tablets: the brand in a compact band on top (the big panel only fits on wide screens). */
+function BrandBand() {
+  const bars = [
+    { h: 26, c: "bg-area-coral" },
+    { h: 36, c: "bg-area-amber" },
+    { h: 20, c: "bg-area-violet" },
+    { h: 42, c: "bg-area-sky" },
+    { h: 30, c: "bg-area-green" },
+    { h: 16, c: "bg-area-pink" },
+    { h: 24, c: "bg-area-coral" },
+  ];
+  return (
+    <div
+      aria-hidden="true"
+      className="auth-panel flex flex-col gap-6 px-5 pt-[max(env(safe-area-inset-top),1.5rem)] pb-14 text-white sm:mx-auto sm:w-full sm:max-w-lg sm:px-1 sm:pt-0 sm:pb-8 lg:hidden"
+    >
+      <div className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight">
+        <Logo />
+        Minha Rotina
+      </div>
+      <div className="mx-auto flex w-full max-w-lg items-end justify-between gap-4">
+        <p className="max-w-[15ch] text-[1.65rem] leading-[1.1] font-extrabold tracking-tight text-balance sm:max-w-none sm:text-4xl">
+          Seu dia inteiro, num lugar só.
+        </p>
+        <div className="flex shrink-0 items-end gap-1.5">
+          {bars.map((w, i) => (
+            <span
+              key={i}
+              className={`auth-bar w-2.5 rounded-full sm:w-3 ${w.c}`}
+              style={{ height: w.h, animationDelay: `${i * 70}ms` }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Shell({
   title,
   description,
@@ -105,36 +145,45 @@ function Shell({
   tabs?: React.ReactNode;
 }) {
   return (
-    <main className="grid min-h-full bg-background lg:grid-cols-[1.05fr_1fr]">
+    <main className="grid min-h-dvh bg-background lg:grid-cols-[1.05fr_1fr]">
       <BrandPanel />
-      <div className="flex min-h-full flex-col bg-card px-5 py-8 sm:px-10">
-        <div className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight lg:hidden">
-          <Logo />
-          Minha Rotina
+      <div className="auth-shell flex min-h-dvh flex-col bg-background sm:max-lg:justify-center sm:max-lg:py-10 lg:bg-card">
+        <BrandBand />
+        {/* Phone: a sheet that rises over the band. Tablet: a centered card. Desktop: the right half. */}
+        <div
+          className={
+            "relative -mt-8 flex flex-1 flex-col rounded-t-3xl bg-card px-5 pt-7 pb-[max(env(safe-area-inset-bottom),1.25rem)] " +
+            "sm:mx-auto sm:mt-0 sm:w-full sm:max-w-lg sm:flex-none sm:rounded-3xl sm:px-10 sm:pt-9 sm:pb-8 sm:shadow-2xl " +
+            "lg:mx-0 lg:mt-0 lg:max-w-none lg:flex-1 lg:rounded-none lg:border-0 lg:py-8 lg:shadow-none"
+          }
+        >
+          <div className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 lg:justify-center lg:gap-7 lg:py-10">
+            {tabs}
+            <header className="flex flex-col gap-1.5">
+              <h1 className="text-[1.75rem] leading-tight font-extrabold tracking-tight sm:text-3xl">{title}</h1>
+              {description && <p className="text-base text-muted-foreground">{description}</p>}
+            </header>
+            {children}
+            {footer && <div className="flex flex-wrap justify-center gap-2 text-sm">{footer}</div>}
+          </div>
+          <p className="mt-6 hidden text-center text-sm text-muted-foreground max-sm:block lg:block">
+            <PrivacyLink />
+          </p>
         </div>
-        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-7 py-10">
-          {tabs}
-          <header className="flex flex-col gap-2">
-            <h1 className="text-3xl font-extrabold tracking-tight">{title}</h1>
-            {description && <p className="text-base text-muted-foreground">{description}</p>}
-          </header>
-          {children}
-          {footer && <div className="flex flex-wrap justify-center gap-2 text-sm">{footer}</div>}
-        </div>
-        <p className="text-center text-sm text-muted-foreground">
-          <a
-            className="underline underline-offset-4 hover:text-foreground"
-            href="/privacidade.html"
-            target="_blank"
-            rel="noopener"
-          >
-            Privacidade e termos
-          </a>
+        {/* Tablet: below the card. (Phone and desktop have it inside.) */}
+        <p className="hidden py-6 text-center text-sm text-white/75 sm:block lg:hidden">
+          <PrivacyLink />
         </p>
       </div>
     </main>
   );
 }
+
+const PrivacyLink = () => (
+  <a className="underline underline-offset-4 hover:text-foreground" href="/privacidade.html" target="_blank" rel="noopener">
+    Privacidade e termos
+  </a>
+);
 
 /** Password field with a show/hide button. */
 function PasswordInput(props: React.ComponentProps<typeof Input>) {
@@ -157,8 +206,22 @@ function PasswordInput(props: React.ComponentProps<typeof Input>) {
   );
 }
 
-export function Auth({ error: outer }: { error?: string }) {
-  const [mode, setMode] = useState<Mode>("signin");
+/** Re-renders every second while `active`, for countdowns. */
+function useTick(active: boolean) {
+  const [, setT] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setT((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+}
+
+export function Auth({ error: outer, startMode }: { error?: string; startMode?: Mode }) {
+  const [mode, setMode] = useState<Mode>(startMode ?? "signin");
+  // Sign-in pause after too many wrong passwords, and a pause between reset e-mails.
+  const [resendAt, setResendAt] = useState(0);
+  const locked = mode === "signin" ? waitLeft() : mode === "forgot" ? Math.max(0, resendAt - Date.now()) : 0;
+  useTick(locked > 0);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -178,17 +241,33 @@ export function Auth({ error: outer }: { error?: string }) {
     setInfo("");
     const redirect = location.origin + location.pathname;
     if (mode === "signin") {
+      if (waitLeft() > 0) return setBusy(false);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      setError(msgOf(error));
+      if (!error) clearFailures();
+      else if (error.message === "Invalid login credentials") {
+        const pause = recordFailure();
+        const left = triesLeft();
+        setError(
+          pause
+            ? `Muitas tentativas erradas. Por segurança, espere ${fmtWait(pause)} para tentar de novo.`
+            : `E-mail ou senha incorretos.${left <= 2 ? ` Mais ${left} ${left === 1 ? "tentativa" : "tentativas"} antes de uma pausa.` : ""}`,
+        );
+      } else setError(msgOf(error));
     } else if (mode === "signup") {
       const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirect } });
       if (error) setError(msgOf(error));
       else if (!data.session)
         setInfo(`Enviamos um link de confirmação para ${email}. Abra o e-mail e clique nele para ativar a conta.`);
     } else {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirect });
+      // ?tipo=recuperar tells the app, when the link opens, to ask for the new password.
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirect + "?tipo=recuperar" });
       if (error) setError(msgOf(error));
-      else setInfo(`Se existir uma conta com ${email}, você vai receber um link para criar uma nova senha.`);
+      else {
+        setResendAt(Date.now() + 60_000);
+        setInfo(
+          `Se existir uma conta com ${email}, você vai receber um link em instantes. Abra-o neste mesmo navegador. Não chegou? Olhe o spam.`,
+        );
+      }
     }
     setBusy(false);
   };
@@ -270,6 +349,11 @@ export function Auth({ error: outer }: { error?: string }) {
               {mode === "signup" && <FieldDescription>Pelo menos 6 caracteres.</FieldDescription>}
             </Field>
           )}
+          {!error && mode === "signin" && locked > 0 && (
+            <Alert variant="destructive" role="alert">
+              <AlertDescription>Muitas tentativas erradas. Por segurança, o login está pausado por alguns instantes.</AlertDescription>
+            </Alert>
+          )}
           {error && (
             <Alert variant="destructive" role="alert">
               <AlertDescription>{error}</AlertDescription>
@@ -281,9 +365,15 @@ export function Auth({ error: outer }: { error?: string }) {
               <AlertDescription>{info}</AlertDescription>
             </Alert>
           )}
-          <Button type="submit" className="h-12 w-full text-base" disabled={busy}>
+          <Button type="submit" className="h-12 w-full text-base" disabled={busy || locked > 0}>
             {busy && <Loader2 data-icon="inline-start" className="animate-spin" />}
-            {busy ? "Aguarde…" : action}
+            {busy
+              ? "Aguarde…"
+              : locked > 0
+                ? mode === "forgot"
+                  ? `Enviar de novo em ${fmtWait(locked)}`
+                  : `Tente de novo em ${fmtWait(locked)}`
+                : action}
           </Button>
         </FieldGroup>
       </form>
@@ -293,18 +383,33 @@ export function Auth({ error: outer }: { error?: string }) {
 
 export function NewPassword() {
   const [password, setPassword] = useState("");
+  const [again, setAgain] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (password.length < 6) return setError("A senha precisa ter pelo menos 6 caracteres.");
+    if (password !== again) return setError("As duas senhas não são iguais.");
     setBusy(true);
     const { error } = await supabase!.auth.updateUser({ password });
     setBusy(false);
-    if (error) setError(msgOf(error));
-    else useSync.setState({ recovery: false });
+    if (error) {
+      setError(
+        /different from the old/i.test(error.message)
+          ? "A nova senha precisa ser diferente da anterior."
+          : /session/i.test(error.message)
+            ? "O link expirou. Volte e peça um novo."
+            : msgOf(error),
+      );
+      return;
+    }
+    clearFailures();
+    clearAuthLink();
+    useSync.setState({ recovery: false });
+    toast.success("Senha alterada", { description: "Use a nova senha da próxima vez que entrar." });
   };
   return (
-    <Shell title="Nova senha">
+    <Shell title="Crie uma nova senha" description="Escolha uma senha que você não use em outros sites.">
       <form onSubmit={submit}>
         <FieldGroup>
           <Field data-invalid={!!error}>
@@ -313,15 +418,34 @@ export function NewPassword() {
               id="new-pass"
               minLength={6}
               required
+              autoFocus
               autoComplete="new-password"
               aria-invalid={!!error}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <FieldDescription>Pelo menos 6 caracteres.</FieldDescription>
           </Field>
-          {error && <FieldError>{error}</FieldError>}
-          <Button type="submit" className="w-full" size="lg" disabled={busy}>
-            Salvar nova senha
+          <Field data-invalid={!!error && password !== again}>
+            <FieldLabel htmlFor="new-pass-2">Repita a nova senha</FieldLabel>
+            <PasswordInput
+              id="new-pass-2"
+              minLength={6}
+              required
+              autoComplete="new-password"
+              aria-invalid={!!error && password !== again}
+              value={again}
+              onChange={(e) => setAgain(e.target.value)}
+            />
+          </Field>
+          {error && (
+            <Alert variant="destructive" role="alert">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <Button type="submit" className="h-12 w-full text-base" disabled={busy}>
+            {busy && <Loader2 data-icon="inline-start" className="animate-spin" />}
+            {busy ? "Salvando…" : "Salvar nova senha"}
           </Button>
         </FieldGroup>
       </form>

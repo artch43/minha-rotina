@@ -232,6 +232,46 @@ function blockMath(state: EditorState): DecorationSet {
   return Decoration.set(out, true);
 }
 
+/**
+ * LaTeX source in color while it's being written: what's between $…$ / $$…$$ is tinted and the
+ * dollar signs stand out. A $$ that isn't closed yet tints everything after it, until it is.
+ * (Outside the line being edited, the formula is drawn instead; see MathWidget.)
+ */
+const mathSource = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) {
+      this.decorations = mathMarks(view.state);
+    }
+    update(u: ViewUpdate) {
+      if (u.docChanged || u.viewportChanged) this.decorations = mathMarks(u.state);
+    }
+  },
+  { decorations: (v) => v.decorations },
+);
+const mathMark = Decoration.mark({ class: "cm-math-src" });
+const mathDelim = Decoration.mark({ class: "cm-math-delim" });
+const mathOpen = Decoration.mark({ class: "cm-math-src cm-math-open", attributes: { title: "Feche a fórmula com $$" } });
+function mathMarks(state: EditorState): DecorationSet {
+  const text = state.doc.toString();
+  const out: Range<Decoration>[] = [];
+  const taken: [number, number][] = [];
+  for (const m of findMath(text)) {
+    if (inCodeAt(state, m.from)) continue;
+    const d = m.display ? 2 : 1;
+    taken.push([m.from, m.to]);
+    out.push(mathDelim.range(m.from, m.from + d), mathMark.range(m.from + d, m.to - d), mathDelim.range(m.to - d, m.to));
+  }
+  // A $$ still waiting for its closing pair.
+  for (let i = text.indexOf("$$"); i >= 0; i = text.indexOf("$$", i + 2)) {
+    if (taken.some(([a, b]) => i >= a && i < b) || inCodeAt(state, i) || text[i - 1] === "\\") continue;
+    out.push(mathDelim.range(i, i + 2));
+    if (i + 2 < text.length) out.push(mathOpen.range(i + 2, text.length));
+    break;
+  }
+  return Decoration.set(out.filter((r) => r.from < r.to), true);
+}
+
 const IMG = /!\[([^\]\n]*)\]\(((?:anexo:|https?:\/\/)[^)\s]+)\)/g;
 const FILE = /(?<!!)\[([^\]\n]+)\]\(anexo:([^)\s]+)\)/g;
 const lineDeco = (cls: string) => Decoration.line({ class: cls });
@@ -409,6 +449,7 @@ export function NoteEditor(props: {
           markdown({ base: markdownLanguage }),
           syntaxHighlighting(highlight),
           livePreview,
+          mathSource,
           mathBlocks,
           EditorView.lineWrapping,
           placeholder("Comece a escrever… Use # para tags e $x^2$ para fórmulas."),

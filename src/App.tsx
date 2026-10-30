@@ -1,9 +1,10 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { checkReviews, closePeek, openModal, useStore } from "./store";
-import { cloudEnabled, supabase } from "./lib/supabase";
+import { authLink, clearAuthLink, cloudEnabled, supabase } from "./lib/supabase";
 import { startCloud, useSync } from "./lib/sync";
 import { installDeleteShortcut } from "./lib/shortcuts";
+import { installTouchDnd } from "./lib/touchDnd";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -57,6 +58,8 @@ export default function App() {
   );
 }
 
+const LINK_EXPIRED = "Este link expirou ou já foi usado. Peça um novo abaixo.";
+
 /** With a backend configured: sign in first, then load the person's data, then show the workspace. */
 function CloudGate() {
   const phase = useSync((s) => s.phase);
@@ -66,11 +69,24 @@ function CloudGate() {
 
   useEffect(() => {
     const begin = (user: Parameters<typeof startCloud>[0]) => startCloud(user).catch((e: Error) => setError(e.message));
-    supabase!.auth.getSession().then(({ data }) => {
+    (async () => {
+      // A password-reset link that works on any device (token in the link, no code kept in this browser).
+      if (authLink.tokenHash) {
+        const { error } = await supabase!.auth.verifyOtp({ token_hash: authLink.tokenHash, type: "recovery" });
+        if (error) setError(LINK_EXPIRED);
+      }
+      // getSession waits until the link in the URL was handled, so the result here is final.
+      const { data } = await supabase!.auth.getSession();
+      if (authLink.error) setError(LINK_EXPIRED);
+      else if (authLink.recovery && data.session) useSync.setState({ recovery: true });
+      else if (authLink.recovery && !authLink.tokenHash)
+        setError("Abra o link no mesmo navegador em que pediu a nova senha, ou peça outro link abaixo.");
+      if (authLink.error || (authLink.recovery && !data.session)) clearAuthLink();
       setChecked(true);
       if (data.session) begin(data.session.user);
-    });
+    })();
     const { data } = supabase!.auth.onAuthStateChange((event, session) => {
+      // (Usually fired before this listener exists; the URL check above covers that case.)
       if (event === "PASSWORD_RECOVERY") useSync.setState({ recovery: true });
       if (event === "SIGNED_IN" && session) begin(session.user);
       if (event === "SIGNED_OUT") useSync.setState({ phase: "auth", user: null });
@@ -80,7 +96,7 @@ function CloudGate() {
 
   if (!checked) return <Loading text="Abrindo…" />;
   if (recovery) return <NewPassword />;
-  if (phase === "auth") return <Auth error={error} />;
+  if (phase === "auth") return <Auth error={error} startMode={authLink.recovery || authLink.error ? "forgot" : undefined} />;
   if (phase === "loading") return <Loading />;
   if (phase === "choose") return <ChooseStart />;
   return <Workspace />;
@@ -187,6 +203,8 @@ function Workspace() {
 /** Esc closes the task panel when no dialog is open (dialogs handle Esc themselves); Ctrl/⌘+Delete deletes. */
 function EscToClose() {
   useEffect(() => installDeleteShortcut(), []);
+  // Long-press and drag on phones and tablets (cards, calendar entries, lists and folders).
+  useEffect(() => installTouchDnd(), []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented) return;

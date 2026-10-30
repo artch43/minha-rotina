@@ -25,7 +25,18 @@ export interface Entry {
 
 export const DRAG_TYPE = "application/x-minha-rotina";
 
-export function EntryChip({ e, onOpen, compact }: { e: Entry; onOpen: (e: Entry) => void; compact?: boolean }) {
+export function EntryChip({
+  e,
+  onOpen,
+  compact,
+  large,
+}: {
+  e: Entry;
+  onOpen: (e: Entry) => void;
+  compact?: boolean;
+  /** Bigger, for touch (the phone's day list). */
+  large?: boolean;
+}) {
   return (
     <button
       type="button"
@@ -46,6 +57,7 @@ export function EntryChip({ e, onOpen, compact }: { e: Entry; onOpen: (e: Entry)
         e.kind === "event" ? "area-soft font-medium text-foreground hover:brightness-95" : "text-muted-foreground hover:bg-muted",
         e.done && "line-through opacity-60",
         compact && "py-0",
+        large && "min-h-11 gap-2.5 px-3 py-2 text-[15px]",
       )}
     >
       <span
@@ -79,98 +91,147 @@ export function MonthView({
   const month = parseD(anchor).getMonth();
   const T = today();
   const [over, setOver] = useState<string | null>(null);
+  // Phones: the grid shows colored dots, and the chosen day's entries are listed below it.
+  const [picked, setPicked] = useState<string | null>(null);
+  const inMonth = (d: string) => parseD(d).getMonth() === month;
+  const day = picked && days.includes(picked) ? picked : days.includes(T) && inMonth(T) ? T : days.find(inMonth)!;
+  const dayList = byDay[day] ?? [];
   return (
-    <div className="overflow-hidden rounded-2xl border bg-card shadow-card">
-      <div className="grid grid-cols-7 border-b">
-        {DOW.map((d) => (
-          <div key={d} className="px-2 py-2.5 text-center text-sm font-semibold text-muted-foreground capitalize sm:text-right">
-            {d}
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7">
-        {days.map((d, i) => {
-          const list = byDay[d] ?? [];
-          const out = parseD(d).getMonth() !== month;
-          return (
-            <div
-              key={d}
-              className={cn(
-                "group relative flex min-h-20 min-w-0 flex-col gap-0.5 border-b border-r p-1 sm:min-h-28",
-                (i + 1) % 7 === 0 && "border-r-0",
-                out && "bg-muted/40",
-                over === d && "bg-primary/8 ring-2 ring-inset ring-primary/40",
-              )}
-              onDragOver={(e) => {
-                if (e.dataTransfer.types.includes(DRAG_TYPE)) {
-                  e.preventDefault();
-                  if (over !== d) setOver(d);
-                }
-              }}
-              onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver((o) => (o === d ? null : o));
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                setOver(null);
-                try {
-                  onMove(JSON.parse(e.dataTransfer.getData(DRAG_TYPE)), d);
-                } catch {
-                  /* not ours */
-                }
-              }}
-            >
-              <div className="flex items-center justify-between">
-                {onAdd ? (
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={`Adicionar em ${d}`}
-                    className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                    onClick={() => onAdd(d)}
-                  >
-                    <Plus />
-                  </Button>
-                ) : (
-                  <span />
-                )}
-                <span
-                  className={cn(
-                    "flex size-7 items-center justify-center rounded-full text-sm tabular-nums transition-colors",
-                    d === T
-                      ? "bg-primary font-semibold text-primary-foreground"
-                      : out
-                        ? "text-muted-foreground"
-                        : "text-muted-foreground",
-                  )}
-                >
-                  {parseD(d).getDate()}
-                </span>
-              </div>
-              {list.slice(0, max).map((e) => (
-                <EntryChip key={e.key} e={e} onOpen={onOpen} compact />
-              ))}
-              {list.length > max && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="px-1.5 text-left text-[13px] font-medium text-muted-foreground hover:text-foreground">
-                      +{list.length - max} mais
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="flex w-64 flex-col gap-1">
-                    <span className="mb-1 text-sm font-semibold capitalize">
-                      {parseD(d).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
-                    </span>
-                    {list.map((e) => (
-                      <EntryChip key={e.key} e={e} onOpen={onOpen} />
-                    ))}
-                  </PopoverContent>
-                </Popover>
-              )}
+    <div className="flex flex-col gap-3">
+      <div className="overflow-hidden rounded-2xl border bg-card shadow-card">
+        <div className="grid grid-cols-7 border-b">
+          {DOW.map((d) => (
+            <div key={d} className="px-2 py-2.5 text-center text-sm font-semibold text-muted-foreground capitalize sm:text-right">
+              {d}
             </div>
-          );
-        })}
+          ))}
+        </div>
+        <div className="grid grid-cols-7">
+          {days.map((d, i) => {
+            const list = byDay[d] ?? [];
+            const out = parseD(d).getMonth() !== month;
+            return (
+              <div
+                key={d}
+                onClick={() => setPicked(d)}
+                className={cn(
+                  "group relative flex min-h-16 min-w-0 flex-col gap-0.5 border-b border-r p-1 sm:min-h-28",
+                  (i + 1) % 7 === 0 && "border-r-0",
+                  d === day && "max-sm:bg-primary/8",
+                  out && "bg-muted/40",
+                  over === d && "bg-primary/8 ring-2 ring-inset ring-primary/40",
+                )}
+                onDragOver={(e) => {
+                  if (e.dataTransfer.types.includes(DRAG_TYPE)) {
+                    e.preventDefault();
+                    if (over !== d) setOver(d);
+                  }
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver((o) => (o === d ? null : o));
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setOver(null);
+                  try {
+                    onMove(JSON.parse(e.dataTransfer.getData(DRAG_TYPE)), d);
+                  } catch {
+                    /* not ours */
+                  }
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  {onAdd ? (
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={`Adicionar em ${d}`}
+                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                      onClick={() => onAdd(d)}
+                    >
+                      <Plus />
+                    </Button>
+                  ) : (
+                    <span />
+                  )}
+                  <span
+                    className={cn(
+                      "flex size-7 items-center justify-center rounded-full text-sm tabular-nums transition-colors",
+                      d === T
+                        ? "bg-primary font-semibold text-primary-foreground"
+                        : out
+                          ? "text-muted-foreground"
+                          : "text-muted-foreground",
+                    )}
+                  >
+                    {parseD(d).getDate()}
+                  </span>
+                </div>
+                {/* Phones: one dot per entry (up to 4), in the entry's area color. */}
+                {list.length > 0 && (
+                  <span
+                    className="mt-auto flex flex-wrap justify-center gap-1 pb-1 sm:hidden"
+                    aria-label={`${list.length} na agenda`}
+                  >
+                    {list.slice(0, 4).map((e) => (
+                      <span
+                        key={e.key}
+                        style={areaVar(e.area)}
+                        className={cn("size-1.5 rounded-full bg-(--area,var(--muted-foreground))", e.done && "opacity-40")}
+                      />
+                    ))}
+                  </span>
+                )}
+                {list.slice(0, max).map((e) => (
+                  <div key={e.key} className="max-sm:hidden">
+                    <EntryChip e={e} onOpen={onOpen} compact />
+                  </div>
+                ))}
+                {list.length > max && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="px-1.5 text-left text-[13px] font-medium text-muted-foreground hover:text-foreground max-sm:hidden">
+                        +{list.length - max} mais
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="flex w-64 flex-col gap-1">
+                      <span className="mb-1 text-sm font-semibold capitalize">
+                        {parseD(d).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
+                      </span>
+                      {list.map((e) => (
+                        <EntryChip key={e.key} e={e} onOpen={onOpen} />
+                      ))}
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
+      {/* Phones: the chosen day, readable (the grid is too narrow for titles). Entries can be dragged up onto another day. */}
+      <section className="flex flex-col gap-1.5 rounded-2xl border bg-card p-3 shadow-card sm:hidden" aria-live="polite">
+        <div className="flex items-center justify-between gap-2 px-1">
+          <h3 className="text-base font-semibold">
+            {day === T
+              ? "Hoje, " + parseD(day).toLocaleDateString("pt-BR", { day: "numeric", month: "long" })
+              : parseD(day)
+                  .toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })
+                  .replace(/^./, (c) => c.toUpperCase())}
+          </h3>
+          {onAdd && (
+            <Button variant="ghost" size="sm" onClick={() => onAdd(day)}>
+              <Plus data-icon="inline-start" />
+              Adicionar
+            </Button>
+          )}
+        </div>
+        {dayList.length ? (
+          dayList.map((e) => <EntryChip key={e.key} e={e} onOpen={onOpen} large />)
+        ) : (
+          <p className="px-1 py-2 text-sm text-muted-foreground">Nada marcado neste dia.</p>
+        )}
+      </section>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Workspace } from "@/lib/types";
@@ -207,13 +207,21 @@ function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry
     return Math.max(START_H * 60, Math.min((END_H - 1) * 60 + 45, START_H * 60 + Math.round(((y / HOUR) * 60) / 15) * 15));
   };
   const accepts = (e: React.DragEvent) => e.dataTransfer.types.includes(DRAG_TYPE);
+  // On narrow screens only part of the week fits: start with today in view, not Sunday.
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    const col = el?.querySelector<HTMLElement>("[data-today]");
+    if (!el || !col || el.scrollWidth <= el.clientWidth) return;
+    el.scrollLeft = Math.max(0, col.offsetLeft - 56 - (el.clientWidth - 56 - col.offsetWidth) / 2);
+  }, [days[0]]);
   return (
-    <div className="overflow-x-auto rounded-2xl border bg-card shadow-card">
+    <div ref={box} className="overflow-x-auto rounded-2xl border bg-card shadow-card">
       <div className="min-w-[720px]">
         <div className="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] border-b">
           <div />
           {days.map((d) => (
-            <div key={d} className="flex flex-col items-center gap-0.5 border-l py-2">
+            <div key={d} data-today={d === T || undefined} className="flex flex-col items-center gap-0.5 border-l py-2">
               <span className="text-sm text-muted-foreground capitalize">
                 {parseD(d).toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "")}
               </span>

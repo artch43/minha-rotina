@@ -240,3 +240,17 @@
 .katex-error {
   color: var(--destructive) !important;
 }
+
+/* LaTeX source while editing: tinted text, stronger dollar signs; an unclosed $$ tints what follows. */
+.cm-math-src {
+  color: var(--tag-purple-fg);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.94em;
+}
+.cm-math-delim {
+  color: var(--tag-purple-fg);
+  font-weight: 700;
+}
+.cm-math-open {
+  background: color-mix(in oklab, var(--tag-purple-bg) 55%, transparent);
+}

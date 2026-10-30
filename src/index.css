@@ -434,6 +434,22 @@
     radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, #1f7a8c 45%, transparent), transparent 60%),
     #0d2f36;
 }
+/* Tablet sign-in: the whole screen in the brand color, the band blends in and the card sits centered. */
+@media (min-width: 640px) and (max-width: 1023.98px) {
+  .auth-shell {
+    background:
+      radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, #2a9bb0 55%, transparent), transparent 60%),
+      #14505c;
+  }
+  .dark .auth-shell {
+    background:
+      radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, #1f7a8c 45%, transparent), transparent 60%),
+      #0d2f36;
+  }
+  .auth-shell .auth-panel {
+    background: none;
+  }
+}
 .auth-bar {
   transform-origin: bottom;
   animation: auth-bar 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -489,4 +505,20 @@
   60% {
     transform: scale(1.06);
   }
+}
+
+/* Touch drag (src/lib/touchDnd.ts): no copy/share callout on long press, and no text selection while dragging. */
+@media (pointer: coarse) {
+  [draggable="true"],
+  [draggable="false"] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+.touch-dragging,
+.touch-dragging * {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grabbing;
 }
