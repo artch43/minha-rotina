@@ -312,35 +312,51 @@ function NotesPanel() {
       setOver(null);
     },
   });
-  const noteRow = (n: Note, depth: number) => (
-    <button
-      key={n.id}
-      data-del={"note:" + n.id}
-      draggable
-      style={{ paddingLeft: 10 + depth * 14 }}
-      onClick={() => openNotes(n.id)}
-      onDragStart={(e) => {
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", n.id);
-        requestAnimationFrame(() => setDrag(n.id));
-      }}
-      onDragEnd={() => {
-        setDrag(null);
-        setOver(null);
-      }}
-      className={cn(
-        "flex w-full items-center gap-2 rounded-lg py-2 pr-2 text-left text-[15px] hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-        n.id === current && "bg-sidebar-accent font-medium",
-      )}
-    >
-      {n.pinned ? (
-        <Pin className="size-4 shrink-0 text-primary" />
-      ) : (
-        <FileText className="size-4 shrink-0 text-muted-foreground" />
-      )}
-      <span className="truncate">{n.title || "Sem título"}</span>
-    </button>
-  );
+  // Same title in more than one place: show the folder, so they can be told apart.
+  const titleCount = new Map<string, number>();
+  for (const n of Object.values(notes)) titleCount.set(n.title.trim().toLowerCase(), (titleCount.get(n.title.trim().toLowerCase()) ?? 0) + 1);
+  const noteRow = (n: Note, depth: number) => {
+    const untitled = !n.title.trim() || /^sem título( \d+)?$/i.test(n.title.trim());
+    const dup = (titleCount.get(n.title.trim().toLowerCase()) ?? 0) > 1;
+    const open = n.id === current;
+    return (
+      <button
+        key={n.id}
+        data-del={"note:" + n.id}
+        draggable
+        aria-current={open ? "page" : undefined}
+        style={{ paddingLeft: 10 + depth * 14 }}
+        onClick={() => openNotes(n.id)}
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", n.id);
+          requestAnimationFrame(() => setDrag(n.id));
+        }}
+        onDragEnd={() => {
+          setDrag(null);
+          setOver(null);
+        }}
+        className={cn(
+          "relative flex w-full items-center gap-2 rounded-lg py-2 pr-2 text-left text-[15px] hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          // The open note: highlighted row with a bar in the accent color.
+          open &&
+            "bg-sidebar-accent font-semibold text-sidebar-accent-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-1 before:rounded-full before:bg-primary",
+        )}
+      >
+        {n.pinned ? (
+          <Pin className="size-4 shrink-0 text-primary" />
+        ) : (
+          <FileText className={cn("size-4 shrink-0", open ? "text-primary-strong" : "text-muted-foreground")} />
+        )}
+        <span className={cn("min-w-0 truncate", untitled && "text-muted-foreground italic")}>{n.title || "Sem título"}</span>
+        {dup && (
+          <span className="ml-auto shrink-0 truncate pl-1 text-xs font-normal text-muted-foreground" title={`Na pasta ${n.folder || "raiz"}`}>
+            {n.folder ? n.folder.split("/").pop() : "sem pasta"}
+          </span>
+        )}
+      </button>
+    );
+  };
   const notesIn = (folder: string) => {
     const xs = list.filter((n) => n.folder === folder).sort(byTitle);
     return folder.startsWith("Diário") ? xs.reverse() : xs.sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
