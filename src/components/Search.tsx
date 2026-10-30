@@ -9,7 +9,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { fmtDate } from "@/lib/util";
+import { fmtDate, ymd } from "@/lib/util";
 import { dateOf, statusProp } from "@/lib/model";
 import { REPEAT_LABELS } from "@/lib/events";
 import { plainSnippet } from "@/lib/notes";
@@ -124,7 +124,7 @@ export function Search() {
                   title={n.title || "Sem título"}
                   sub={[
                     n.folder ? `Pasta ${n.folder.split("/").join(" › ")}` : "",
-                    "editada " + fmtDate(new Date(n.updated).toISOString().slice(0, 10)).toLowerCase(),
+                    "editada " + fmtDate(ymd(new Date(n.updated))).toLowerCase(),
                     plainSnippet(n.body, 60),
                   ]}
                 />
