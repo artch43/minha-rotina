@@ -151,7 +151,7 @@ function HabitRow({ h, T, i }: { h: Habit; T: string; i: number }) {
           <span className="px-1 text-sm text-muted-foreground">
             {streak ? (
               <>
-                🔥 <b className="font-semibold text-foreground tabular-nums">{streak}</b>{" "}
+                🔥 <b key={streak} className="streak-bump inline-block font-semibold text-foreground tabular-nums">{streak}</b>{" "}
                 {streak === 1 ? "dia seguido" : "dias seguidos"}
               </>
             ) : (

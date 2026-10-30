@@ -40,6 +40,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { areaVar, greeting, useAreas, useToday } from "./common";
 import { Progress } from "@/components/ui/progress";
 import { Glyph } from "./icons";
+import { vtName, withMotion } from "@/lib/motion";
 
 interface Entry {
   key: string;
@@ -108,12 +109,12 @@ export function Home() {
       order: t.order,
       day: t.date,
       onToggle: () => {
-        toggleTodo(t.id);
+        withMotion(() => toggleTodo(t.id));
         toast(t.done ? "Tarefa reaberta" : "Tarefa concluída", () => toggleTodo(t.id));
       },
       onMove: (to) => {
         const prev = t.date;
-        updateTodo(t.id, { date: to ?? undefined });
+        withMotion(() => updateTodo(t.id, { date: to ?? undefined }));
         toast(movedLabel(to), () => updateTodo(t.id, { date: prev }));
       },
     });
@@ -470,7 +471,7 @@ function toggleItemDone(id: string) {
   const wasDone = groupOf(db, it) === "done";
   const next = wasDone ? (firstOptInGroup(db, "todo") ?? sp.options![0].id) : firstOptInGroup(db, "done");
   if (!next) return;
-  setProp(id, sp.id, next);
+  withMotion(() => setProp(id, sp.id, next));
   toast(wasDone ? "Tarefa reaberta" : "Tarefa concluída", () => setProp(id, sp.id, (prev as string) ?? null));
 }
 
@@ -479,7 +480,7 @@ function moveItemDay(id: string, to: string | null) {
   const it = useStore.getState().ws.items[id];
   if (!it) return;
   const prev = typeof it.props.date === "string" ? it.props.date : null;
-  setProp(id, "date", to ? to + (prev?.slice(10) ?? "") : null, { quiet: true });
+  withMotion(() => setProp(id, "date", to ? to + (prev?.slice(10) ?? "") : null, { quiet: true }));
   toast(movedLabel(to), () => setProp(id, "date", prev, { quiet: true }));
 }
 
@@ -515,7 +516,7 @@ function Row({ e, i, T }: { e: Entry; i: number; T: string }) {
   );
   return (
     <li
-      style={{ ...areaVar(e.area), "--i": Math.min(i, 12) } as React.CSSProperties}
+      style={{ ...areaVar(e.area), "--i": Math.min(i, 12), viewTransitionName: vtName("home", e.key) } as React.CSSProperties}
       className={cn(
         "area-stripe flex items-center gap-1 rounded-2xl border border-border/70 bg-card py-1.5 pr-1.5 pl-3 shadow-card transition-colors focus-within:border-primary/40 hover:border-primary/40",
         e.done && "opacity-75",
@@ -534,7 +535,7 @@ function Row({ e, i, T }: { e: Entry; i: number; T: string }) {
             e.done ? "text-success" : "text-muted-foreground hover:text-success",
           )}
         >
-          {e.done ? <CircleCheck className="size-6" /> : <Circle className="size-6" strokeWidth={1.75} />}
+          {e.done ? <CircleCheck className="pop size-6" /> : <Circle className="size-6" strokeWidth={1.75} />}
         </button>
       )}
       {e.onOpen ? (

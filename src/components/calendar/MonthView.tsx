@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, Repeat, Square, SquareCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { vtName, withMotion } from "@/lib/motion";
 import type { Area } from "@/lib/types";
 import { monthGrid } from "@/lib/events";
 import { DOW, addDays, parseD, today } from "@/lib/util";
@@ -51,7 +52,8 @@ export function EntryChip({
         onOpen(e);
       }}
       title={(e.time ? e.time + " · " : "") + e.title}
-      style={areaVar(e.area)}
+      // Glides to its new day when moved (the phone's day list uses its own name, so names stay unique).
+      style={{ ...areaVar(e.area), viewTransitionName: vtName(large ? "day" : compact ? "cell" : "pop", e.key) }}
       className={cn(
         "flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-[13px] transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         e.kind === "event" ? "area-soft font-medium text-foreground hover:brightness-95" : "text-muted-foreground hover:bg-muted",
@@ -139,7 +141,8 @@ export function MonthView({
                   e.preventDefault();
                   setOver(null);
                   try {
-                    onMove(JSON.parse(e.dataTransfer.getData(DRAG_TYPE)), d);
+                    const moved = JSON.parse(e.dataTransfer.getData(DRAG_TYPE));
+                    withMotion(() => onMove(moved, d));
                   } catch {
                     /* not ours */
                   }

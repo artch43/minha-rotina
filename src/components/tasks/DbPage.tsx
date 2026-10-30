@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { NewTaskDialog } from "./NewTaskDialog";
+import { withMotion } from "@/lib/motion";
 import { ArrowDownUp, CalendarDays, Check, Columns3, Filter, Plus, Search, Settings2, Table2, X } from "lucide-react";
 import type { Filter as F, Page, View } from "@/lib/types";
 import { applyFilters, defaultsFromFilters, filterLabel } from "@/lib/model";
@@ -116,10 +117,12 @@ export function DbPage({ page }: { page: Page }) {
           <SortButton
             view={view}
             onChange={(sort) =>
-              mutView((v) => {
+              withMotion(() =>
+                mutView((v) => {
                 if (sort === undefined) delete v.sort;
                 else v.sort = sort;
-              })
+              }),
+              )
             }
           />
           <FilterButton

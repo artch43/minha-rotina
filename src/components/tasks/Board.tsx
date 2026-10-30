@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { OptionBadge, TagSwatches, areaVar, useAreas } from "../common";
 import { TASK_MIME, setDraggedTask } from "@/lib/dnd";
+import { vtName, withMotion } from "@/lib/motion";
 
 /**
  * Kanban board. Columns are the status options and can be renamed by clicking their name.
@@ -92,13 +93,14 @@ export function Board({ page, db, view, list }: { page: Page; db: Database; view
 
   return (
     // Phones: columns stacked full width (no sideways scrolling). Bigger screens: side by side, scrolling sideways if needed.
-    <div className="-mx-4 flex items-start gap-3 overflow-x-auto px-4 pb-6 max-sm:flex-col max-sm:items-stretch max-sm:overflow-visible md:-mx-8 md:px-8">
+    <div className="stagger -mx-4 flex items-start gap-3 overflow-x-auto px-4 pb-6 max-sm:flex-col max-sm:items-stretch max-sm:overflow-visible md:-mx-8 md:px-8">
       {sp.options!.map((o, ci) => {
         const items = list.filter((i) => i.props[sp.id] === o.id);
         return (
           <section
             key={o.id}
             aria-label={o.name}
+            style={{ "--i": ci } as React.CSSProperties}
             className={cn(
               // Columns share the width on big screens (so four fit side by side), but stay readable: 16–22rem.
               "flex w-72 shrink-0 flex-col gap-2 rounded-2xl border border-border/60 bg-column p-2 transition-colors max-sm:w-full xl:w-auto xl:max-w-88 xl:min-w-64 xl:flex-1",
@@ -118,7 +120,8 @@ export function Board({ page, db, view, list }: { page: Page; db: Database; view
             }}
             onDrop={(e) => {
               e.preventDefault();
-              finishDrop(o.id);
+              // The card glides into its new spot (and the others make room).
+              withMotion(() => finishDrop(o.id));
               setDrag(null);
               setDrop(null);
             }}
@@ -367,7 +370,7 @@ function Card({
       draggable
       role="button"
       tabIndex={0}
-      style={areaVar(area)}
+      style={{ ...areaVar(area), viewTransitionName: vtName("card", it.id) }}
       aria-label={it.title || "Sem título"}
       className={cn(
         "area-stripe lift group flex cursor-pointer select-none flex-col gap-2 rounded-xl border border-border/70 bg-card py-3 pr-3 pl-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
@@ -413,7 +416,7 @@ function Card({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
             <DropdownMenuLabel>Mover para</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={String(it.props[sp.id] ?? "")} onValueChange={(v) => setProp(it.id, sp.id, v)}>
+            <DropdownMenuRadioGroup value={String(it.props[sp.id] ?? "")} onValueChange={(v) => withMotion(() => setProp(it.id, sp.id, v))}>
               {sp.options!.map((o) => (
                 <DropdownMenuRadioItem key={o.id} value={o.id}>
                   {o.name}

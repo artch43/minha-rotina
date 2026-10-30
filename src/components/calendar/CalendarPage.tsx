@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { withMotion } from "@/lib/motion";
 import { ChevronLeft, ChevronRight, Plus, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Workspace } from "@/lib/types";
@@ -118,7 +119,10 @@ export function CalendarPage() {
   const d = parseD(anchor);
   const days = cal.view === "month" ? monthGrid(anchor) : weekOf(anchor);
   const byDay = collect(ws, days[0], days[days.length - 1], area, cal.showTasks);
+  // Which way the last move went, so the new month/week slides in from that side.
+  const [dir, setDir] = useState<"next" | "prev" | "none">("none");
   const shift = (k: number) => {
+    setDir(k > 0 ? "next" : "prev");
     if (cal.view === "week") return set({ anchor: addDays(anchor, 7 * k) });
     const n = new Date(d.getFullYear(), d.getMonth() + k, 1);
     set({ anchor: `${n.getFullYear()}-${pad(n.getMonth() + 1)}-01` });
@@ -170,6 +174,7 @@ export function CalendarPage() {
           <Label htmlFor="show-tasks">Mostrar tarefas</Label>
         </div>
       </div>
+      <div key={cal.view + (cal.view === "month" ? anchor.slice(0, 7) : week[0])} className="cal-enter" data-dir={dir}>
       {cal.view === "month" ? (
         <MonthView
           anchor={anchor}
@@ -181,6 +186,7 @@ export function CalendarPage() {
       ) : (
         <WeekView days={week} byDay={byDay} />
       )}
+      </div>
       <p className="text-sm text-muted-foreground">
           {/* Touch screens and mouse/keyboard get the instructions that apply to them. */}
           <span className="pointer-fine:hidden">
@@ -260,7 +266,7 @@ function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry
                 e.preventDefault();
                 setOver(null);
                 const x = parseDrop(e.dataTransfer);
-                if (x) moveEntry(x, d);
+                if (x) withMotion(() => moveEntry(x, d));
               }}
             >
               {untimed(d).map((x) => (
@@ -299,7 +305,10 @@ function WeekView({ days, byDay }: { days: string[]; byDay: Record<string, Entry
                 e.preventDefault();
                 setOver(null);
                 const x = parseDrop(e.dataTransfer);
-                if (x) moveEntry(x, d, minutesAt(e, e.currentTarget));
+                if (x) {
+                  const m = minutesAt(e, e.currentTarget);
+                  withMotion(() => moveEntry(x, d, m));
+                }
               }}
               onDoubleClick={(e) => {
                 const m = minutesAt(e, e.currentTarget);
