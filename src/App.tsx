@@ -6,6 +6,7 @@ import { installLocalTrash, startCloud, useSync } from "./lib/sync";
 import { installDeleteShortcut } from "./lib/shortcuts";
 import { installTouchDnd } from "./lib/touchDnd";
 import { installNativeBars } from "./lib/native";
+import { useBackToClose } from "./lib/backClose";
 import { applyAccent, applySidebarStyle, applyWallpaper } from "./lib/appearance";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -30,6 +31,12 @@ import { NotebookPen } from "lucide-react";
 import { Glyph } from "./components/icons";
 
 const NotesView = lazy(() => import("./components/notes/NotesView"));
+
+/** The page shown on opening (Settings → página inicial), or Início. */
+function startPage() {
+  const { ws } = useStore.getState();
+  return ws.pages.some((p) => p.id === ws.settings.start) ? ws.settings.start : "home";
+}
 
 function routeFromHash() {
   const id = decodeURIComponent(location.hash.replace(/^#\/?/, ""));
@@ -129,17 +136,29 @@ function Workspace() {
   const page = useStore((s) => s.ws.pages.find((p) => p.id === s.ui.route));
   const note = useStore((s) => (s.ui.route === "notes" && s.ui.noteId ? s.ws.notes[s.ui.noteId] : undefined));
   const setUi = useStore((s) => s.setUi);
+  // Back closes the open window, the task panel or the event dialog before changing page.
+  const peek = useStore((s) => s.ui.peek);
+  const eventDialog = useStore((s) => !!s.ui.eventDialog);
+  useBackToClose(!!modal, () => setUi((u) => void (u.modal = null)));
+  useBackToClose(!!peek, closePeek);
+  useBackToClose(eventDialog, () => setUi((u) => void (u.eventDialog = null)));
 
   useEffect(() => {
-    if (!routeFromHash()) {
-      const { ws } = useStore.getState();
-      const start = ws.pages.some((p) => p.id === ws.settings.start) ? ws.settings.start : "home";
+    // Opened without an address: show the start page and write it in the address (replacing, so
+    // Back from the next page comes here instead of to a blank entry).
+    const toStart = () => {
+      const start = startPage();
       setUi((u) => {
         u.route = start;
+        u.peek = null;
       });
-    }
+      history.replaceState(history.state, "", "#/" + start);
+    };
+    if (!routeFromHash()) toStart();
     checkReviews();
-    const onHash = () => routeFromHash();
+    const onHash = () => {
+      if (!routeFromHash()) toStart();
+    };
     const onVis = () => {
       if (!document.hidden) checkReviews();
     };

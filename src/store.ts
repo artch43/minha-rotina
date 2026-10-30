@@ -10,6 +10,7 @@ import { DEFAULT_LIST_ICON, addDays, diffDays, emojiOf, fmtDate, parseD, today, 
 import { dailyBody, uniqueTitle } from "./lib/notes";
 import { STORAGE_KEY, workspaceStorage } from "./lib/storage";
 import { normalizeWorkspace } from "./lib/migrate";
+import { pushRoute } from "./lib/backClose";
 
 export type Modal = "search" | "settings" | "trash" | "newBoard" | null;
 export interface UI {
@@ -163,7 +164,7 @@ export function go(id: string) {
     u.route = id;
     u.peek = null;
   });
-  if (location.hash !== "#/" + id) history.pushState(null, "", "#/" + id);
+  pushRoute("#/" + id);
 }
 /**
  * Back to the top of the page. The window is what scrolls (the layout grows with its content);
@@ -798,7 +799,7 @@ export function openNotes(noteId?: string | null) {
   });
   const id = useStore.getState().ui.noteId;
   const hash = "#/notas" + (id ? "/" + id : "");
-  if (location.hash !== hash) history.pushState(null, "", hash);
+  pushRoute(hash);
 }
 
 export function createNote(init: Partial<Note> = {}) {

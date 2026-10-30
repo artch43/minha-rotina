@@ -84,6 +84,7 @@ import { BoardDialog } from "./BoardDialog";
 import { IconPicker } from "../IconPicker";
 import { Glyph } from "../icons";
 import { SidebarTrash } from "./TrashDropZone";
+import { useBackToClose } from "@/lib/backClose";
 import { FolderGlyph } from "./folderIcons";
 import { TASK_MIME, draggedTask } from "@/lib/dnd";
 import { emojiOf } from "@/lib/util";
@@ -120,7 +121,7 @@ export function AppSidebar() {
   const pages = useStore((s) => s.ws.pages);
   const route = useStore((s) => s.ui.route);
   const ws = useStore((s) => s.ws);
-  const { setOpenMobile, isMobile } = useSidebar();
+  const { openMobile, setOpenMobile, isMobile } = useSidebar();
   const [dialog, setDialog] = useState<SideDialog | null>(null);
   const [remove, setRemove] = useState<string | null>(null);
   const [removeFolder, setRemoveFolder] = useState<string | null>(null);
@@ -338,6 +339,8 @@ export function AppSidebar() {
     );
   };
   const fixed = (type: string) => pages.find((p) => p.type === type);
+  // On phones the menu is a drawer: Back closes it.
+  useBackToClose(isMobile && openMobile, () => setOpenMobile(false));
   const nav = (fn: () => void) => () => {
     fn();
     if (isMobile) setOpenMobile(false);
