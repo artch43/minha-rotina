@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
+import { NewTaskDialog } from "./NewTaskDialog";
 import { CalendarDays, Check, Columns3, Filter, Plus, Search, Settings2, Table2, X } from "lucide-react";
 import type { Filter as F, Page, View } from "@/lib/types";
 import { applyFilters, defaultsFromFilters, filterLabel } from "@/lib/model";
-import { celebrate, newItem, openPeek, renamePage, useStore } from "@/store";
+import { celebrate, renamePage, useStore } from "@/store";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -30,13 +31,15 @@ export function DbPage({ page }: { page: Page }) {
   const search = useStore((s) => s.ui.search[page.id]) ?? "";
   const area = useStore((s) => s.ui.area);
   const { setUi, mut } = useStore.getState();
+  const [newTask, setNewTask] = useState<{ date: string } | null>(null);
   const db = ws.dbs[page.id];
   if (!db) return null;
   const view = db.views.find((v) => v.id === viewId) ?? db.views[0];
   const list = applyFilters(ws, page.id, view, search, area);
   const hasAny = Object.values(ws.items).some((i) => i.db === page.id);
   const mutView = (fn: (v: View) => void) => mut((w) => fn(w.dbs[page.id].views.find((x) => x.id === view.id)!));
-  const create = (props = {}) => openPeek(newItem(page.id, { ...defaultsFromFilters(db, view), ...props }), true);
+  // Opens the short "Nova tarefa" form; nothing is saved until the person confirms it.
+  const create = (props: { date?: string } = {}) => setNewTask({ date: props.date ?? "" });
 
   return (
     <div className="flex flex-col gap-5 px-4 py-6 md:px-8 md:py-8">
@@ -151,6 +154,14 @@ export function DbPage({ page }: { page: Page }) {
       {view.type === "board" && <Board page={page} db={db} view={view} list={list} />}
       {view.type === "table" && <TaskTable db={db} list={list} hasAny={hasAny} onCreate={() => create()} />}
       {view.type === "calendar" && <TaskCalendar dbId={page.id} db={db} list={list} onCreate={(date) => create({ date })} />}
+      {newTask && (
+        <NewTaskDialog
+          dbId={page.id}
+          defaults={defaultsFromFilters(db, view)}
+          date={newTask.date}
+          onClose={() => setNewTask(null)}
+        />
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { firstDoneOf, streakOf } from "@/lib/model";
 import { DEFAULT_HABIT_ICON, DOW, addDays, fmtDate, parseD, uid } from "@/lib/util";
 import { celebrate, deleteHabit, toggleHabit, useStore } from "@/store";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { useToday } from "./common";
@@ -18,17 +19,16 @@ export function Habits() {
   const T = useToday();
   const doneToday = useStore((s) => (s.ws.habitLog[T] || []).filter((id) => s.ws.habits.some((h) => h.id === id)).length);
   const mut = useStore((s) => s.mut);
-  const add = () => {
+  // A habit is only created once it has a name; the form can be cancelled.
+  const [adding, setAdding] = useState(false);
+  const add = (name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
     mut((w) => {
-      w.habits.push({ id: uid(), name: "Novo hábito", icon: DEFAULT_HABIT_ICON, created: T });
+      w.habits.push({ id: uid(), name: clean, icon: DEFAULT_HABIT_ICON, created: T });
     });
-    celebrate("Hábito criado", "Dê um nome e marque quando fizer.", "🌱");
-    setTimeout(() => {
-      const ins = document.querySelectorAll<HTMLInputElement>("[data-habit-name]");
-      const last = ins[ins.length - 1];
-      last?.focus();
-      last?.select();
-    }, 40);
+    celebrate(`Hábito “${clean}” criado`, "Toque em Marcar hoje quando fizer.", "🌱");
+    setAdding(false);
   };
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6 px-4 py-6 md:px-8 md:py-8">
@@ -41,11 +41,12 @@ export function Habits() {
               : "Pequenas coisas que você quer fazer com frequência."}
           </p>
         </div>
-        <Button onClick={add}>
+        <Button onClick={() => setAdding(true)} disabled={adding}>
           <Plus data-icon="inline-start" />
           Novo hábito
         </Button>
       </div>
+      {adding && <NewHabit onAdd={add} onCancel={() => setAdding(false)} />}
       {habits.length ? (
         <>
           <HabitLegend />
@@ -64,7 +65,7 @@ export function Habits() {
             <EmptyDescription>Comece com algo pequeno, como ler 10 minutos por dia.</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button onClick={add}>Criar hábito</Button>
+            <Button onClick={() => setAdding(true)}>Criar hábito</Button>
           </EmptyContent>
         </Empty>
       )}
@@ -234,6 +235,39 @@ function DayDot({
   );
 }
 
+function NewHabit({ onAdd, onCancel }: { onAdd: (name: string) => void; onCancel: () => void }) {
+  const [name, setName] = useState("");
+  return (
+    <form
+      className="flex flex-col gap-3 rounded-2xl border border-primary/40 bg-card p-4 shadow-card sm:flex-row sm:items-end"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onAdd(name);
+      }}
+    >
+      <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm font-medium">
+        Nome do novo hábito
+        <Input
+          autoFocus
+          autoComplete="off"
+          placeholder="Ex.: Ler 10 minutos, Beber água"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Escape" && onCancel()}
+        />
+      </label>
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={!name.trim()}>
+          Criar hábito
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 /** What the day circles mean, in the same shapes. */
 function HabitLegend() {
   const item = (dot: React.ReactNode, label: string) => (
@@ -256,6 +290,10 @@ function HabitLegend() {
       )}
       {item(<span className="size-3.5 rounded-full border-2 border-dashed border-(--tag-red-fg)/70" />, "não feito")}
       {item(<span className="size-3.5 rounded-full bg-muted ring-1 ring-border" />, "sem registro (antes de começar ou hoje)")}
+      <span className="basis-full text-[13px]">
+        Toque num dia para marcar ou desmarcar. Para renomear, clique no nome; para trocar o ícone, clique nele; a lixeira
+        fica ao lado de “Ver histórico”.
+      </span>
     </p>
   );
 }
