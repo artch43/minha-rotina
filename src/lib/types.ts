@@ -56,6 +56,8 @@ export interface Page {
   fav?: boolean;
   /** Folder path in the sidebar, like "Faculdade/2º semestre" (task lists only). */
   folder?: string;
+  /** Hidden from the sidebar (kept with all its tasks; can be brought back). */
+  archived?: boolean;
 }
 /** Only used to read data saved before version 2 (block pages and block notes). */
 export interface Block {

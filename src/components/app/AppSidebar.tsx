@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Archive,
+  ArchiveRestore,
   CalendarDays,
   ChevronDown,
   ChevronRight,
@@ -18,11 +20,12 @@ import {
 } from "lucide-react";
 import type { Page } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { childrenOf } from "@/lib/model";
+import { childrenOf, groupOf } from "@/lib/model";
 import { boardFolderList } from "@/lib/notes";
 import { cloudEnabled } from "@/lib/supabase";
 import {
   addBoardFolder,
+  archivePage,
   moveItemTo,
   celebrate,
   deleteBoardFolder,
@@ -125,7 +128,15 @@ export function AppSidebar() {
   const [over, setOver] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const icons = ws.settings.boardFolderIcons ?? {};
-  const boards = childrenOf(ws, null).filter((p) => p.type === "db");
+  const allBoards = childrenOf(ws, null).filter((p) => p.type === "db");
+  const boards = allBoards.filter((p) => !p.archived);
+  const archived = allBoards.filter((p) => p.archived);
+  const [showArchived, setShowArchived] = useState(false);
+  // Open tasks per list, shown next to its name (empty lists look quieter).
+  const openCount = (id: string) => {
+    const db = ws.dbs[id];
+    return db ? Object.values(ws.items).filter((i) => i.db === id && groupOf(db, i) !== "done").length : 0;
+  };
   const folders = boardFolderList(ws);
   // Opening a list (or creating one inside a folder) unfolds the folders around it.
   const activeFolder = boards.find((p) => p.id === route)?.folder;
@@ -312,6 +323,8 @@ export function AppSidebar() {
             }}
             onEdit={() => setDialog({ kind: "edit", pageId: p.id })}
             onRemove={() => setRemove(p.id)}
+            onArchive={() => archivePage(p.id, true)}
+            count={openCount(p.id)}
           />
         ))}
       </>
@@ -412,6 +425,44 @@ export function AppSidebar() {
                   <span>Nova lista</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {/* Archived lists: out of the way, one click to see and bring back. */}
+              {archived.length > 0 && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    aria-expanded={showArchived}
+                    className="text-muted-foreground"
+                    onClick={() => setShowArchived(!showArchived)}
+                  >
+                    <Archive />
+                    <span>Arquivadas ({archived.length})</span>
+                  </SidebarMenuButton>
+                  {showArchived && (
+                    <SidebarMenuSub className="mr-0 pr-0">
+                      {archived.map((p) => (
+                        <SidebarMenuItem key={p.id}>
+                          <SidebarMenuButton
+                            className="text-muted-foreground"
+                            title={p.title}
+                            isActive={route === p.id}
+                            onClick={nav(() => go(p.id))}
+                          >
+                            <Glyph icon={p.icon} size="sm" className="opacity-70" />
+                            <span>{p.title}</span>
+                          </SidebarMenuButton>
+                          <SidebarMenuAction
+                            showOnHover
+                            aria-label={`Desarquivar ${p.title}`}
+                            title="Desarquivar"
+                            onClick={() => archivePage(p.id, false)}
+                          >
+                            <ArchiveRestore />
+                          </SidebarMenuAction>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenuSub>
+                  )}
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -480,6 +531,8 @@ function BoardItem({
   onRenamed,
   onEdit,
   onRemove,
+  onArchive,
+  count,
 }: {
   p: Page;
   active: boolean;
@@ -494,6 +547,9 @@ function BoardItem({
   onRenamed: (title: string) => void;
   onEdit: () => void;
   onRemove: () => void;
+  onArchive: () => void;
+  /** Open tasks in the list. */
+  count: number;
 }) {
   const [taskOver, setTaskOver] = useState(false);
   // A task card from a board can be dropped here: it moves to this list.
@@ -534,14 +590,23 @@ function BoardItem({
         <SidebarMenuButton
           {...dragProps}
           isActive={active}
-          title="Clique duas vezes para renomear. Arraste para uma pasta."
+          title={`${p.title || "Sem título"} · ${count ? `${count} ${count === 1 ? "tarefa aberta" : "tarefas abertas"}` : "sem tarefas abertas"}. Clique duas vezes para renomear; arraste para uma pasta.`}
+          className={cn(!count && !active && "text-muted-foreground")}
           onClick={(e) => e.detail < 2 && onOpen()}
           onDoubleClick={onStartRename}
         >
           <IconSpot label="Trocar ícone da lista" value={p.icon} onPick={(v) => renamePage(p.id, p.title, v)}>
-            <Glyph icon={p.icon} size="sm" />
+            <Glyph icon={p.icon} size="sm" className={cn(!count && !active && "opacity-70")} />
           </IconSpot>
           <span>{p.title || "Sem título"}</span>
+          {count > 0 && (
+            <span
+              className="ml-auto pl-1 text-xs text-muted-foreground tabular-nums group-hover/menu-item:opacity-0 group-focus-within/menu-item:opacity-0 pointer-coarse:hidden"
+              aria-hidden="true"
+            >
+              {count}
+            </span>
+          )}
         </SidebarMenuButton>
       )}
       <DropdownMenu>
@@ -571,6 +636,10 @@ function BoardItem({
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
+            <DropdownMenuItem onSelect={onArchive}>
+              <Archive />
+              Arquivar lista
+            </DropdownMenuItem>
             <DropdownMenuItem variant="destructive" onSelect={onRemove}>
               <Trash2 />
               Excluir lista

@@ -434,6 +434,21 @@ export function movePage(id: string, dir: -1 | 1) {
     if (list[i].order === list[j].order) list[j].order += dir;
   });
 }
+/** Archives a list (out of the sidebar, nothing deleted) or brings it back. */
+export function archivePage(id: string, on: boolean) {
+  const page = ws().pages.find((p) => p.id === id);
+  if (!page) return;
+  const set = (v: boolean) =>
+    mut((w) => {
+      const p = w.pages.find((x) => x.id === id);
+      if (!p) return;
+      if (v) p.archived = true;
+      else delete p.archived;
+    });
+  set(on);
+  if (on && useStore.getState().ui.route === id) go("home");
+  toast(on ? `“${page.title}” arquivada. Ela fica em Arquivadas, no fim das listas.` : `“${page.title}” de volta às listas`, () => set(!on));
+}
 export function setPageFolder(id: string, folder: string, announce = false) {
   const before = ws().pages.find((x) => x.id === id);
   if (!before || (before.folder ?? "") === folder) return;
