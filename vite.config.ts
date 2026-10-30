@@ -36,4 +36,23 @@ export default defineConfig({
     }),
   ],
   resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
+  build: {
+    rollupOptions: {
+      output: {
+        // Heavy libraries in their own files: smaller downloads, and they stay cached across app updates.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          const has = (...names: string[]) => names.some((n) => id.includes(`/node_modules/${n}`));
+          if (has("@codemirror/", "@lezer/", "style-mod", "w3c-keyname", "crelt")) return "vendor-editor";
+          if (has("katex")) return "vendor-math";
+          if (has("radix-ui", "@radix-ui/", "lucide-react", "cmdk", "sonner", "@floating-ui/", "react-remove-scroll", "aria-hidden"))
+            return "vendor-ui";
+          if (has("date-fns", "jszip", "marked", "dompurify", "react-day-picker")) return "vendor-utils";
+          if (has("@supabase/")) return "vendor-supabase";
+          if (has("react/", "react-dom/", "scheduler")) return "vendor-react";
+          if (has("zustand", "immer")) return "vendor-state";
+        },
+      },
+    },
+  },
 });
