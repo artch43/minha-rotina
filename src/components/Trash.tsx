@@ -31,7 +31,10 @@ export function Trash() {
   const groupOf = (r: TrashRow) =>
     r.kind === "page"
       ? (rows ?? []).filter(
-          (x) => sameBatch(x.deleted_at, r.deleted_at) && (x.id === r.id || x.kind === "item" || x.kind === "db"),
+          // Only this list's own board and tasks (a folder deletion removes several lists at once).
+          (x) =>
+            sameBatch(x.deleted_at, r.deleted_at) &&
+            (x.id === r.id || (x.kind === "item" && (x.data as Item).db === r.id)),
         )
       : [r];
   const visible = (rows ?? []).filter((r) => {

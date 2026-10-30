@@ -8,6 +8,7 @@ import {
   ChevronUp,
   FolderInput,
   FolderPlus,
+  FolderX,
   Home,
   MoreHorizontal,
   NotebookPen,
@@ -29,6 +30,7 @@ import {
   moveItemTo,
   celebrate,
   deleteBoardFolder,
+  deleteBoardFolderWithLists,
   deletePage,
   go,
   moveBoardFolder,
@@ -122,6 +124,7 @@ export function AppSidebar() {
   const { setOpenMobile, isMobile } = useSidebar();
   const [dialog, setDialog] = useState<SideDialog | null>(null);
   const [remove, setRemove] = useState<string | null>(null);
+  const [removeFolder, setRemoveFolder] = useState<string | null>(null);
   const [openFolders, setOpenFolders] = useState(readOpenFolders);
   /** What is being dragged, the folder it would land in ("" = top level) and which row is being renamed. */
   const [drag, setDrag] = useState<{ kind: "folder" | "board"; id: string } | null>(null);
@@ -285,9 +288,13 @@ export function AppSidebar() {
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    <DropdownMenuItem variant="destructive" onSelect={() => deleteBoardFolder(f)}>
+                    <DropdownMenuItem onSelect={() => deleteBoardFolder(f)}>
+                      <FolderX />
+                      Excluir só a pasta (mantém as listas)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem variant="destructive" onSelect={() => setRemoveFolder(f)}>
                       <Trash2 />
-                      Excluir pasta (mantém as listas)
+                      Excluir pasta, listas e tarefas
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                 </DropdownMenuContent>
@@ -339,6 +346,10 @@ export function AppSidebar() {
     cal = fixed("calendar"),
     habits = fixed("habits");
   const toRemove = pages.find((p) => p.id === remove);
+  const removeCount = remove ? Object.values(ws.items).filter((i) => i.db === remove).length : 0;
+  const inFolder = (f?: string) => !!removeFolder && !!f && (f === removeFolder || f.startsWith(removeFolder + "/"));
+  const folderLists = allBoards.filter((p) => inFolder(p.folder));
+  const folderTasks = Object.values(ws.items).filter((i) => folderLists.some((p) => p.id === i.db)).length;
 
   return (
     <Sidebar>
@@ -497,12 +508,33 @@ export function AppSidebar() {
           onSaved={showFolder}
         />
       )}
+      <AlertDialog open={!!removeFolder} onOpenChange={(o) => !o && setRemoveFolder(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir a pasta “{removeFolder && nameOf(removeFolder)}” com tudo dentro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Saem {folderLists.length} {folderLists.length === 1 ? "lista" : "listas"} e {folderTasks}{" "}
+              {folderTasks === 1 ? "tarefa" : "tarefas"}
+              {folderLists.length ? ` (${folderLists.map((p) => p.title).join(", ")})` : ""}. Você pode desfazer logo em seguida.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => removeFolder && deleteBoardFolderWithLists(removeFolder)}>
+              Excluir tudo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={!!remove} onOpenChange={(o) => !o && setRemove(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir “{toRemove?.title}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              A lista e todas as tarefas dela serão excluídas. Você pode desfazer logo em seguida.
+              {removeCount
+                ? `A lista e as ${removeCount} ${removeCount === 1 ? "tarefa" : "tarefas"} dela serão excluídas.`
+                : "A lista será excluída (ela não tem tarefas)."}{" "}
+              Você pode desfazer logo em seguida.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

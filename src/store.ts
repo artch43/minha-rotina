@@ -499,6 +499,40 @@ export function moveBoardFolder(path: string, into: string) {
   celebrate(`Pasta “${name}” movida`, into ? `Agora dentro de ${into.split("/").join(" › ")}` : "Agora no topo das listas", "📂");
   return true;
 }
+/** Removes a folder with everything in it: subfolders, the lists inside and all their tasks (with undo). */
+export function deleteBoardFolderWithLists(path: string) {
+  const inside = (f = "") => f === path || f.startsWith(path + "/");
+  const before = ws();
+  const pages = before.pages.filter((p) => p.type === "db" && inside(p.folder));
+  const ids = new Set(pages.map((p) => p.id));
+  const snap = {
+    pages,
+    dbs: pages.map((p) => [p.id, before.dbs[p.id]] as const),
+    items: Object.values(before.items).filter((i) => ids.has(i.db)),
+    folders: before.settings.boardFolders ?? [],
+    icons: before.settings.boardFolderIcons,
+  };
+  mut((w) => {
+    for (const it of Object.values(w.items)) if (ids.has(it.db)) delete w.items[it.id];
+    for (const id of ids) delete w.dbs[id];
+    w.pages = w.pages.filter((p) => !ids.has(p.id));
+    w.settings.boardFolders = snap.folders.filter((f) => !inside(f));
+    if (w.settings.boardFolderIcons)
+      w.settings.boardFolderIcons = Object.fromEntries(Object.entries(w.settings.boardFolderIcons).filter(([k]) => !inside(k)));
+  });
+  if (ids.has(useStore.getState().ui.route)) go("home");
+  toast(
+    `Pasta excluída com ${pages.length} ${pages.length === 1 ? "lista" : "listas"} e ${snap.items.length} ${snap.items.length === 1 ? "tarefa" : "tarefas"}`,
+    () =>
+      mut((w) => {
+        w.pages.push(...snap.pages);
+        for (const [id, db] of snap.dbs) if (db) w.dbs[id] = db;
+        for (const it of snap.items) w.items[it.id] = it;
+        w.settings.boardFolders = snap.folders;
+        w.settings.boardFolderIcons = snap.icons;
+      }),
+  );
+}
 /** Removes a folder and its subfolders. The lists inside are kept and move up to the parent folder. */
 export function deleteBoardFolder(path: string) {
   const inside = (f = "") => f === path || f.startsWith(path + "/");
@@ -541,7 +575,8 @@ export function deletePage(id: string) {
     w.pages = w.pages.filter((p) => p.id !== id);
   });
   if (useStore.getState().ui.route === id) go("home");
-  toast(`“${snap.page.title}” excluída`, () =>
+  const n = snap.items.length;
+  toast(`“${snap.page.title}” excluída${n ? ` com ${n} ${n === 1 ? "tarefa" : "tarefas"}` : ""}`, () =>
     mut((w) => {
       w.pages.push(snap.page);
       if (snap.db) w.dbs[id] = snap.db;
