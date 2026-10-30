@@ -1,6 +1,6 @@
 # Configuração e desenvolvimento
 
-Guia técnico para rodar o **Minha Rotina** localmente, ligar a nuvem (Supabase), os alarmes e publicar na Vercel.
+Guia técnico para rodar o **Organizer** localmente, ligar a nuvem (Supabase), os alarmes e publicar na Vercel.
 Para a apresentação do projeto, veja o [README](../README.md).
 
 ## Como rodar no seu computador
@@ -75,7 +75,7 @@ npx supabase link --project-ref <PROJECT_REF>
 # Gmail:
 npx supabase secrets set SMTP_USER=seu.app@gmail.com SMTP_PASS=<senha de app> CRON_SECRET=<uma-senha-longa> APP_URL=https://seu-site.vercel.app
 # ou Resend:
-npx supabase secrets set RESEND_API_KEY=re_xxx REMINDER_FROM="Minha Rotina <alertas@seudominio.com>" CRON_SECRET=<uma-senha-longa> APP_URL=https://seu-site.vercel.app
+npx supabase secrets set RESEND_API_KEY=re_xxx REMINDER_FROM="Organizer <alertas@seudominio.com>" CRON_SECRET=<uma-senha-longa> APP_URL=https://seu-site.vercel.app
 
 npx supabase functions deploy send-reminders --no-verify-jwt
 ```

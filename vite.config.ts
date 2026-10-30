@@ -13,8 +13,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
-        name: "Minha Rotina",
-        short_name: "Rotina",
+        name: "Organizer",
+        short_name: "Organizer",
         description: "Tarefas, calendário, afazeres, hábitos e anotações num só lugar.",
         lang: "pt-BR",
         start_url: "/",

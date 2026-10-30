@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="public/pwa-512.png" width="96" alt="Logo do Minha Rotina" />
+<img src="public/pwa-512.png" width="96" alt="Logo do Organizer" />
 
-# Minha Rotina
+# Organizer
 
 ### Seu dia inteiro, num lugar só.
 
@@ -11,8 +11,8 @@ no computador, no tablet e no celular.
 
 <br />
 
-<a href="https://minha-rotina-zeta.vercel.app">
-  <img src="https://img.shields.io/badge/Abrir_o_Minha_Rotina-1f7a8c?style=for-the-badge&logoColor=white" alt="Abrir o Minha Rotina" />
+<a href="https://organizerapp.vercel.app">
+  <img src="https://img.shields.io/badge/Abrir_o_Organizer-1f7a8c?style=for-the-badge&logoColor=white" alt="Abrir o Organizer" />
 </a>
 
 <br /><br />
@@ -26,7 +26,7 @@ no computador, no tablet e no celular.
 
 <br />
 
-<img src="docs/screenshots/inicio.png" alt="Tela de Início do Minha Rotina: tarefas de hoje, próximos compromissos e hábitos" width="100%" />
+<img src="docs/screenshots/inicio.png" alt="Tela de Início do Organizer: tarefas de hoje, próximos compromissos e hábitos" width="100%" />
 
 </div>
 
@@ -35,7 +35,7 @@ no computador, no tablet e no celular.
 ## 💡 A ideia
 
 A rotina costuma ficar espalhada: tarefas num app, compromissos em outro, hábitos num caderno e
-ideias em notas soltas. O **Minha Rotina** junta tudo isso em um só lugar, com uma pergunta no centro:
+ideias em notas soltas. O **Organizer** junta tudo isso em um só lugar, com uma pergunta no centro:
 
 > **O que eu preciso fazer hoje?**
 

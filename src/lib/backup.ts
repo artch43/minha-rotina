@@ -5,12 +5,12 @@ import { normalizeWorkspace } from "./migrate";
 export { normalizeWorkspace };
 
 export function downloadBackup(ws: Workspace) {
-  const blob = new Blob([JSON.stringify({ app: "minha-rotina", exportedAt: new Date().toISOString(), workspace: ws }, null, 2)], {
+  const blob = new Blob([JSON.stringify({ app: "organizer", exportedAt: new Date().toISOString(), workspace: ws }, null, 2)], {
     type: "application/json",
   });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `minha-rotina-backup-${today()}.json`;
+  a.download = `organizer-backup-${today()}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
@@ -33,7 +33,7 @@ export function parseBackup(text: string): Workspace {
     typeof w.items !== "object" ||
     typeof w.dbs !== "object"
   ) {
-    throw new Error("Este arquivo não é um backup do Minha Rotina.");
+    throw new Error("Este arquivo não é um backup do Organizer.");
   }
   return normalizeWorkspace(w as Workspace);
 }

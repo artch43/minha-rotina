@@ -1,3 +1,4 @@
+import { openFilesDb } from "./rename";
 import { supabase } from "./supabase";
 import { uid } from "./util";
 
@@ -42,14 +43,7 @@ export function attachmentMarkdown(a: { id: string; name: string; kind: Attachme
 }
 
 /* ---------- this browser only (no login) ---------- */
-function db(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open("minha-rotina-anexos", 1);
-    req.onupgradeneeded = () => req.result.createObjectStore("files");
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
+const db = () => openFilesDb("anexos");
 async function idb<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest): Promise<T> {
   const d = await db();
   return new Promise((resolve, reject) => {

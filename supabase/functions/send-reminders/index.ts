@@ -2,9 +2,9 @@
 // Secrets: CRON_SECRET, APP_URL, and one way to send e-mail:
 //   Gmail (or any SMTP, free, no domain needed): SMTP_USER (the address), SMTP_PASS (an app password),
 //     optional SMTP_HOST (default smtp.gmail.com), SMTP_PORT (default 465; Supabase blocks 25 and 587),
-//     SMTP_FROM (the sender address, when it isn't SMTP_USER, as with Brevo), SMTP_FROM_NAME (default "Minha Rotina").
+//     SMTP_FROM (the sender address, when it isn't SMTP_USER, as with Brevo), SMTP_FROM_NAME (default "Organizer").
 //   Resend (needs a verified domain to reach other people): RESEND_API_KEY, REMINDER_FROM
-//     (e.g. "Minha Rotina <alertas@seudominio.com>"). When both are set, SMTP is used.
+//     (e.g. "Organizer <alertas@seudominio.com>"). When both are set, SMTP is used.
 // WhatsApp (optional; until it is set up, WhatsApp reminders arrive by e-mail):
 //   WHATSAPP_PROVIDER = "twilio" | "meta"
 //   twilio: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM (e.g. "+14155238886"),
@@ -23,7 +23,7 @@ function emailHtml(title: string, when: string, appUrl: string) {
   return `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#F7F8FA;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1E2330">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px"><tr><td align="center">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border:1px solid #E1E5EB;border-radius:14px">
-  <tr><td style="padding:28px 28px 8px;font-size:13px;color:#5B6272">Lembrete do Minha Rotina</td></tr>
+  <tr><td style="padding:28px 28px 8px;font-size:13px;color:#5B6272">Lembrete do Organizer</td></tr>
   <tr><td style="padding:0 28px;border-left:4px solid #1F7A8C"><div style="font-size:22px;font-weight:700;line-height:1.3">${esc(title)}</div>
   <div style="margin-top:6px;font-size:15px;color:#5B6272">${esc(when)}</div></td></tr>
   <tr><td style="padding:24px 28px 28px"><a href="${esc(appUrl)}" style="display:inline-block;background:#1F7A8C;color:#fff;text-decoration:none;font-weight:600;padding:10px 16px;border-radius:8px">Abrir o calendário</a></td></tr>
@@ -72,7 +72,7 @@ function smtpStatus(e: { code?: string; responseCode?: number }) {
 
 async function sendSmtp(to: string, title: string, when: string, appUrl: string): Promise<Sent> {
   const user = Deno.env.get("SMTP_FROM") || Deno.env.get("SMTP_USER")!;
-  const name = (Deno.env.get("SMTP_FROM_NAME") ?? "Minha Rotina").replace(/["<>\r\n]/g, "");
+  const name = (Deno.env.get("SMTP_FROM_NAME") ?? "Organizer").replace(/["<>\r\n]/g, "");
   try {
     await smtpTransport().sendMail({
       from: `"${name}" <${user}>`,
@@ -90,7 +90,7 @@ async function sendSmtp(to: string, title: string, when: string, appUrl: string)
 
 async function sendEmail(to: string, title: string, when: string, appUrl: string): Promise<Sent> {
   if (smtpReady()) return sendSmtp(to, title, when, appUrl);
-  const from = Deno.env.get("REMINDER_FROM") ?? "Minha Rotina <onboarding@resend.dev>";
+  const from = Deno.env.get("REMINDER_FROM") ?? "Organizer <onboarding@resend.dev>";
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${Deno.env.get("RESEND_API_KEY")}`, "Content-Type": "application/json" },
@@ -115,7 +115,7 @@ async function sendWhatsApp(phone: string, title: string, when: string, appUrl: 
     if (content) {
       body.set("ContentSid", content);
       body.set("ContentVariables", JSON.stringify({ 1: oneLine(title), 2: oneLine(when) }));
-    } else body.set("Body", `⏰ Lembrete do Minha Rotina\n*${oneLine(title)}*\n${oneLine(when)}\n\n${appUrl}`);
+    } else body.set("Body", `⏰ Lembrete do Organizer\n*${oneLine(title)}*\n${oneLine(when)}\n\n${appUrl}`);
     res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: "POST",
       headers: { Authorization: "Basic " + btoa(`${sid}:${Deno.env.get("TWILIO_AUTH_TOKEN")}`), "Content-Type": "application/x-www-form-urlencoded" },

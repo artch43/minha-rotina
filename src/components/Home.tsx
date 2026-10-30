@@ -352,7 +352,7 @@ function WelcomeBanner() {
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <h2 id="welcome-title" className="text-base font-semibold">
-          Bem-vindo ao Minha Rotina!
+          Bem-vindo ao Organizer!
         </h2>
         <p className="text-sm text-muted-foreground">Você está visualizando dados de exemplo para conhecer os recursos.</p>
       </div>

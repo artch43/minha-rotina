@@ -1,9 +1,9 @@
--- Minha Rotina: full database setup in one go (same as running 001, 002 and 003 in order).
+-- Organizer: full database setup in one go (same as running 001, 002 and 003 in order).
 -- Safe to run more than once.
 
 
 -- ===== 001_init.sql =====
--- Minha Rotina: one table holds every piece of a person's workspace.
+-- Organizer: one table holds every piece of a person's workspace.
 -- Each row is one entity (a page, a database, an item, a note, ...), stored as JSON.
 -- Row Level Security makes sure each person only ever sees their own rows.
 
@@ -45,7 +45,7 @@ create policy "records: update own" on public.records for update using (auth.uid
 create policy "records: delete own" on public.records for delete using (auth.uid() = user_id);
 
 -- ===== 002_events_reminders.sql =====
--- Minha Rotina, version 2: calendar events, to-dos and e-mail reminders.
+-- Organizer, version 2: calendar events, to-dos and e-mail reminders.
 
 -- 1. Allow the new kinds of rows.
 alter table public.records drop constraint if exists records_kind_check;
@@ -89,7 +89,7 @@ revoke all on function public.due_reminders(int) from public, anon, authenticate
 grant execute on function public.due_reminders(int) to service_role;
 
 -- ===== 003_grants.sql =====
--- Minha Rotina, version 3: explicit access for signed-in people.
+-- Organizer, version 3: explicit access for signed-in people.
 -- Newer Supabase projects no longer grant table access to the API roles automatically,
 -- which shows up in the app as "permission denied for table records".
 -- Row Level Security (001 and 002) still limits everyone to their own rows.
@@ -105,7 +105,7 @@ grant select, insert, delete on table public.reminders to authenticated;
 grant select, insert, update, delete on table public.records, public.reminders to service_role;
 
 -- ===== 004_reminder_errors.sql =====
--- Minha Rotina, version 4: remember why a reminder could not be sent,
+-- Organizer, version 4: remember why a reminder could not be sent,
 -- so a permanent refusal (e.g. an address the e-mail service rejects) is not retried every minute.
 alter table public.reminders add column if not exists last_error text;
 
@@ -129,7 +129,7 @@ create policy "anexos: delete own" on storage.objects for delete to authenticate
   using (bucket_id = 'anexos' and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- ===== 006_whatsapp.sql =====
--- Minha Rotina, version 6: each reminder goes out by e-mail or by WhatsApp, as chosen on the event or task.
+-- Organizer, version 6: each reminder goes out by e-mail or by WhatsApp, as chosen on the event or task.
 alter table public.reminders add column if not exists channel text not null default 'email';
 alter table public.reminders drop constraint if exists reminders_channel_check;
 alter table public.reminders add constraint reminders_channel_check check (channel in ('email', 'whatsapp'));
@@ -152,7 +152,7 @@ revoke all on function public.due_reminders(int) from public, anon, authenticate
 grant execute on function public.due_reminders(int) to service_role;
 
 -- ===== 007_limits.sql =====
--- Minha Rotina, version 7: limits that keep one account from abusing the reminder service.
+-- Organizer, version 7: limits that keep one account from abusing the reminder service.
 
 -- 1. Sane values only. The app never writes anything outside these limits.
 alter table public.reminders drop constraint if exists reminders_title_len;

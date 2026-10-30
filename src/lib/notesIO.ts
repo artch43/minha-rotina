@@ -22,7 +22,7 @@ export async function exportNotesZip(notes: Record<string, Note>) {
     used.add(path.toLowerCase());
     zip.file(path, n.body);
   }
-  download(await zip.generateAsync({ type: "blob" }), `minha-rotina-anotacoes-${today()}.zip`);
+  download(await zip.generateAsync({ type: "blob" }), `organizer-anotacoes-${today()}.zip`);
 }
 
 export function exportNoteMd(n: Note) {

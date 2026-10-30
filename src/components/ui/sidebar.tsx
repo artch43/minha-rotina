@@ -30,7 +30,7 @@ const SIDEBAR_WIDTH = "17.5rem"
 /** Width limits (px) when the person drags the sidebar edge; the chosen width is remembered. */
 const SIDEBAR_MIN = 216
 const SIDEBAR_MAX = 440
-const SIDEBAR_WIDTH_KEY = "minha-rotina:sidebar-width"
+const SIDEBAR_WIDTH_KEY = "organizer:sidebar-width"
 const readWidth = () => {
   try {
     const n = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))

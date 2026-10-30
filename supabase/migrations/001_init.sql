@@ -1,4 +1,4 @@
--- Minha Rotina: one table holds every piece of a person's workspace.
+-- Organizer: one table holds every piece of a person's workspace.
 -- Each row is one entity (a page, a database, an item, a note, ...), stored as JSON.
 -- Row Level Security makes sure each person only ever sees their own rows.
 

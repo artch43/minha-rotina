@@ -1,3 +1,5 @@
+// First: moves data saved under the old app name before the store reads it.
+import "./lib/rename";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";

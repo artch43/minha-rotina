@@ -89,7 +89,7 @@ export const OLD_GUIDE_BODIES: string[] = [
 
 /** The guide as shipped in version 2 (kept to recognise untouched copies). */
 const GUIDE_BODY_V2 = [
-  "Bem-vindo ao Minha Rotina! Este guia mostra, passo a passo, tudo o que o site faz. Leva uns 5 minutos. Marque cada passo do **Experimente** quando conseguir.",
+  "Bem-vindo ao Organizer! Este guia mostra, passo a passo, tudo o que o site faz. Leva uns 5 minutos. Marque cada passo do **Experimente** quando conseguir.",
   "",
   "## 1. Início: o seu dia",
   "- O **Início** mostra só as tarefas com prazo para **hoje**. É uma tela de consulta: nada se edita ali.",

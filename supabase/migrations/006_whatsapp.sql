@@ -1,4 +1,4 @@
--- Minha Rotina, version 6: each reminder goes out by e-mail or by WhatsApp, as chosen on the event or task.
+-- Organizer, version 6: each reminder goes out by e-mail or by WhatsApp, as chosen on the event or task.
 alter table public.reminders add column if not exists channel text not null default 'email';
 alter table public.reminders drop constraint if exists reminders_channel_check;
 alter table public.reminders add constraint reminders_channel_check check (channel in ('email', 'whatsapp'));

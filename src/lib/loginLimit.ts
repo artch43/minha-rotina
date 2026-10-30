@@ -4,7 +4,7 @@
  * This slows down guessing from the app; Supabase also limits attempts on the server
  * (Authentication → Rate Limits), which is what stops anyone calling the API directly.
  */
-const KEY = "minha-rotina:login-tries";
+const KEY = "organizer:login-tries";
 export const FREE_TRIES = 5;
 const BASE_MS = 30_000;
 const MAX_MS = 15 * 60_000;

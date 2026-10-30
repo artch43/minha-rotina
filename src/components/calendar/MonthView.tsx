@@ -24,7 +24,7 @@ export interface Entry {
   fixed?: boolean;
 }
 
-export const DRAG_TYPE = "application/x-minha-rotina";
+export const DRAG_TYPE = "application/x-organizer";
 
 export function EntryChip({
   e,

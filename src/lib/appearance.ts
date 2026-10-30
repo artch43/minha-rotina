@@ -4,6 +4,8 @@
  * WCAG AA against the backgrounds they sit on, in light and in dark mode.
  */
 
+import { openFilesDb } from "./rename";
+
 export const DEFAULT_ACCENT = "#1f7a8c";
 
 export const ACCENTS: { name: string; hex: string }[] = [
@@ -143,14 +145,7 @@ export function applyAccent(accent: string | undefined) {
 }
 
 /* ---------- the wallpaper picture (kept on this device) ---------- */
-function idb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open("minha-rotina-aparencia", 1);
-    req.onupgradeneeded = () => req.result.createObjectStore("files");
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
+const idb = () => openFilesDb("aparencia");
 async function store<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest): Promise<T> {
   const d = await idb();
   return new Promise((resolve, reject) => {

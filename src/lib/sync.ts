@@ -455,7 +455,7 @@ async function purgeOld() {
 }
 
 /* ---------- local trash (no account, or no connection) ---------- */
-export const LOCAL_TRASH_KEY = "minha-rotina:trash";
+export const LOCAL_TRASH_KEY = "organizer:trash";
 /** Kinds that show up in the trash, plus the board that goes with a list (restored together). */
 const TRASH_KINDS = new Set<Kind>(["page", "db", "item", "note", "event", "todo"]);
 const LOCAL_TRASH_MAX = 500;

@@ -1,4 +1,4 @@
--- Minha Rotina, version 3: explicit access for signed-in people.
+-- Organizer, version 3: explicit access for signed-in people.
 -- Newer Supabase projects no longer grant table access to the API roles automatically,
 -- which shows up in the app as "permission denied for table records".
 -- Row Level Security (001 and 002) still limits everyone to their own rows.

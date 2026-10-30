@@ -117,7 +117,6 @@ export function Logo() {
 
 export function AppSidebar() {
   const pages = useStore((s) => s.ws.pages);
-  const name = useStore((s) => s.ws.settings.name);
   const route = useStore((s) => s.ui.route);
   const ws = useStore((s) => s.ws);
   const { setOpenMobile, isMobile } = useSidebar();
@@ -356,7 +355,7 @@ export function AppSidebar() {
       <SidebarHeader className="gap-4 px-3 pt-5">
         <div className="flex items-center gap-2.5 px-1">
           <Logo />
-          <span className="truncate text-lg font-extrabold tracking-tight">{name ? `Rotina de ${name}` : "Minha Rotina"}</span>
+          <span className="truncate text-lg font-extrabold tracking-tight">Organizer</span>
         </div>
         <SidebarMenu>
           <SidebarMenuItem>

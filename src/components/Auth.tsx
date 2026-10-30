@@ -55,7 +55,7 @@ function BrandPanel() {
     >
       <div className="flex items-center gap-3 text-xl font-extrabold tracking-tight">
         <Logo />
-        Minha Rotina
+        Organizer
       </div>
       <div className="flex flex-col gap-10">
         <h2 className="max-w-md text-5xl leading-[1.05] font-extrabold tracking-tight text-balance xl:text-6xl">
@@ -112,7 +112,7 @@ function BrandBand() {
     >
       <div className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight">
         <Logo />
-        Minha Rotina
+        Organizer
       </div>
       <div className="mx-auto flex w-full max-w-lg items-end justify-between gap-4">
         <p className="max-w-[15ch] text-[1.65rem] leading-[1.1] font-extrabold tracking-tight text-balance sm:max-w-none sm:text-4xl">

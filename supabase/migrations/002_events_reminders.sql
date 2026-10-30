@@ -1,4 +1,4 @@
--- Minha Rotina, version 2: calendar events, to-dos and e-mail reminders.
+-- Organizer, version 2: calendar events, to-dos and e-mail reminders.
 
 -- 1. Allow the new kinds of rows.
 alter table public.records drop constraint if exists records_kind_check;

@@ -1,4 +1,4 @@
--- Minha Rotina, version 7: limits that keep one account from abusing the reminder service.
+-- Organizer, version 7: limits that keep one account from abusing the reminder service.
 
 -- 1. Sane values only. The app never writes anything outside these limits.
 alter table public.reminders drop constraint if exists reminders_title_len;

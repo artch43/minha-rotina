@@ -6,4 +6,4 @@ import { createJSONStorage } from "zustand/middleware";
  * adapter that implements getItem / setItem / removeItem against the backend.
  */
 export const workspaceStorage = createJSONStorage(() => localStorage);
-export const STORAGE_KEY = "minha-rotina";
+export const STORAGE_KEY = "organizer";
