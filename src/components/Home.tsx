@@ -78,14 +78,8 @@ export function Home() {
         <p className="text-lg text-muted-foreground">{greeting(ws.settings.name)}</p>
         <h1 className="text-4xl leading-tight font-extrabold tracking-tight md:text-5xl">{date}</h1>
         <p className="text-lg text-muted-foreground">{summary}</p>
-        {/* How much of today is already done, at a glance. */}
-        {entries.length > 0 && (
-          <Progress
-            value={(done.length / entries.length) * 100}
-            aria-label={`${done.length} de ${entries.length} feitas hoje`}
-            className="mt-2 h-2 max-w-sm [&>[data-slot=progress-indicator]]:bg-success"
-          />
-        )}
+        {/* How much of today is already done: a bar with an outlined track (visible even at 0%), the count in words, and a done state. */}
+        {entries.length > 0 && <DayProgress done={done.length} total={entries.length} />}
       </header>
 
       {entries.length ? (
@@ -102,6 +96,28 @@ export function Home() {
           </EmptyHeader>
         </Empty>
       )}
+    </div>
+  );
+}
+
+function DayProgress({ done, total }: { done: number; total: number }) {
+  const complete = done === total;
+  return (
+    <div className="mt-2 flex max-w-md items-center gap-3">
+      <Progress
+        value={(done / total) * 100}
+        aria-label={`${done} de ${total} feitas hoje`}
+        className="h-2.5 flex-1 bg-transparent ring-1 ring-(--input) ring-inset [&>[data-slot=progress-indicator]]:rounded-full [&>[data-slot=progress-indicator]]:bg-success"
+      />
+      <span
+        className={cn(
+          "flex shrink-0 items-center gap-1 text-sm font-semibold tabular-nums",
+          complete ? "text-success" : "text-muted-foreground",
+        )}
+      >
+        {complete && <CircleCheck className="size-4" aria-hidden="true" />}
+        {complete ? "Tudo feito!" : `${done}/${total}`}
+      </span>
     </div>
   );
 }
