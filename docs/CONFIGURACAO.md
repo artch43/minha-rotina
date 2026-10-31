@@ -5,19 +5,20 @@ Para a apresentação do projeto, veja o [README](../README.md).
 
 ## Como rodar no seu computador
 
-Precisa do [Node.js](https://nodejs.org) 18 ou mais novo.
+Precisa do [Node.js](https://nodejs.org) 22 ou mais novo. Os comandos podem ser rodados da raiz do projeto
+(eles chamam a pasta `frontend/`) ou de dentro de `frontend/`.
 
 ```bash
-npm install      # só na primeira vez
+npm run setup    # só na primeira vez: instala as dependências do frontend
 npm run dev      # abre em http://localhost:5173
 ```
 
-Sem o arquivo `.env.local`, o app roda **sem login**, com os dados no navegador.
+Sem o arquivo `frontend/.env.local`, o app roda **sem login**, com os dados no navegador.
 
 | Comando             | O que faz                                         |
 | ------------------- | ------------------------------------------------- |
 | `npm run dev`       | Servidor de desenvolvimento                       |
-| `npm run build`     | Confere os tipos e gera a versão final em `dist/` |
+| `npm run build`     | Confere os tipos e gera a versão final em `frontend/dist/` |
 | `npm run preview`   | Serve a versão de `dist/` para testar             |
 | `npm run typecheck` | Só confere os tipos do TypeScript                 |
 | `npm test`          | Roda os testes automáticos (Vitest)               |
@@ -29,8 +30,8 @@ Sem o arquivo `.env.local`, o app roda **sem login**, com os dados no navegador.
 ## Configurar a nuvem (Supabase)
 
 1. Crie uma conta gratuita em [supabase.com](https://supabase.com) e um projeto novo.
-2. Em **SQL Editor → New query**, cole o conteúdo de `supabase/setup.sql` e clique em **Run**.
-   Ele cria tudo de uma vez (equivale às migrações `001` a `007` de `supabase/migrations/`, que também podem ser rodadas em ordem):
+2. Em **SQL Editor → New query**, cole o conteúdo de `backend/supabase/setup.sql` e clique em **Run**.
+   Ele cria tudo de uma vez (equivale às migrações `001` a `007` de `backend/supabase/migrations/`, que também podem ser rodadas em ordem):
    tabelas `records` e `reminders`, regras de acesso, limites e o armazenamento privado `anexos` para imagens e PDF.
 3. Em **Project Settings → API**, copie a **Project URL** e a chave **anon public**.
 4. Copie `.env.example` para `.env.local` e preencha `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
@@ -73,7 +74,7 @@ A chave fica só no painel do Supabase: não a coloque no código.
 
 ## Configurar os alarmes
 
-Os alarmes são enviados pela função `supabase/functions/send-reminders`, que roda a cada minuto.
+Os alarmes são enviados pela função `backend/supabase/functions/send-reminders`, que roda a cada minuto.
 
 ### 1. Escolha como enviar os e-mails
 
@@ -84,9 +85,10 @@ Os alarmes são enviados pela função `supabase/functions/send-reminders`, que 
 
 ### 2. Publique a função
 
-No Terminal (o token sai de supabase.com → Account → Access Tokens):
+No Terminal, **dentro da pasta `backend/`** (o token sai de supabase.com → Account → Access Tokens):
 
 ```bash
+cd backend
 npx supabase login
 npx supabase link --project-ref <PROJECT_REF>
 
@@ -103,7 +105,7 @@ estiverem configurados, vale o Gmail.
 
 ### 3. Ligue o agendamento
 
-No **SQL Editor**, rode o conteúdo de `supabase/cron.sql` trocando `<PROJECT_REF>` e `<CRON_SECRET>`
+No **SQL Editor**, rode o conteúdo de `backend/supabase/cron.sql` trocando `<PROJECT_REF>` e `<CRON_SECRET>`
 (a mesma senha do passo anterior). Não salve o arquivo com a senha dentro.
 
 Para conferir: `select status_code, content, created from net._http_response order by created desc limit 5;`
@@ -134,51 +136,55 @@ Depois, publique a função de novo.
 ## Publicar na Vercel
 
 1. Envie o código para o GitHub.
-2. Em [vercel.com](https://vercel.com), **Add New → Project** e importe o repositório (o preset **Vite** é detectado sozinho).
+2. Em [vercel.com](https://vercel.com), **Add New → Project** e importe o repositório. O `vercel.json` da raiz já diz como instalar e gerar o site a partir de `frontend/`.
 3. Em **Environment Variables**, adicione `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
 4. Publique, e coloque o endereço da Vercel no Supabase (Site URL e Redirect URLs).
 
-Pelo Terminal também dá: `npx vercel deploy --prod`.
+Pelo Terminal também dá, da raiz do projeto: `npx vercel deploy --prod`.
 
 ---
 
 ## Estrutura do projeto
 
 ```
-src/
-  main.tsx, App.tsx         entrada, login, layout geral e rotas (#/id-da-página)
-  store.ts                  estado global (Zustand) e todas as ações (criar, mover, desfazer…)
-  index.css                 tema: cores, claro/escuro, papel de parede, animações
-  styles.css                editor de notas e Markdown renderizado
-  lib/
-    types.ts                formatos dos dados (tarefa, evento, nota, hábito, configurações…)
-    model.ts                regras: filtros, ordem automática, revisão espaçada, sequência de hábitos
-    events.ts               calendário, repetições e cálculo dos alarmes
-    sync.ts, records.ts     sincronização com a nuvem, lixeira e lembretes
-    migrate.ts              atualiza dados salvos por versões antigas
-    template.ts             espaço inicial com exemplos e o Guia rápido
-    appearance.ts           cor de destaque (com contraste garantido), papel de parede, barra lateral
-    attachments.ts          imagens e PDF das anotações
-    math.ts                 fórmulas LaTeX
-    touchDnd.ts             arrastar e soltar no toque
-    loginLimit.ts           limite de tentativas de login
-    shortcuts.ts, notes.ts, notesIO.ts, backup.ts, supabase.ts, storage.ts, util.ts
-  components/
-    ui/                     componentes do shadcn
-    app/                    barra lateral, barra superior, navegação do celular, pastas
-    tasks/                  página da lista, quadro, tabela, calendário, painel e nova tarefa
-    calendar/               calendário (mês/semana), evento e alarme
-    notes/                  anotações: lista, editor (CodeMirror) e leitura
-    icons.tsx, IconPicker.tsx   catálogo e seletor de ícones
-    Home.tsx, Habits.tsx, Search.tsx, Settings.tsx, AppearanceTab.tsx, Trash.tsx, Auth.tsx
-supabase/
-  setup.sql                 todo o banco de uma vez
-  migrations/               001 a 007, em ordem
-  functions/send-reminders  envio dos alarmes (e-mail e WhatsApp)
-  cron.sql                  agenda a função a cada minuto
-public/
-  privacidade.html, ícones do app (PWA)
-vercel.json                 cabeçalhos de segurança
+frontend/                   o site e os apps (React + Vite + Capacitor)
+  src/
+    main.tsx, App.tsx         entrada, login, layout geral e rotas (#/id-da-página)
+    store.ts                  estado global (Zustand) e todas as ações (criar, mover, desfazer…)
+    index.css                 tema: cores, claro/escuro, papel de parede, animações
+    styles.css                editor de notas e Markdown renderizado
+    lib/
+      types.ts                formatos dos dados (tarefa, evento, nota, hábito, configurações…)
+      model.ts                regras: filtros, ordem automática, revisão espaçada, sequência de hábitos
+      events.ts               calendário, repetições e cálculo dos alarmes
+      sync.ts, records.ts     sincronização com a nuvem, lixeira e lembretes
+      migrate.ts              atualiza dados salvos por versões antigas
+      template.ts             espaço inicial: o guia "Comece por aqui" e os exemplos
+      appearance.ts           cor de destaque (com contraste garantido), papel de parede, barra lateral
+      attachments.ts          imagens e PDF das anotações
+      backClose.ts            botão Voltar do celular fecha menus e janelas
+      password.ts, loginLimit.ts  regras de senha e limite de tentativas de login
+      touchDnd.ts             arrastar e soltar no toque
+      native.ts, rename.ts    detalhes dos apps e do nome antigo
+      shortcuts.ts, notes.ts, notesIO.ts, backup.ts, supabase.ts, storage.ts, util.ts
+    components/
+      ui/                     componentes do shadcn
+      app/                    barra lateral, barra superior, navegação do celular, lixeira de arrastar
+      tasks/                  página da lista, quadro, tabela, calendário, painel e nova tarefa
+      calendar/               calendário (mês/semana), evento e alarme
+      notes/                  anotações: lista, editor (CodeMirror) e leitura
+      Home.tsx, Habits.tsx, Search.tsx, Settings.tsx, Auth.tsx…
+  public/                     privacidade.html, ícones do app (PWA)
+  android/, ios/, assets/     apps nativos (Capacitor) e os ícones de origem
+backend/
+  supabase/
+    setup.sql                 todo o banco de uma vez
+    migrations/               001 a 007, em ordem
+    functions/send-reminders  envio dos alarmes (e-mail e WhatsApp)
+    cron.sql                  agenda a função a cada minuto
+docs/                         este guia, o dos apps e as imagens do README
+vercel.json                   como a Vercel gera o site (a partir de frontend/) e cabeçalhos de segurança
+package.json                  atalhos da raiz (npm run dev, build, test…)
 ```
 
 ---

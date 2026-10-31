@@ -125,9 +125,12 @@ alarmes) · **CodeMirror** e **KaTeX** nas anotações · hospedado na **Vercel*
 ## 👩‍💻 Para desenvolvedores
 
 ```bash
-npm install
+npm run setup   # instala as dependências do frontend
 npm run dev     # http://localhost:5173 (sem configuração, os dados ficam no navegador)
 ```
+
+O código fica em duas pastas: **`frontend/`** (o site e os apps) e **`backend/`** (banco e funções no Supabase).
+Para contribuir, veja o **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 Como ligar a nuvem, os alarmes e publicar: **[docs/CONFIGURACAO.md](docs/CONFIGURACAO.md)**. Apps para Android e iPhone: **[docs/APLICATIVO.md](docs/APLICATIVO.md)**.
 

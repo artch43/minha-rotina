@@ -1,7 +1,7 @@
 # Aplicativo para Android e iPhone
 
 Os apps são feitos com o [Capacitor](https://capacitorjs.com): o mesmo site, empacotado dentro de um app
-nativo. Os projetos ficam em `android/` e `ios/`. O app fala com o mesmo Supabase do site, então a conta e os
+nativo. Os projetos ficam em `frontend/android/` e `frontend/ios/`. O app fala com o mesmo Supabase do site, então a conta e os
 dados são os mesmos.
 
 ## O que instalar (uma vez)
@@ -38,8 +38,8 @@ As duas lojas pedem um link de política de privacidade: use `https://<seu-site>
 
 ## Detalhes
 
-- Identificador do app: `com.artch43.organizer` (em `capacitor.config.ts`). Depois de publicado, não muda.
-- Ícones e tela de abertura saem de `assets/`. Para gerar de novo:
+- Identificador do app: `com.artch43.organizer` (em `frontend/capacitor.config.ts`). Depois de publicado, não muda.
+- Ícones e tela de abertura saem de `frontend/assets/`. Para gerar de novo, dentro de `frontend/`:
   `npx @capacitor/assets generate --android --ios`.
 - Os links dos e-mails (confirmar conta, nova senha) abrem o site, definido em `VITE_SITE_URL`
   (padrão: `https://organizerapp.vercel.app`).

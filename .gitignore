@@ -7,4 +7,4 @@ dist
 .env*
 
 # Supabase CLI (link local)
-supabase/.temp/
+backend/supabase/.temp/

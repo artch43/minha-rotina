@@ -1,4 +1,4 @@
-// Supabase Edge Function: sends the reminders that are due, by e-mail or WhatsApp. Runs every minute (see supabase/cron.sql).
+// Supabase Edge Function: sends the reminders that are due, by e-mail or WhatsApp. Runs every minute (see backend/supabase/cron.sql).
 // Secrets: CRON_SECRET, APP_URL, and one way to send e-mail:
 //   Gmail (or any SMTP, free, no domain needed): SMTP_USER (the address), SMTP_PASS (an app password),
 //     optional SMTP_HOST (default smtp.gmail.com), SMTP_PORT (default 465; Supabase blocks 25 and 587),

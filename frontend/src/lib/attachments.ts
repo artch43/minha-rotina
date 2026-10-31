@@ -73,11 +73,11 @@ export async function saveAttachment(file: File) {
       .from(BUCKET)
       .upload(`${await userId()}/${id}`, file, { contentType: type, upsert: false });
     if (error) {
-      // The storage space is created by supabase/migrations/005_attachments.sql (or setup.sql).
+      // The storage space is created by backend/supabase/migrations/005_attachments.sql (or setup.sql).
       if (/bucket not found/i.test(error.message))
-        throw new Error("Os anexos ainda não foram ativados no servidor. Rode o arquivo supabase/setup.sql no Supabase.");
+        throw new Error("Os anexos ainda não foram ativados no servidor. Rode o arquivo backend/supabase/setup.sql no Supabase.");
       if (/mime|content type|not supported/i.test(error.message))
-        throw new Error("O servidor recusou esse tipo de arquivo. Rode o supabase/setup.sql atualizado no Supabase.");
+        throw new Error("O servidor recusou esse tipo de arquivo. Rode o backend/supabase/setup.sql atualizado no Supabase.");
       if (/size|too large|exceed/i.test(error.message)) throw new Error("O arquivo passa do limite de tamanho do servidor.");
       throw new Error("Não foi possível enviar o arquivo. Tente de novo.");
     }
