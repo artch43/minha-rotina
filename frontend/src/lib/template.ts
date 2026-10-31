@@ -63,6 +63,8 @@ export function mkDb(
 export const GUIDE_VERSION = 4;
 
 /** The one guide: short on purpose, so it gets read to the end. Same id everywhere (no copies). */
+/** Set once the guide has opened by itself on this device (first visit). */
+export const GUIDE_SEEN_KEY = "organizer:guide-seen";
 export const GUIDE_ID = "comece-por-aqui";
 export const GUIDE_TITLE = "Comece por aqui";
 export const GUIDE_BODY_V4 = [
@@ -148,7 +150,11 @@ export function examples(T = today()) {
     title,
     area: db.defaultArea,
     notes,
-    props: { status: db.props[0].options![0].id, ...props, tags: [...((props.tags as string[]) ?? []), opt(db, "tags", "Exemplo")] },
+    props: {
+      status: db.props[0].options![0].id,
+      ...props,
+      tags: [...((props.tags as string[]) ?? []), opt(db, "tags", "Exemplo")],
+    },
     created: Date.now() + n,
     updated: Date.now(),
     order: ++n,

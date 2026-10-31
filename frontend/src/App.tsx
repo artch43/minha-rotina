@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { checkReviews, closePeek, openModal, openNotes, scrollToTop, useStore } from "./store";
-import { GUIDE_ID } from "./lib/template";
+import { GUIDE_ID, GUIDE_SEEN_KEY } from "./lib/template";
 import { authLink, clearAuthLink, cloudEnabled, supabase } from "./lib/supabase";
 import { installLocalTrash, startCloud, useSync } from "./lib/sync";
 import { installDeleteShortcut } from "./lib/shortcuts";
@@ -33,7 +33,6 @@ import { Glyph } from "./components/icons";
 
 const NotesView = lazy(() => import("./components/notes/NotesView"));
 /** Set once the guide has been shown on this device. */
-const GUIDE_SEEN_KEY = "organizer:guide-seen";
 
 /** The page shown on opening (Settings → página inicial), or Início. */
 function startPage() {
@@ -210,7 +209,10 @@ function Workspace() {
 
   const title =
     route === "notes" ? (
-      <span className="flex items-center gap-2"><NotebookPen className="size-4 text-primary-strong" aria-hidden="true" />Anotações{note ? <span className="text-muted-foreground"> / {note.title}</span> : null}</span>
+      <span className="flex items-center gap-2">
+        <NotebookPen className="size-4 text-primary-strong" aria-hidden="true" />
+        Anotações{note ? <span className="text-muted-foreground"> / {note.title}</span> : null}
+      </span>
     ) : page ? (
       <span className="flex items-center gap-2">
         <Glyph icon={page.icon} size="xs" />

@@ -3,7 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import { applyRecords, diffEntities, fromRecords, keyOf, toEntities, type Ent, type Kind, type Rec } from "./records";
 import { normalizeWorkspace } from "./backup";
-import { template } from "./template";
+import { GUIDE_SEEN_KEY, template } from "./template";
 import type { AlertChannel, CalendarEvent, Item, Workspace } from "./types";
 import { remindersFor, taskAlertSource, type ReminderRow } from "./events";
 import { groupOf } from "./model";
@@ -429,6 +429,12 @@ export async function deleteAllMyData() {
     if (data.length < 1000) break;
   }
   reminderSigs = {};
+  // A clean start: the guide opens again on the next sign-in, as on a first visit.
+  try {
+    localStorage.removeItem(GUIDE_SEEN_KEY);
+  } catch {
+    /* ignore */
+  }
   await signOut(true);
 }
 
