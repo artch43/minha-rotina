@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import {
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
   Circle,
   History as HistoryIcon,
@@ -30,8 +32,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { useToday } from "./common";
 import { IconPicker } from "./IconPicker";
-
-const WEEKS = 5;
 
 export function Habits() {
   const habits = useStore((s) => s.ws.habits);
@@ -367,7 +367,7 @@ function HabitLegend() {
   );
 }
 
-/** The last few weeks, Monday first, for looking back and fixing a missed mark. */
+/** A month calendar of the habit, Monday first: look back month by month and fix a missed mark. */
 function History({
   T,
   isOn,
@@ -379,25 +379,63 @@ function History({
   missed: (d: string) => boolean;
   onToggle: (d: string) => void;
 }) {
-  const dow = (parseD(T).getDay() + 6) % 7;
-  const start = addDays(T, -dow - 7 * (WEEKS - 1));
-  const days = Array.from({ length: WEEKS * 7 }, (_, k) => addDays(start, k));
+  const thisMonth = T.slice(0, 7) + "-01";
+  const [month, setMonth] = useState(thisMonth);
+  const shift = (k: number) => {
+    const d = parseD(month);
+    d.setMonth(d.getMonth() + k);
+    setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`);
+  };
+  const first = parseD(month);
+  const length = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const days = Array.from({ length }, (_, k) => addDays(month, k));
+  const lead = (first.getDay() + 6) % 7;
+  const past = days.filter((d) => d <= T);
+  const done = past.filter(isOn).length;
+  const label = first.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const title = label.charAt(0).toUpperCase() + label.slice(1);
   return (
-    <div className="flex flex-col gap-1.5 rounded-xl bg-muted/40 p-3 sm:ml-14">
-      <div className="grid w-max grid-cols-7 gap-1.5 text-center text-xs text-muted-foreground">
+    <div className="flex w-max flex-col gap-2 rounded-xl bg-muted/40 p-3 sm:ml-14">
+      <div className="flex items-center justify-between gap-2">
+        <Button variant="ghost" size="icon-sm" aria-label="Mês anterior" onClick={() => shift(-1)}>
+          <ChevronLeft />
+        </Button>
+        <span className="text-sm font-semibold" aria-live="polite">
+          {title}
+        </span>
+        <Button variant="ghost" size="icon-sm" aria-label="Próximo mês" disabled={month >= thisMonth} onClick={() => shift(1)}>
+          <ChevronRight />
+        </Button>
+      </div>
+      <div key={month} className="cal-enter grid w-max grid-cols-7 gap-1.5 text-center text-xs text-muted-foreground">
         {["seg", "ter", "qua", "qui", "sex", "sáb", "dom"].map((d) => (
           <span key={d} className="w-8 sm:w-9">
             {d}
           </span>
         ))}
+        {Array.from({ length: lead }, (_, k) => (
+          <span key={"x" + k} className="size-8 sm:size-9" />
+        ))}
         {days.map((d) =>
           d > T ? (
-            <span key={d} className="size-8 sm:size-9" />
+            <span key={d} className="flex size-8 items-center justify-center rounded-full text-xs text-muted-foreground/50 tabular-nums sm:size-9">
+              {parseD(d).getDate()}
+            </span>
           ) : (
             <DayDot key={d} day={d} on={isOn(d)} today={d === T} missed={missed(d)} onClick={() => onToggle(d)} />
           ),
         )}
       </div>
+      <p className="text-center text-sm text-muted-foreground">
+        {past.length ? (
+          <>
+            <span className="font-semibold text-foreground tabular-nums">{done}</span> de {past.length}{" "}
+            {past.length === 1 ? "dia" : "dias"} {month === thisMonth ? "neste mês" : "no mês"}
+          </>
+        ) : (
+          "Este mês ainda não começou."
+        )}
+      </p>
     </div>
   );
 }
