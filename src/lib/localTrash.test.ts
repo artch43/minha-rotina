@@ -31,16 +31,16 @@ describe("lixeira sem conta (neste aparelho)", () => {
     expect(t.rows.some((r) => r.id === task.id)).toBe(false);
 
     // A whole list: the page, its board and its tasks go in together.
-    const n = Object.values(ws().items).filter((i) => i.db === "trabalho").length;
-    deletePage("trabalho");
+    const n = Object.values(ws().items).filter((i) => i.db === "estudos").length;
+    deletePage("estudos");
     t = await loadTrash();
     expect(t.rows.filter((r) => r.kind === "item").length).toBe(n);
-    expect(t.rows.some((r) => r.kind === "page" && r.id === "trabalho")).toBe(true);
-    expect(t.rows.some((r) => r.kind === "db" && r.id === "trabalho")).toBe(true);
+    expect(t.rows.some((r) => r.kind === "page" && r.id === "estudos")).toBe(true);
+    expect(t.rows.some((r) => r.kind === "db" && r.id === "estudos")).toBe(true);
 
-    await deleteForever(t.rows.filter((r) => r.id === "trabalho"));
+    await deleteForever(t.rows.filter((r) => r.id === "estudos"));
     t = await loadTrash();
-    expect(t.rows.some((r) => r.id === "trabalho")).toBe(false);
+    expect(t.rows.some((r) => r.id === "estudos")).toBe(false);
 
     // Older than 30 days: dropped.
     store[LOCAL_TRASH_KEY] = JSON.stringify([{ kind: "note", id: "velha", data: {}, deleted_at: "2000-01-01T00:00:00Z" }]);

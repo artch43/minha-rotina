@@ -57,7 +57,8 @@ function v1(): Workspace {
     notes: {},
     habits: [],
     habitLog: {},
-    settings: { theme: "dark", start: "home", name: "Ana" },
+    // Already past the version-4 clean-up, to look at the version-2 changes alone.
+    settings: { theme: "dark", start: "home", name: "Ana", guideVersion: 99 },
   } as unknown as Workspace;
 }
 
@@ -164,25 +165,41 @@ describe("dados salvos pela versão atual", () => {
     expect(normalizeWorkspace(w).dbs.estudos.views[0].filters).toEqual([d("today")]);
   });
 
-  it("troca o guia rápido antigo sem edição e preserva o editado", async () => {
-    const { template, OLD_GUIDE_BODIES, GUIDE_BODY } = await import("./template");
-    const a = template();
-    const guide = Object.values(a.notes).find((n) => n.title === "Guia rápido")!;
-    guide.body = OLD_GUIDE_BODIES[0];
-    delete a.settings.guideVersion;
-    const outA = normalizeWorkspace(a);
-    expect(outA.notes[guide.id].body).toBe(GUIDE_BODY);
-    expect(Object.values(outA.notes).filter((n) => n.title.startsWith("Guia rápido"))).toHaveLength(1);
+  it("versão 4: um guia só, sem tarefas soltas, exemplos novos e hábitos sem repetição", async () => {
+    const { template, mkDb, DEFAULT_STATUS, GUIDE_ID } = await import("./template");
+    const w = template();
+    // An account from before: two guides, the example note, quick tasks, old examples and repeated habits.
+    for (const id of Object.keys(w.items)) delete w.items[id];
+    for (const id of Object.keys(w.notes)) delete w.notes[id];
+    w.notes.g1 = { id: "g1", title: "Guia rápido", folder: "", body: "texto", created: 0, updated: 0 };
+    w.notes.g2 = { id: "g2", title: "Guia rápido (novo)", folder: "", body: "texto", created: 0, updated: 0 };
+    w.notes.ideias = { id: "ideias", title: "Ideias", folder: "", body: "- Anote aqui.\n\n#exemplo\n", created: 0, updated: 0 };
+    w.notes.minha = { id: "minha", title: "Minha nota", folder: "", body: "minha", created: 0, updated: 0 };
+    w.todos = { t: { id: "t", text: "Comprar pão", done: false, order: 1, created: 0, date: "2026-01-01" } };
+    w.pages.push({ id: "trabalho", title: "Trabalho", icon: "", type: "db", parent: null, order: 9 });
+    w.dbs.trabalho = mkDb(DEFAULT_STATUS);
+    const exTag = w.dbs.trabalho.props.find((p) => p.id === "tags")!.options!.find((o) => o.name === "Exemplo")!.id;
+    const base = { notes: "", created: 0, updated: 0, order: 1, log: [] };
+    w.items.old = { ...base, id: "old", db: "trabalho", title: "Relatório (exemplo)", props: { tags: [exTag] } };
+    w.items.mine = { ...base, id: "mine", db: "estudos", title: "Minha tarefa", props: {} };
+    w.habits = [
+      { id: "h1", name: "Ler 20 minutos", icon: "" },
+      { id: "h2", name: "ler 20  minutos", icon: "" },
+    ];
+    w.habitLog = { "2026-10-01": ["h2"], "2026-10-02": ["h1", "h2"] };
+    delete w.settings.guideVersion;
 
-    const b = template();
-    const g2 = Object.values(b.notes).find((n) => n.title === "Guia rápido")!;
-    g2.body = "Minhas anotações sobre o site";
-    delete b.settings.guideVersion;
-    const outB = normalizeWorkspace(b);
-    expect(outB.notes[g2.id].body).toBe("Minhas anotações sobre o site");
-    expect(Object.values(outB.notes).some((n) => n.title === "Guia rápido (novo)" && n.body === GUIDE_BODY)).toBe(true);
-    // Only once.
-    expect(Object.values(normalizeWorkspace(outB).notes).filter((n) => n.title === "Guia rápido (novo)")).toHaveLength(1);
+    const out = normalizeWorkspace(w);
+    expect(Object.keys(out.notes).sort()).toEqual([GUIDE_ID, "minha"].sort());
+    expect(out.todos).toEqual({});
+    expect(out.items.old).toBeUndefined();
+    expect(out.items.mine).toBeTruthy();
+    expect(out.pages.some((p) => p.id === "trabalho")).toBe(false);
+    expect(out.items["ex-toque"]?.db).toBe("pessoal");
+    expect(out.habits.map((h) => h.id)).toEqual(["h1"]);
+    expect(out.habitLog).toEqual({ "2026-10-01": ["h1"], "2026-10-02": ["h1"] });
+    // Only once: running again changes nothing.
+    expect(normalizeWorkspace(structuredClone(out))).toEqual(out);
   });
 });
 
@@ -210,7 +227,7 @@ describe("atualização ao abrir", () => {
 
 describe("ícones do exemplo", () => {
   it("troca os emojis originais por ícones, mas mantém os que a pessoa escolheu", async () => {
-    const { template } = await import("./template");
+    const { sampleWorkspace: template } = await import("./sampleWorkspace");
     const w = template();
     w.pages.find((p) => p.id === "estudos")!.icon = "📚";
     w.pages.find((p) => p.id === "trabalho")!.icon = "🦄";

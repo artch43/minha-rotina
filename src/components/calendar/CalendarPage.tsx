@@ -6,7 +6,7 @@ import type { Workspace } from "@/lib/types";
 import { eventsByDay, inArea, minutesOf, monthGrid, weekOf } from "@/lib/events";
 import { dateOf, groupOf } from "@/lib/model";
 import { MONTHS, addDays, pad, parseD, today } from "@/lib/util";
-import { go, moveEvent, openEvent, openPeek, setProp, updateTodo, useStore } from "@/store";
+import { go, moveEvent, openEvent, openPeek, setProp, useStore } from "@/store";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -49,18 +49,6 @@ function collect(ws: Workspace, from: string, to: string, area: string, showTask
         done: groupOf(db, it) === "done",
       });
     }
-    for (const t of Object.values(ws.todos)) {
-      if (!t.date || t.date < from || t.date > to || !inArea(t.area, area)) continue;
-      (byDay[t.date] ??= []).push({
-        key: "d" + t.id,
-        id: t.id,
-        kind: "todo",
-        title: t.text,
-        date: t.date,
-        area: areaOf(t.area),
-        done: t.done,
-      });
-    }
   }
   for (const d in byDay)
     byDay[d].sort(
@@ -96,7 +84,7 @@ function moveEntry(e: Dropped, date: string, minutes?: number) {
     const time =
       minutes !== undefined ? "T" + pad(Math.floor(minutes / 60) % 24) + ":" + pad(minutes % 60) : typeof cur === "string" ? cur.slice(10) : "";
     setProp(e.id, "date", date + time);
-  } else updateTodo(e.id, { date });
+  }
 }
 const parseDrop = (dt: DataTransfer): Dropped | null => {
   try {

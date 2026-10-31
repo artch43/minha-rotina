@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { template } from "./template";
+import { sampleWorkspace as template } from "./sampleWorkspace";
 import { applyFilters, applyStatusChange, firstDoneOf, groupOf, runReviews, statusProp, streakOf } from "./model";
 import { addDays, today } from "./util";
 import type { Item, Workspace } from "./types";

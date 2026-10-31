@@ -166,9 +166,7 @@ function ExamplesField() {
   const ex = exampleData(ws);
   const parts = [
     ex.items.length && `${ex.items.length} ${ex.items.length === 1 ? "tarefa" : "tarefas"}`,
-    ex.todos.length && `${ex.todos.length} ${ex.todos.length === 1 ? "tarefa do dia" : "tarefas do dia"}`,
     ex.events.length && `${ex.events.length} ${ex.events.length === 1 ? "evento" : "eventos"}`,
-    ex.notes.length && `${ex.notes.length} ${ex.notes.length === 1 ? "anotação" : "anotações"}`,
   ].filter(Boolean);
   const [ask, setAsk] = useState(false);
   return (
@@ -177,7 +175,7 @@ function ExamplesField() {
         <FieldLabel>Exemplos do início</FieldLabel>
         <FieldDescription>
           {parts.length
-            ? `Ainda há ${parts.join(", ")} marcados como exemplo. O Guia rápido e o que você criou ficam.`
+            ? `Ainda há ${parts.join(", ")} marcados como exemplo. O guia “Comece por aqui” e o que você criou ficam.`
             : "Não há mais exemplos. Tudo o que está aqui é seu."}
         </FieldDescription>
       </FieldContent>

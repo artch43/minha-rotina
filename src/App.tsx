@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
-import { checkReviews, closePeek, openModal, scrollToTop, useStore } from "./store";
+import { checkReviews, closePeek, openModal, openNotes, scrollToTop, useStore } from "./store";
+import { GUIDE_ID } from "./lib/template";
 import { authLink, clearAuthLink, cloudEnabled, supabase } from "./lib/supabase";
 import { installLocalTrash, startCloud, useSync } from "./lib/sync";
 import { installDeleteShortcut } from "./lib/shortcuts";
@@ -31,6 +32,8 @@ import { NotebookPen } from "lucide-react";
 import { Glyph } from "./components/icons";
 
 const NotesView = lazy(() => import("./components/notes/NotesView"));
+/** Set once the guide has been shown on this device. */
+const GUIDE_SEEN_KEY = "organizer:guide-seen";
 
 /** The page shown on opening (Settings → página inicial), or Início. */
 function startPage() {
@@ -154,7 +157,27 @@ function Workspace() {
       });
       history.replaceState(history.state, "", "#/" + start);
     };
-    if (!routeFromHash()) toStart();
+    // First time on this device: the guide ("Comece por aqui") opens instead of the start page.
+    const seen = (() => {
+      try {
+        return !!localStorage.getItem(GUIDE_SEEN_KEY);
+      } catch {
+        return true;
+      }
+    })();
+    // Only when arriving at the start (a link straight to a page still opens that page).
+    const atStart = !location.hash || location.hash === "#/" || location.hash === "#/" + startPage();
+    if (!seen && atStart && useStore.getState().ws.notes[GUIDE_ID]) {
+      try {
+        localStorage.setItem(GUIDE_SEEN_KEY, "1");
+      } catch {
+        /* private mode */
+      }
+      if (!location.hash) history.replaceState(history.state, "", "#/" + startPage());
+      openNotes(GUIDE_ID);
+      // Opens ready to read (Editar is one click away).
+      setUi((u) => void (u.noteMode = "read"));
+    } else if (!routeFromHash()) toStart();
     checkReviews();
     const onHash = () => {
       if (!routeFromHash()) toStart();

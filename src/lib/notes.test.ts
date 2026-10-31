@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { boardFolderList, extractTags, folderList, headings, plainSnippet, uniqueTitle } from "./notes";
-import { template } from "./template";
+import { sampleWorkspace as template } from "./sampleWorkspace";
 import { attachmentMarkdown, kindOf } from "./attachments";
 import type { Note } from "./types";
 

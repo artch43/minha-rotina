@@ -15,7 +15,7 @@ import type { Area } from "@/lib/types";
 import { eventsByDay, inArea } from "@/lib/events";
 import { dateOf, firstOptInGroup, groupOf, statusProp } from "@/lib/model";
 import { addDays, fmtDate, parseD, today } from "@/lib/util";
-import { exampleData, go, removeExamples, setProp, toast, toggleTodo, updateTodo, useStore } from "@/store";
+import { exampleData, go, removeExamples, setProp, toast, useStore } from "@/store";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -96,27 +96,6 @@ export function Home() {
       onOpen: page ? () => go(page.id) : undefined,
       onToggle: firstOptInGroup(db, "done") ? () => toggleItemDone(it.id) : undefined,
       onMove: (to) => moveItemDay(it.id, to),
-    });
-  }
-  for (const t of Object.values(ws.todos)) {
-    if (!t.date || t.date > T || (t.date < T && t.done) || !inArea(t.area, area)) continue;
-    entries.push({
-      key: "d" + t.id,
-      time: "",
-      title: t.text,
-      area: areaOf(t.area),
-      done: t.done,
-      order: t.order,
-      day: t.date,
-      onToggle: () => {
-        withMotion(() => toggleTodo(t.id));
-        toast(t.done ? "Tarefa reaberta" : "Tarefa concluída", () => toggleTodo(t.id));
-      },
-      onMove: (to) => {
-        const prev = t.date;
-        withMotion(() => updateTodo(t.id, { date: to ?? undefined }));
-        toast(movedLabel(to), () => updateTodo(t.id, { date: prev }));
-      },
     });
   }
   const overdue = entries.filter((e) => e.day < T).sort((a, b) => a.day.localeCompare(b.day) || byTime(a, b));
@@ -333,7 +312,7 @@ function WelcomeBanner() {
   const mut = useStore((s) => s.mut);
   const [ask, setAsk] = useState(false);
   const ex = exampleData(ws);
-  const count = ex.items.length + ex.events.length + ex.todos.length + ex.notes.length;
+  const count = ex.items.length + ex.events.length;
   if (!count || ws.settings.examplesDismissed) return null;
   const dismiss = () =>
     mut((w) => {
@@ -369,7 +348,7 @@ function WelcomeBanner() {
           <AlertDialogHeader>
             <AlertDialogTitle>Limpar os exemplos?</AlertDialogTitle>
             <AlertDialogDescription>
-              Saem só os {count} itens de exemplo (tarefas, eventos e a nota “Ideias”). O Guia rápido e o que você criou ficam. Dá
+              Saem só os {count} itens de exemplo (tarefas e eventos). O guia “Comece por aqui” e o que você criou ficam. Dá
               para desfazer logo em seguida.
             </AlertDialogDescription>
           </AlertDialogHeader>

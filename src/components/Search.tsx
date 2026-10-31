@@ -86,14 +86,6 @@ export function Search() {
                   </CommandItem>
                 );
               })}
-            {Object.values(ws.todos)
-              .slice(0, cap)
-              .map((t) => (
-                <CommandItem key={t.id} value={"tarefa " + t.text + " " + t.id} onSelect={run(() => go("home"))}>
-                  <CheckSquare />
-                  <Two title={t.text} sub={["Tarefa do dia", t.done ? "Concluída" : "", t.date && fmtDate(t.date)]} />
-                </CommandItem>
-              ))}
           </CommandGroup>
           <CommandGroup heading="Eventos">
             {Object.values(ws.events)

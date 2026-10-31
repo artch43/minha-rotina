@@ -1,6 +1,6 @@
 import type { Block, Color, Database, Item, Note, Page, Prop, Workspace } from "./types";
 import { FIXED_PROPS } from "./types";
-import { DEFAULT_SETTINGS, EXAMPLE_ICONS, GUIDE_BODY, GUIDE_NOTE, GUIDE_VERSION, OLD_GUIDE_BODIES } from "./template";
+import { DEFAULT_SETTINGS, EXAMPLE_ICONS, GUIDE_ID, GUIDE_NOTE, GUIDE_VERSION, examples } from "./template";
 import { today, uid } from "./util";
 
 const FIXED = new Set<string>(FIXED_PROPS);
@@ -170,21 +170,12 @@ export function normalizeWorkspace(input: Workspace): Workspace {
     }
   }
 
-  // The quick guide: an untouched old copy gets the new text; an edited one stays and the new one comes alongside.
+  // Version 4: one short guide, no loose tasks, beginner examples (see cleanUpV4).
   if ((w.settings.guideVersion ?? 1) < GUIDE_VERSION) {
-    const old = Object.values(w.notes).find((n) => n.title === "Guia rápido");
-    const untouched = old && OLD_GUIDE_BODIES.some((b) => b.trim() === old.body.trim());
-    if (old && untouched) {
-      old.body = GUIDE_BODY;
-      old.updated = Date.now();
-    } else if (old && old.body.trim() !== GUIDE_BODY.trim() && !w.notes["guia-v" + GUIDE_VERSION]) {
-      // Same id on every device, so two devices can't each add their own copy.
-      const n = GUIDE_NOTE("guia-v" + GUIDE_VERSION);
-      n.title = "Guia rápido (novo)";
-      w.notes[n.id] = n;
-    }
+    cleanUpV4(w);
     w.settings.guideVersion = GUIDE_VERSION;
   }
+  dedupeHabits(w);
 
   // The example's emojis become drawn icons, but only where the person never changed them.
   for (const p of w.pages) {
@@ -198,4 +189,84 @@ export function normalizeWorkspace(input: Workspace): Workspace {
 
   w.version = 2;
   return w;
+}
+
+/** Option `name` of a list's property, added (with `color`) when the list doesn't have it yet. */
+function optionNamed(db: Database, propId: string, name: string, color: Color = "gray") {
+  const prop = db.props.find((p) => p.id === propId);
+  if (!prop) return undefined;
+  prop.options ??= [];
+  let o = prop.options.find((x) => x.name.toLowerCase() === name.toLowerCase());
+  if (!o) {
+    o = { id: uid(), name, color };
+    prop.options.push(o);
+  }
+  return o.id;
+}
+
+/**
+ * Once per account (guide version 4): the old guides and example note go and the single short guide
+ * comes in; the loose quick tasks (no list) go; the old examples are swapped for the beginner ones.
+ * What the person made is kept: only items tagged "Exemplo" / titled "(exemplo)" are replaced.
+ */
+function cleanUpV4(w: Workspace) {
+  for (const n of Object.values(w.notes))
+    if (/^Guia rápido/i.test(n.title) || (n.title === "Ideias" && /#exemplo/.test(n.body) && n.body.length < 200))
+      delete w.notes[n.id];
+  if (!w.notes[GUIDE_ID]) w.notes[GUIDE_ID] = GUIDE_NOTE();
+
+  w.todos = {};
+
+  const isExample = (it: Item) => {
+    const tags = w.dbs[it.db]?.props.find((p) => p.id === "tags")?.options;
+    return Array.isArray(it.props.tags) && (it.props.tags as string[]).some((t) => tags?.find((o) => o.id === t)?.name === "Exemplo");
+  };
+  for (const it of Object.values(w.items)) if (isExample(it)) delete w.items[it.id];
+  for (const e of Object.values(w.events)) if (/\(exemplo\)/i.test(e.title)) delete w.events[e.id];
+  // The old example lists, when nothing of the person's is left in them.
+  for (const id of ["trabalho", "compromissos"])
+    if (w.pages.some((p) => p.id === id && p.type === "db") && !Object.values(w.items).some((i) => i.db === id)) {
+      w.pages = w.pages.filter((p) => p.id !== id);
+      delete w.dbs[id];
+    }
+
+  const ex = examples();
+  for (const page of ex.pages)
+    if (!w.pages.some((p) => p.id === page.id)) {
+      w.pages.push(page);
+      w.dbs[page.id] = ex.dbs[page.id];
+    }
+  for (const it of ex.items) {
+    const db = w.dbs[it.db];
+    if (!db || w.items[it.id]) continue;
+    // The list may be the person's older one: use its own columns, priorities and tags (by name).
+    const src = ex.dbs[it.db];
+    const nameIn = (pid: string, id: unknown) => src.props.find((p) => p.id === pid)?.options?.find((o) => o.id === id);
+    const status = db.props.find((p) => p.id === "status")?.options?.find((o) => (o.group ?? "todo") === "todo")?.id;
+    const prio = nameIn("prio", it.props.prio);
+    const tags = ((it.props.tags as string[]) ?? []).map((t) => nameIn("tags", t)).filter((o) => !!o);
+    const props: Item["props"] = { ...it.props, tags: tags.map((o) => optionNamed(db, "tags", o!.name, o!.color)).filter(Boolean) as string[] };
+    delete props.status;
+    delete props.prio;
+    if (status) props.status = status;
+    const prioId = prio && optionNamed(db, "prio", prio.name, prio.color);
+    if (prioId) props.prio = prioId;
+    w.items[it.id] = { ...it, props };
+  }
+  for (const e of ex.events) w.events[e.id] ??= e;
+}
+
+/** The same habit twice (from two devices setting up together): keep the first, join their marked days. */
+function dedupeHabits(w: Workspace) {
+  const keep = new Map<string, string>();
+  const same = new Map<string, string>();
+  for (const h of w.habits) {
+    const key = h.name.trim().toLowerCase().replace(/\s+/g, " ");
+    const first = keep.get(key);
+    if (first) same.set(h.id, first);
+    else keep.set(key, h.id);
+  }
+  if (!same.size) return;
+  w.habits = w.habits.filter((h) => !same.has(h.id));
+  for (const [day, ids] of Object.entries(w.habitLog)) w.habitLog[day] = [...new Set(ids.map((id) => same.get(id) ?? id))];
 }

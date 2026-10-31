@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { produce } from "immer";
 import { applyRecords, diffEntities, fromRecords, toEntities, type Rec } from "./records";
-import { template } from "./template";
+import { sampleWorkspace as template } from "./sampleWorkspace";
 
 const rowsOf = (ws: ReturnType<typeof template>): Rec[] =>
   [...toEntities(ws).values()].map((e) => ({ kind: e.kind, id: e.id, data: e.data }));

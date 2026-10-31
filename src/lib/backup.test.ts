@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseBackup } from "./backup";
-import { template } from "./template";
+import { sampleWorkspace as template } from "./sampleWorkspace";
 
 describe("backup", () => {
   it("lê um backup exportado", () => {
