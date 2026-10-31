@@ -21,6 +21,7 @@ import { Search } from "./components/Search";
 import { Settings } from "./components/Settings";
 import { Trash } from "./components/Trash";
 import { Auth, ChooseStart, Loading, NewPassword } from "./components/Auth";
+import { LoadBoundary } from "./components/LoadBoundary";
 import { Home } from "./components/Home";
 import { Habits } from "./components/Habits";
 import { DbPage } from "./components/tasks/DbPage";
@@ -235,9 +236,11 @@ function Workspace() {
         {/* Pages show their own big title; only Notes keeps the path in the top bar. */}
         <Topbar title={route === "notes" ? title : null} showAreas={route !== "notes" && current?.type !== "habits"} />
         {route === "notes" ? (
-          <Suspense fallback={<Loading text="Abrindo anotações…" />}>
-            <NotesView />
-          </Suspense>
+          <LoadBoundary>
+            <Suspense fallback={<Loading text="Abrindo anotações…" />}>
+              <NotesView />
+            </Suspense>
+          </LoadBoundary>
         ) : (
           <div data-scroll className="min-h-0 flex-1 overflow-y-auto">
             <div key={current?.id} className="page-enter">
