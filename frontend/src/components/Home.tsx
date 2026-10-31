@@ -4,12 +4,13 @@ import {
   CalendarClock,
   CalendarDays,
   Check,
+  ChevronLeft,
   ChevronRight,
   Circle,
   CircleCheck,
   Sprout,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { Area } from "@/lib/types";
 import { eventsByDay, inArea } from "@/lib/events";
@@ -61,12 +62,20 @@ interface Entry {
 
 const byTime = (a: Entry, b: Entry) => (a.time || "99").localeCompare(b.time || "99") || a.order - b.order;
 
-/** Home: what to do today (and what was left from earlier), with done/remarcar in one tap; a click on the name opens its list. */
+/**
+ * Home: what to do today (and what was left from earlier), with done/remarcar in one tap; a click on the name opens its list.
+ * Another day can be picked in the header to see that day's tasks and events.
+ */
 export function Home() {
   const ws = useStore((s) => s.ws);
   const area = useStore((s) => s.ui.area);
   const areas = useAreas();
   const T = useToday();
+  // The day being looked at; null follows today (also past midnight).
+  const [picked, setPicked] = useState<string | null>(null);
+  const D = picked ?? T;
+  const isToday = D === T;
+  const pick = (d: string) => setPicked(d === T ? null : d);
   const areaOf = (id?: string) => areas.find((a) => a.id === id);
 
   const entries: Entry[] = [];
@@ -76,8 +85,8 @@ export function Home() {
     const d = dateOf(db, it);
     const day = d.slice(0, 10);
     const isDone = groupOf(db, it) === "done";
-    // Today's tasks, plus earlier ones still open (overdue).
-    if (!d || day > T || (day < T && isDone)) continue;
+    // Today's tasks, plus earlier ones still open (overdue). Another day: just that day's.
+    if (!d || (isToday ? day > T || (day < T && isDone) : day !== D)) continue;
     const page = ws.pages.find((p) => p.id === it.db);
     entries.push({
       key: "t" + it.id,
@@ -98,19 +107,22 @@ export function Home() {
       onMove: (to) => moveItemDay(it.id, to),
     });
   }
-  const overdue = entries.filter((e) => e.day < T).sort((a, b) => a.day.localeCompare(b.day) || byTime(a, b));
-  const todays = entries.filter((e) => e.day === T);
+  const overdue = isToday ? entries.filter((e) => e.day < T).sort((a, b) => a.day.localeCompare(b.day) || byTime(a, b)) : [];
+  const todays = entries.filter((e) => e.day === D);
   const open = todays.filter((e) => !e.done).sort(byTime);
   const done = todays.filter((e) => e.done).sort(byTime);
 
-  const summary =
-    (open.length === 0
-      ? done.length
-        ? "Tudo feito por hoje."
-        : "Nenhuma tarefa com prazo para hoje."
-      : `${open.length} ${open.length === 1 ? "tarefa" : "tarefas"} para hoje${done.length ? `, ${done.length} já ${done.length === 1 ? "feita" : "feitas"}` : ""}.`) +
-    (overdue.length ? ` ${overdue.length} ${overdue.length === 1 ? "atrasada" : "atrasadas"}.` : "");
-  const date = parseD(T)
+  const summary = !isToday
+    ? open.length + done.length === 0
+      ? "Nenhuma tarefa neste dia."
+      : `${open.length + done.length} ${open.length + done.length === 1 ? "tarefa" : "tarefas"} neste dia${done.length ? `, ${done.length} ${done.length === 1 ? "feita" : "feitas"}` : ""}.`
+    : (open.length === 0
+        ? done.length
+          ? "Tudo feito por hoje."
+          : "Nenhuma tarefa com prazo para hoje."
+        : `${open.length} ${open.length === 1 ? "tarefa" : "tarefas"} para hoje${done.length ? `, ${done.length} já ${done.length === 1 ? "feita" : "feitas"}` : ""}.`) +
+      (overdue.length ? ` ${overdue.length} ${overdue.length === 1 ? "atrasada" : "atrasadas"}.` : "");
+  const date = parseD(D)
     .toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })
     .replace(/^./, (c) => c.toUpperCase());
 
@@ -120,6 +132,7 @@ export function Home() {
       <header className="flex flex-col gap-2">
         <p className="text-lg text-muted-foreground">{greeting(ws.settings.name)}</p>
         <h1 className="text-4xl leading-tight font-extrabold tracking-tight md:text-5xl">{date}</h1>
+        <DayPicker D={D} T={T} onPick={pick} />
         <p className="text-lg text-muted-foreground">{summary}</p>
         {/* How much of today is already done: a bar with an outlined track (visible even at 0%), the count in words, and a done state. */}
         {todays.length > 0 && <DayProgress done={done.length} total={todays.length} />}
@@ -129,7 +142,7 @@ export function Home() {
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
         <section aria-labelledby="home-tasks" className="flex min-w-0 flex-col gap-3">
           <h2 id="home-tasks" className="sr-only">
-            Tarefas de hoje
+            {isToday ? "Tarefas de hoje" : "Tarefas do dia"}
           </h2>
           {overdue.length > 0 && (
             <TaskGroup
@@ -141,24 +154,28 @@ export function Home() {
               T={T}
             />
           )}
-          {open.length > 0 && <TaskGroup title="Hoje" count={open.length} items={open} T={T} hideTitle={!overdue.length} />}
+          {open.length > 0 && (
+            <TaskGroup title={isToday ? "Hoje" : "A fazer"} count={open.length} items={open} T={T} hideTitle={!overdue.length} />
+          )}
           {!open.length && !overdue.length && (
             <Empty className="border border-dashed">
               <EmptyHeader>
-                <EmptyTitle>{done.length ? "Tudo feito por hoje" : "Dia livre"}</EmptyTitle>
+                <EmptyTitle>{done.length ? (isToday ? "Tudo feito por hoje" : "Tudo feito neste dia") : "Dia livre"}</EmptyTitle>
                 <EmptyDescription>
                   {done.length
                     ? "Bom trabalho! As concluídas estão logo abaixo."
-                    : "Tarefas com prazo para hoje aparecem aqui. Dê uma data a elas nos quadros."}
+                    : isToday
+                      ? "Tarefas com prazo para hoje aparecem aqui. Dê uma data a elas nos quadros."
+                      : "Nenhuma tarefa com prazo para este dia."}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
           )}
-          {done.length > 0 && <DoneGroup items={done} T={T} />}
+          {done.length > 0 && <DoneGroup items={done} T={T} label={isToday ? "Concluídas hoje" : "Concluídas"} />}
         </section>
         <aside className="flex flex-col gap-4" aria-label="Resumo">
-          <Upcoming T={T} area={area} />
-          <HabitsToday T={T} />
+          <Upcoming T={T} D={D} area={area} />
+          {D <= T && <HabitsToday D={D} isToday={isToday} />}
         </aside>
       </div>
     </div>
@@ -167,21 +184,22 @@ export function Home() {
 
 const UPCOMING_DAYS = 3;
 
-/** Events from now to the next few days, read-only; a click shows that day in the calendar. */
-function Upcoming({ T, area }: { T: string; area: string }) {
+/** Events from now to the next few days (or only the picked day's), read-only; a click shows that day in the calendar. */
+function Upcoming({ T, D, area }: { T: string; D: string; area: string }) {
+  const isToday = D === T;
   const ws = useStore((s) => s.ws);
   const setUi = useStore((s) => s.setUi);
   const areas = useAreas();
   const cal = ws.pages.find((p) => p.type === "calendar");
   const now = new Date();
   const hhmm = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
-  const byDay = eventsByDay(ws, T, addDays(T, UPCOMING_DAYS), area);
+  const byDay = eventsByDay(ws, D, isToday ? addDays(T, UPCOMING_DAYS) : D, area);
   const list = Object.keys(byDay)
     .sort()
     .flatMap((d) => byDay[d].map((e) => ({ ...e, day: d })))
     // Today's events that already ended are left out.
     .filter((e) => e.day !== T || e.allDay || (e.end || e.start) >= hhmm)
-    .slice(0, 6);
+    .slice(0, isToday ? 6 : undefined);
   const show = (day: string) => {
     if (!cal) return;
     setUi((u) => {
@@ -203,11 +221,11 @@ function Upcoming({ T, area }: { T: string; area: string }) {
       <div className="flex items-center justify-between gap-2">
         <h2 id="home-upcoming" className="flex items-center gap-2 text-base font-semibold">
           <CalendarDays className="size-[18px] text-primary-strong" aria-hidden="true" />
-          Próximos compromissos
+          {isToday ? "Próximos compromissos" : "Compromissos do dia"}
         </h2>
         {cal && (
           <button
-            onClick={() => show(T)}
+            onClick={() => show(D)}
             className="rounded-md px-1 text-sm font-medium text-primary-strong hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             Ver agenda
@@ -227,7 +245,8 @@ function Upcoming({ T, area }: { T: string; area: string }) {
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-[15px] font-medium">{e.title || "Evento"}</span>
                   <span className="text-sm text-muted-foreground capitalize">
-                    {dayName(e.day)} · {e.allDay ? "dia todo" : e.start}
+                    {isToday ? `${dayName(e.day)} · ` : ""}
+                    {e.allDay ? "dia todo" : e.start + (e.end ? `–${e.end}` : "")}
                   </span>
                 </span>
               </button>
@@ -235,16 +254,18 @@ function Upcoming({ T, area }: { T: string; area: string }) {
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-muted-foreground">Nenhum evento nos próximos {UPCOMING_DAYS} dias.</p>
+        <p className="text-sm text-muted-foreground">
+          {isToday ? `Nenhum evento nos próximos ${UPCOMING_DAYS} dias.` : "Nenhum evento neste dia."}
+        </p>
       )}
     </section>
   );
 }
 
-/** How many habits are done today; a click opens Hábitos. */
-function HabitsToday({ T }: { T: string }) {
+/** How many habits are done on the day (today or a past one); a click opens Hábitos. */
+function HabitsToday({ D, isToday }: { D: string; isToday: boolean }) {
   const habits = useStore((s) => s.ws.habits);
-  const log = useStore((s) => s.ws.habitLog[T]);
+  const log = useStore((s) => s.ws.habitLog[D]);
   const page = useStore((s) => s.ws.pages.find((p) => p.type === "habits"));
   if (!habits.length || !page) return null;
   const doneIds = new Set(log ?? []);
@@ -257,7 +278,7 @@ function HabitsToday({ T }: { T: string }) {
       <span className="flex w-full items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-base font-semibold">
           <Sprout className="size-[18px] text-success" aria-hidden="true" />
-          Hábitos de hoje
+          {isToday ? "Hábitos de hoje" : "Hábitos do dia"}
         </span>
         <span className="text-sm font-semibold text-muted-foreground tabular-nums">
           {done}/{habits.length}
@@ -281,13 +302,60 @@ function HabitsToday({ T }: { T: string }) {
   );
 }
 
+/** ‹ day › with a date button (the device's own picker) and a way back to today. */
+function DayPicker({ D, T, onPick }: { D: string; T: string; onPick: (d: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  // fmtDate already says Hoje / Amanhã / Ontem for the nearby days.
+  const label = fmtDate(D);
+  const openPicker = () => {
+    const el = input.current;
+    if (!el) return;
+    try {
+      el.showPicker();
+    } catch {
+      el.focus();
+    }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Escolher o dia">
+      <Button variant="ghost" size="icon" className="size-9" aria-label="Dia anterior" onClick={() => onPick(addDays(D, -1))}>
+        <ChevronLeft />
+      </Button>
+      <div className="relative">
+        <Button variant="outline" size="sm" className="h-9 gap-2" onClick={openPicker} aria-label={`Escolher data (${label})`}>
+          <CalendarDays data-icon="inline-start" />
+          {label}
+        </Button>
+        {/* Invisible native date input behind the button: on phones it opens the system's date picker. */}
+        <input
+          ref={input}
+          type="date"
+          tabIndex={-1}
+          aria-hidden="true"
+          value={D}
+          onChange={(e) => e.target.value && onPick(e.target.value)}
+          className="pointer-events-none absolute inset-0 size-full opacity-0"
+        />
+      </div>
+      <Button variant="ghost" size="icon" className="size-9" aria-label="Próximo dia" onClick={() => onPick(addDays(D, 1))}>
+        <ChevronRight />
+      </Button>
+      {D !== T && (
+        <Button variant="link" size="sm" className="h-9" onClick={() => onPick(T)}>
+          Voltar para hoje
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function DayProgress({ done, total }: { done: number; total: number }) {
   const complete = done === total;
   return (
     <div className="mt-2 flex max-w-md items-center gap-3">
       <Progress
         value={(done / total) * 100}
-        aria-label={`${done} de ${total} feitas hoje`}
+        aria-label={`${done} de ${total} feitas`}
         className="h-2.5 flex-1 bg-transparent ring-1 ring-(--input) ring-inset [&>[data-slot=progress-indicator]]:rounded-full [&>[data-slot=progress-indicator]]:bg-success"
       />
       <span
@@ -348,8 +416,8 @@ function WelcomeBanner() {
           <AlertDialogHeader>
             <AlertDialogTitle>Limpar os exemplos?</AlertDialogTitle>
             <AlertDialogDescription>
-              Saem só os {count} itens de exemplo (tarefas e eventos). O guia “Comece por aqui” e o que você criou ficam. Dá
-              para desfazer logo em seguida.
+              Saem só os {count} itens de exemplo (tarefas e eventos). O guia “Comece por aqui” e o que você criou ficam. Dá para
+              desfazer logo em seguida.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -412,8 +480,8 @@ function TaskGroup({
   );
 }
 
-/** Done today: folded away by default, one click to see them. */
-function DoneGroup({ items, T }: { items: Entry[]; T: string }) {
+/** Done on the day: folded away by default, one click to see them. */
+function DoneGroup({ items, T, label }: { items: Entry[]; T: string; label: string }) {
   const [open, setOpen] = useState(false);
   return (
     <section className="flex flex-col gap-2.5">
@@ -423,7 +491,7 @@ function DoneGroup({ items, T }: { items: Entry[]; T: string }) {
         className="flex w-fit items-center gap-1.5 rounded-md px-1 py-1 text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <ChevronRight className={cn("size-4 transition-transform", open && "rotate-90")} aria-hidden="true" />
-        Concluídas hoje <span className="font-normal tabular-nums">({items.length})</span>
+        {label} <span className="font-normal tabular-nums">({items.length})</span>
       </button>
       {open && (
         <ol className="flex flex-col gap-2.5">
